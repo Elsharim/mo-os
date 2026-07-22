@@ -624,14 +624,14 @@
   .h2-card:hover{transform:translateY(-3px);border-color:var(--hc);box-shadow:0 10px 28px rgba(0,0,0,.3)}
   .h2-card-top{display:flex;justify-content:space-between;align-items:center}
   .h2-icon{font-size:26px;line-height:1}
-  .h2-pts{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--hc);background:rgba(255,255,255,.06);padding:4px 10px;border-radius:99px}
+  .h2-pts{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--muted);background:rgba(255,255,255,.05);border:1px solid var(--border);padding:4px 10px;border-radius:99px}
   .h2-name{font-size:16.5px;font-weight:700;color:var(--text);letter-spacing:-.01em}
   .h2-status{font-size:11.5px;color:var(--faint)}
-  .h2-cta{margin-top:10px;font-size:12px;font-weight:600;color:var(--hc);letter-spacing:.02em}
+  .h2-cta{margin-top:10px}
   .h2-card.done{border-color:var(--good);background:linear-gradient(180deg,var(--good-soft),var(--bg-2));box-shadow:0 0 0 1px rgba(62,224,153,.25),0 8px 26px rgba(62,224,153,.12)}
   .h2-card.done .h2-pts{color:var(--good);background:var(--good-soft)}
   .h2-card.done .h2-name{color:var(--good)}
-  .h2-card.done .h2-cta{color:var(--muted)}
+
   .h2-card.pop{animation:h2pop .42s cubic-bezier(.2,1.4,.3,1)}
   @keyframes h2pop{0%{transform:scale(1)}40%{transform:scale(1.045)}100%{transform:scale(1)}}
   .pt-float{position:fixed;z-index:9999;pointer-events:none;font-family:var(--mono);font-weight:800;font-size:22px;color:var(--good);
@@ -724,6 +724,60 @@
   @media (max-width:600px){
     .h2-pace-stats{grid-template-columns:1fr 1fr;gap:14px}
     .h2-pace-avg{font-size:31px}
+  }
+
+  /* ===== CARD STATE CLARITY ===== */
+  .h2-card{border-width:1.5px}
+  .h2-card .h2-icon{filter:grayscale(.55);opacity:.72;transition:.18s}
+  .h2-card.done .h2-icon{filter:none;opacity:1}
+  .h2-cta-btn{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;letter-spacing:.02em;
+    padding:7px 13px;border-radius:8px;border:1px solid var(--border-2);color:var(--text);background:rgba(255,255,255,.05);transition:.14s}
+  .h2-card:hover .h2-cta-btn{border-color:var(--hc);color:var(--hc);background:rgba(255,255,255,.08)}
+  .h2-cta-btn.undo{border-color:transparent;background:none;color:var(--faint);padding-left:0;font-weight:500}
+  .h2-card.done:hover .h2-cta-btn.undo{color:var(--muted);background:none;border-color:transparent}
+  .h2-card.done .h2-status{color:var(--good);font-weight:600}
+  .h2-card.done .h2-pts{color:var(--good);background:var(--good-soft);border-color:rgba(62,224,153,.35)}
+  .h2-check{position:absolute;top:14px;right:14px;width:22px;height:22px;border-radius:50%;
+    background:linear-gradient(135deg,var(--good),#6ff0bd);display:grid;place-items:center;
+    box-shadow:0 2px 10px rgba(62,224,153,.45);animation:h2check .3s cubic-bezier(.2,1.5,.4,1)}
+  .h2-check svg{width:12px;height:12px;stroke:#04121a;stroke-width:3.4;fill:none}
+  @keyframes h2check{0%{transform:scale(0) rotate(-45deg)}100%{transform:scale(1) rotate(0)}}
+  .h2-card.done .h2-card-top .h2-pts{margin-right:30px}
+
+  /* ===== EDITABLE DAY DETAIL ===== */
+  .h2-dd-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:13px;color:var(--muted);margin-bottom:4px}
+  .h2-dd-head b{color:var(--text);font-family:var(--mono);font-size:14px}
+  .h2-dd-hint{font-size:11px;color:var(--faint);margin-bottom:12px}
+  .h2-dd-pill{display:inline-flex;align-items:center;gap:8px;font-family:inherit;cursor:pointer;
+    font-size:12.5px;padding:8px 13px;border-radius:99px;background:rgba(255,255,255,.04);
+    border:1px solid var(--border);color:var(--muted);transition:.13s}
+  .h2-dd-pill:hover{border-color:var(--border-2);color:var(--text);transform:translateY(-1px)}
+  .h2-dd-pill.on{color:var(--good);background:var(--good-soft);border-color:rgba(62,224,153,.35);font-weight:600}
+  .h2-dd-pill.on:hover{border-color:var(--good)}
+  .h2-dd-pts{font-family:var(--mono);font-size:10.5px;opacity:.65}
+  .h2-day{position:relative}
+  .h2-day:hover:not(:disabled) .h2-day-dot{transform:scale(1.12)}
+
+  /* ===== DATED HEATMAP ===== */
+  .h2-heat{display:grid;grid-template-columns:repeat(13,1fr);gap:6px}
+  .h2-heat-cell{position:relative;aspect-ratio:1;border-radius:7px;background:var(--bg);
+    border:1px solid var(--border);cursor:pointer;transition:.12s;display:grid;place-items:center;
+    padding:0;font-family:var(--mono);overflow:visible}
+  .h2-heat-cell:hover{transform:scale(1.12);border-color:var(--border-2);z-index:3}
+  .h2-heat-num{font-size:10.5px;color:var(--faint);font-weight:500;transition:.12s;line-height:1}
+  .h2-heat-cell.on .h2-heat-num{color:#04121a;font-weight:700;opacity:.85}
+  .h2-heat-cell.monthstart{border-color:var(--border-2)}
+  .h2-heat-mon{position:absolute;top:-13px;left:0;font-size:8.5px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--muted);font-family:var(--sans);font-weight:700;white-space:nowrap}
+  .h2-heat-cell.istoday{box-shadow:0 0 0 2px var(--accent)}
+  .h2-heat-cell.istoday .h2-heat-num{color:var(--accent);font-weight:700}
+  .h2-heat-cell.on.istoday .h2-heat-num{color:#04121a}
+  .h2-heat-legend{display:flex;gap:16px;margin-top:16px;padding-top:13px;border-top:1px solid var(--border)}
+  .h2-heat-key{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:var(--faint)}
+  .h2-heat-swatch{width:12px;height:12px;border-radius:4px;background:var(--bg);border:1px solid var(--border)}
+  @media (max-width:600px){
+    .h2-heat{grid-template-columns:repeat(7,1fr);gap:7px}
+    .h2-heat-num{font-size:11px}
   }
 </style>
 </head>
@@ -1500,6 +1554,7 @@ function toggleHabit(k,id){
   return now;
 }
 
+const MONTHS_SHORT=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const WEEK_TARGET=80; // % goal for the week
 
 function weekPace(){
@@ -1575,13 +1630,14 @@ function boardHTML(dates,todayPct,weekPct,monthPct){
         const at=completedAt(k,d.id);
         const c=habitColor(d,i);
         return `<button class="h2-card ${on?'done':''}" data-id="${d.id}" style="--hc:${c}">
+          ${on?'<span class="h2-check"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>':''}
           <div class="h2-card-top">
             <span class="h2-icon">${habitIcon(d,i)}</span>
-            <span class="h2-pts">${on?'✓':discWeight(d)+' pts'}</span>
+            <span class="h2-pts">${on?'+'+discWeight(d):discWeight(d)+' pts'}</span>
           </div>
           <div class="h2-name">${esc(d.label)}</div>
-          <div class="h2-status">${on?(at?'Completed '+timeLabel(at):'Completed'):'Not completed'}</div>
-          <div class="h2-cta">${on?'Undo':'Complete'}</div>
+          <div class="h2-status">${on?(at?'Done at '+timeLabel(at):'Done'):'Not done yet'}</div>
+          <div class="h2-cta">${on?'<span class="h2-cta-btn undo">Tap to undo</span>':'<span class="h2-cta-btn">Tap to complete</span>'}</div>
         </button>`;
       }).join('')}
     </div>
@@ -1679,7 +1735,18 @@ function habitDetailHTML(id){
     </div>
     <div class="card" style="margin-bottom:16px">
       <h3>Last 90 days <span class="h3sub">tap any square to toggle</span></h3>
-      <div class="h2-heat">${cal.map(x=>{const on=S.days[x]&&S.days[x].disc&&S.days[x].disc[id];return `<span class="h2-heat-cell ${on?'on':''}" style="${on?`background:${c};border-color:${c}`:''}" title="${x}" data-day="${x}"></span>`;}).join('')}</div>
+      <div class="h2-heat">${cal.map(x=>{
+        const on=S.days[x]&&S.days[x].disc&&S.days[x].disc[id];
+        const p=x.split('-');
+        const dnum=Number(p[2]);
+        const first=dnum===1;
+        const isToday=x===today();
+        return `<button class="h2-heat-cell ${on?'on':''} ${first?'monthstart':''} ${isToday?'istoday':''}" style="${on?`background:${c};border-color:${c}`:''}" title="${longDate(x)}${on?' · done':''}" data-day="${x}">
+          <span class="h2-heat-num">${dnum}</span>
+          ${first?`<span class="h2-heat-mon">${MONTHS_SHORT[Number(p[1])-1]}</span>`:''}
+        </button>`;
+      }).join('')}</div>
+      <div class="h2-heat-legend"><span class="h2-heat-key"><span class="h2-heat-swatch"></span>missed</span><span class="h2-heat-key"><span class="h2-heat-swatch on" style="background:${c};border-color:${c}"></span>done</span></div>
     </div>
     <div class="card">
       <h3>Notes</h3>
@@ -1722,20 +1789,12 @@ function wireBoard(){
     };
   });
 
-  // week dots
+  // week dots — select a day, then edit it inline
   main.querySelectorAll('.h2-day').forEach(b=>b.onclick=()=>{
-    const k=b.dataset.day;
-    const rec=S.days[k]||{disc:{}};
-    const hit=S.disciplines.filter(d=>rec.disc&&rec.disc[d.id]);
-    const miss=S.disciplines.filter(d=>!(rec.disc&&rec.disc[d.id]));
-    document.getElementById('h2-day-detail').innerHTML=`
-      <div class="h2-dd-head">${longDate(k)} · <b>${dayScore(k)}/100</b></div>
-      <div class="h2-dd-list">
-        ${hit.map(d=>`<span class="h2-dd-pill on">✓ ${esc(d.label)}</span>`).join('')}
-        ${miss.map(d=>`<span class="h2-dd-pill">${esc(d.label)}</span>`).join('')}
-      </div>`;
-    main.querySelectorAll('.h2-day').forEach(x=>x.classList.toggle('sel',x===b));
+    h2SelDay=(h2SelDay===b.dataset.day)?null:b.dataset.day;
+    paintDayDetail();
   });
+  if(h2SelDay)paintDayDetail();
 
   // library: open detail + drag reorder
   main.querySelectorAll('.h2-lib-row').forEach(row=>{
@@ -1749,6 +1808,36 @@ function wireBoard(){
   const inp=document.getElementById('hadd'),btn=document.getElementById('hadd-btn');
   const add=()=>{const v=inp.value.trim();if(!v)return;S.disciplines.push({id:'d'+Date.now(),label:v,weight:10});save();renderHabits();};
   btn.onclick=add;inp.onkeydown=e=>{if(e.key==='Enter')add();};
+}
+
+let h2SelDay=null; // day key currently open under the week strip
+
+function paintDayDetail(){
+  const box=document.getElementById('h2-day-detail');
+  if(!box)return;
+  main.querySelectorAll('.h2-day').forEach(x=>x.classList.toggle('sel',x.dataset.day===h2SelDay));
+  if(!h2SelDay){box.innerHTML='';return;}
+  const k=h2SelDay;
+  const rec=S.days[k]||{disc:{}};
+  const isToday=k===today();
+  box.innerHTML=`
+    <div class="h2-dd-head">
+      <span>${longDate(k)}${isToday?' · today':''}</span>
+      <b>${dayScore(k)}/100</b>
+    </div>
+    <div class="h2-dd-hint">Tap a habit to log or unlog it for this day</div>
+    <div class="h2-dd-list">
+      ${S.disciplines.map(d=>{
+        const on=!!(rec.disc&&rec.disc[d.id]);
+        return `<button class="h2-dd-pill ${on?'on':''}" data-dd="${d.id}">${on?'✓ ':''}${esc(d.label)}<span class="h2-dd-pts">${discWeight(d)}</span></button>`;
+      }).join('')}
+    </div>`;
+  box.querySelectorAll('[data-dd]').forEach(p=>p.onclick=e=>{
+    e.stopPropagation();
+    toggleHabit(k,p.dataset.dd);
+    save();
+    renderHabits();
+  });
 }
 
 function floatPoints(el,txt){
