@@ -2373,7 +2373,10 @@ function renderCoaching(){
   const s=C.sessions.find(x=>x.id===coSel);
   main.innerHTML=`<div class="view">
     <div class="head"><div><h2 class="sec">Coaching</h2></div>
-      <button class="btn solid" id="co-new">+ New session</button>
+      <div style="display:flex;gap:8px">
+        ${list.length?'<button class="btn" id="co-export">↓ Download notes</button>':''}
+        <button class="btn solid" id="co-new">+ New session</button>
+      </div>
     </div>
     <div class="grid g23">
       <div>${s?coDetailHTML(s):'<div class="card"><div class="empty">No sessions yet.</div></div>'}</div>
@@ -2395,6 +2398,8 @@ function renderCoaching(){
     const n={id:'s'+Date.now(),date:today(),coach:'Seth',title:'',link:'',notes:'',steps:[]};
     C.sessions.push(n);coSel=n.id;coPull='';save();renderCoaching();
   };
+  const ex=document.getElementById('co-export');
+  if(ex)ex.onclick=exportCoaching;
   main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';renderCoaching();});
   if(!s)return;
   main.querySelectorAll('.co-pill').forEach(p=>p.onclick=()=>{s.coach=p.dataset.coach;save();renderCoaching();});
@@ -2432,6 +2437,36 @@ function renderCoaching(){
     autosize(no);
     no.oninput=()=>{s.notes=no.value;save();flash('co-saved');autosize(no);};
   }
+}
+
+function exportCoaching(){
+  const C=coData();
+  const list=C.sessions.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const html=`<html><head><meta charset="utf-8"><title>Coaching Notes</title>
+<style>
+  body{font-family:Georgia,'Times New Roman',serif;max-width:680px;margin:48px auto;line-height:1.6;color:#141414;padding:0 20px}
+  h1{font-size:26px;margin:0 0 4px}
+  h2{font-size:19px;margin:38px 0 2px;border-top:1px solid #ddd;padding-top:26px}
+  h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#888;margin:18px 0 6px}
+  .meta{color:#888;font-size:13px;margin:0 0 8px}
+  ul{margin:0;padding-left:22px}
+  li{margin:3px 0}
+  li.done{color:#999;text-decoration:line-through}
+  pre{white-space:pre-wrap;font-family:inherit;font-size:15px;margin:0}
+</style></head><body>
+<h1>Coaching Notes</h1>
+<p class="meta">Exported ${longDate(today())} · ${list.length} session${list.length===1?'':'s'}</p>
+${list.map(s=>`<h2>${esc(s.title||'Untitled session')}</h2>
+<p class="meta">${esc(s.coach||'')}${s.date?' · '+longDate(s.date):''}</p>
+${(s.steps&&s.steps.length)?`<h3>Action steps</h3><ul>${s.steps.map(st=>`<li class="${st.done?'done':''}">${esc(st.text)}</li>`).join('')}</ul>`:''}
+${(s.notes||'').trim()?`<h3>Notes</h3><pre>${esc(s.notes)}</pre>`:''}`).join('')}
+</body></html>`;
+  const blob=new Blob(['﻿'+html],{type:'application/msword'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='coaching-notes-'+today()+'.doc';
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
 }
 
 /* JOURNAL & NOTES */
