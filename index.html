@@ -804,11 +804,19 @@
   .vm-dots{position:absolute;bottom:3.6vh;left:50%;transform:translateX(-50%);display:flex;gap:8px;z-index:2}
   .vm-dots span{width:6px;height:6px;border-radius:99px;background:rgba(255,255,255,.25);transition:.3s}
   .vm-dots span.on{background:var(--accent);box-shadow:0 0 10px rgba(255,122,71,.7);transform:scale(1.3)}
-  .vm-textonly{display:grid;place-items:center;height:100%;padding:8vw;text-align:center;
-    background:radial-gradient(70% 60% at 50% 40%,rgba(255,122,71,.14),transparent 65%),#050505}
-  .vm-textonly span{font-family:var(--display);font-size:clamp(36px,7vw,84px);font-weight:700;letter-spacing:-.03em;line-height:1.1;
-    background:linear-gradient(100deg,#fff,rgba(255,176,46,.9));-webkit-background-clip:text;background-clip:text;color:transparent;
-    animation:vmRise 1s ease both}
+  .vm-textslide{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;height:100%;padding:8vw;text-align:center;
+    background:
+      radial-gradient(75% 60% at 50% 32%,rgba(var(--sc),.16),transparent 68%),
+      radial-gradient(50% 40% at 50% 100%,rgba(var(--sc),.07),transparent 70%),
+      #050505;
+    animation:vmGlow 9s ease-in-out infinite alternate}
+  @keyframes vmGlow{from{background-position:0 0,0 0,0 0}to{background-position:0 -30px,0 20px,0 0}}
+  .vm-slide-label{font-size:12px;letter-spacing:.32em;text-transform:uppercase;color:rgba(var(--sc),.9);font-weight:700;
+    padding:8px 20px;border:1px solid rgba(var(--sc),.35);border-radius:99px;background:rgba(var(--sc),.07);
+    animation:vmRise .7s ease both}
+  .vm-words{max-width:min(88vw,980px);font-family:var(--display);font-size:clamp(28px,4.8vw,58px);font-weight:700;letter-spacing:-.02em;line-height:1.22;color:#fff}
+  .vm-words span{opacity:0;display:inline-block;animation:vmWord .55s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes vmWord{from{opacity:0;transform:translateY(16px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
   @media (max-width:780px){.vm-nav{display:none}.vm-cap{left:7vw;bottom:15vh;max-width:86vw}.vm-goal{left:7.2vw;bottom:10vh}}
 
   @media (max-width:780px){
@@ -2763,11 +2771,25 @@ function moData(){if(!S.morning)S.morning=structuredClone(DEFAULT.morning);const
     m[key]=(m[key]||[]).map(item=>typeof item==='object'&&item?item:{id:key+'_'+Math.random().toString(36).slice(2,9),text:String(item)});
   });
   return m;}
-/* VISION MODE */
-let visionIdx=0,visionTimer=null;
-function openVision(i){
-  const m=moData();if(!m.vision.length)return;
-  visionIdx=Math.max(0,Math.min(i,m.vision.length-1));
+
+/* SLIDESHOW (vision mode + morning flow) */
+let slideDeck=[],slideIdx=0,slideTimer=null;
+const MO_LIST_META={
+  affirmations:{label:'Affirmation',color:'255,122,71'},
+  kickstarters:{label:'Kickstarter',color:'45,212,191'},
+  reminders:{label:'Reminder',color:'251,191,36'}
+};
+function visionSlides(){return moData().vision.map(v=>({img:v.img||null,text:v.text||'',label:'Vision',color:'255,122,71'}));}
+function listSlides(key){
+  const meta=MO_LIST_META[key];
+  return moData()[key].map(it=>({img:null,text:it.text||'',label:meta.label,color:meta.color}));
+}
+function flowSlides(){
+  return [...visionSlides(),...listSlides('affirmations'),...listSlides('kickstarters'),...listSlides('reminders')];
+}
+function openSlides(slides,i){
+  if(!slides||!slides.length)return;
+  slideDeck=slides;slideIdx=Math.max(0,Math.min(i||0,slides.length-1));
   const old=document.getElementById('vision-modal');if(old)old.remove();
   const el=document.createElement('div');
   el.id='vision-modal';
@@ -2783,40 +2805,48 @@ function openVision(i){
   document.body.appendChild(el);
   try{if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});}catch(e){}
   el.querySelector('.vm-x').onclick=closeVision;
-  el.querySelector('.vm-prev').onclick=e=>{e.stopPropagation();visionGo(-1);};
-  el.querySelector('.vm-next').onclick=e=>{e.stopPropagation();visionGo(1);};
-  el.querySelector('.vm-stage').onclick=()=>visionGo(1);
+  el.querySelector('.vm-prev').onclick=e=>{e.stopPropagation();slideGo(-1);};
+  el.querySelector('.vm-next').onclick=e=>{e.stopPropagation();slideGo(1);};
+  el.querySelector('.vm-stage').onclick=()=>slideGo(1);
   document.addEventListener('keydown',vmKeys);
-  visionShow();
+  slideShow();
 }
 function vmKeys(e){
   if(e.key==='Escape')closeVision();
-  if(e.key==='ArrowRight')visionGo(1);
-  if(e.key==='ArrowLeft')visionGo(-1);
+  if(e.key==='ArrowRight'||e.key===' ')slideGo(1);
+  if(e.key==='ArrowLeft')slideGo(-1);
 }
-function visionGo(d){const m=moData();if(!m.vision.length){closeVision();return;}visionIdx=(visionIdx+d+m.vision.length)%m.vision.length;visionShow();}
-function visionShow(){
+function slideGo(d){if(!slideDeck.length){closeVision();return;}slideIdx=(slideIdx+d+slideDeck.length)%slideDeck.length;slideShow();}
+function slideShow(){
   const el=document.getElementById('vision-modal');if(!el)return;
-  const m=moData();const v=m.vision[visionIdx];if(!v){closeVision();return;}
+  const s=slideDeck[slideIdx];if(!s){closeVision();return;}
   const stage=el.querySelector('.vm-stage');
-  stage.innerHTML=v.img
-    ?`<img src="${esc(v.img)}" class="vm-bg" alt="" draggable="false"><img src="${esc(v.img)}" class="vm-img kb${visionIdx%2}" alt="" draggable="false">`
-    :`<div class="vm-textonly"><span>${esc(v.text||'')}</span></div>`;
   const cap=el.querySelector('.vm-cap');
-  cap.style.animation='none';void cap.offsetWidth;cap.style.animation='';
-  cap.textContent=v.img?(v.text||''):'';
+  let dwell=8000;
+  if(s.img){
+    stage.innerHTML=`<img src="${esc(s.img)}" class="vm-bg" alt="" draggable="false"><img src="${esc(s.img)}" class="vm-img kb${slideIdx%2}" alt="" draggable="false">`;
+    cap.style.animation='none';void cap.offsetWidth;cap.style.animation='';
+    cap.textContent=s.text||'';
+  }else{
+    const words=(s.text||'').split(/\s+/).filter(Boolean);
+    stage.innerHTML=`<div class="vm-textslide" style="--sc:${s.color}">
+      <span class="vm-slide-label">${esc(s.label)}</span>
+      <div class="vm-words">${words.map((w,i)=>`<span style="animation-delay:${120+i*80}ms">${esc(w)}</span>`).join(' ')}</div>
+    </div>`;
+    cap.textContent='';
+    dwell=Math.min(14000,Math.max(5200,2800+words.length*380));
+  }
   const g=S.goals||{};
   const cd=g.targetDate?daysUntil(g.targetDate):null;
   el.querySelector('.vm-goal').textContent=g.ninetyDay?(g.ninetyDay+(cd!==null&&cd>=0?' · '+cd+' days':'')):'';
-  el.querySelector('.vm-dots').innerHTML=m.vision.map((x,i)=>`<span class="${i===visionIdx?'on':''}"></span>`).join('');
-  // preload next image
-  const nxt=m.vision[(visionIdx+1)%m.vision.length];
+  el.querySelector('.vm-dots').innerHTML=slideDeck.map((x,i)=>`<span class="${i===slideIdx?'on':''}"></span>`).join('');
+  const nxt=slideDeck[(slideIdx+1)%slideDeck.length];
   if(nxt&&nxt.img){const im=new Image();im.src=nxt.img;}
-  clearTimeout(visionTimer);
-  visionTimer=setTimeout(()=>visionGo(1),8000);
+  clearTimeout(slideTimer);
+  slideTimer=setTimeout(()=>slideGo(1),dwell);
 }
 function closeVision(){
-  clearTimeout(visionTimer);visionTimer=null;
+  clearTimeout(slideTimer);slideTimer=null;
   document.removeEventListener('keydown',vmKeys);
   const el=document.getElementById('vision-modal');if(el)el.remove();
   if(document.fullscreenElement){try{document.exitFullscreen().catch(()=>{});}catch(e){}}
@@ -2834,6 +2864,7 @@ function renderMorning(){
       <div><h2 class="sec">Morning Formula</h2><p class="sec-sub">${greetWord}${name?', '+esc(name):''}. ${longDate(today())}.</p></div>
       <div style="display:flex;gap:8px">
         <button class="btn ${moEdit?'solid':''}" id="mo-edit">${moEdit?'Done editing':'Edit'}</button>
+        ${!moEdit?'<button class="btn" id="mo-flow">▶ Morning flow</button>':''}
         <button class="btn solid" id="mo-start">Start the day →</button>
       </div>
     </div>
@@ -2904,10 +2935,13 @@ function renderMorning(){
     const id=card.dataset.id;const item=m.vision.find(x=>x.id===id);if(!item)return;
     const del=card.querySelector('.vdel');if(del)del.onclick=()=>{m.vision=m.vision.filter(x=>x.id!==id);save();renderMorning();};
     const cap=card.querySelector('.vcap-edit');if(cap)cap.oninput=()=>{item.text=cap.value;save();};
-    if(!moEdit){card.style.cursor='zoom-in';card.onclick=()=>openVision(m.vision.indexOf(item));}
+    if(!moEdit){card.style.cursor='zoom-in';card.onclick=()=>openSlides(visionSlides(),m.vision.indexOf(item));}
   });
   const vplay=document.getElementById('mo-vision-play');
-  if(vplay)vplay.onclick=()=>openVision(0);
+  if(vplay)vplay.onclick=()=>openSlides(visionSlides(),0);
+  const flow=document.getElementById('mo-flow');
+  if(flow)flow.onclick=()=>openSlides(flowSlides(),0);
+  main.querySelectorAll('[data-playlist]').forEach(b=>b.onclick=()=>openSlides(listSlides(b.dataset.playlist),0));
   const vb=main.querySelector('.vboard');
   if(vb)makeSortable(vb,'.vcard',ids=>{
     m.vision.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));save();
@@ -2934,7 +2968,7 @@ function moListCard(title,key,sub,accent){
 }
 function moListBody(title,key,sub,accent){
   const m=moData();const arr=m[key];
-  return `<h3>${title}${sub?` <span class="h3sub">${sub}</span>`:''}</h3>
+  return `<h3>${title}${sub?` <span class="h3sub">${sub}</span>`:''}${(!moEdit&&arr.length&&MO_LIST_META[key])?` <button class="btn btn-sm" data-playlist="${key}">▶ Play</button>`:''}</h3>
     <div class="mo-list" data-key="${key}">
       ${arr.length?arr.map(item=>{
         const id=typeof item==='object'?item.id:key+arr.indexOf(item);
