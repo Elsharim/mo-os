@@ -664,6 +664,7 @@
   .et-lblbtn:hover{border-color:var(--border-2);color:var(--text);background:rgba(255,255,255,.04)}
   .et-lblbtn.act-focus:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   .et-lblbtn.act-next:hover{border-color:var(--teal);color:var(--teal)}
+  .et-lblbtn.on{border-color:rgba(255,122,71,.4);color:var(--accent);background:var(--accent-soft)}
   .et-row{border-bottom:none!important;border-radius:11px;padding:11px 10px!important;transition:background .13s}
   .et-row:hover{background:rgba(255,255,255,.025)}
   .et-row .et-actions{opacity:0;transition:opacity .13s}
@@ -1829,93 +1830,70 @@ function ring(pct,size,stroke,idSuffix){
   </svg>`;
 }
 
-/* TASKS */
-/* ============ EXECUTION ENGINE (Tasks) ============ */
-const EST_CHIPS=[{v:null,l:'—'},{v:15,l:'15m'},{v:30,l:'30m'},{v:60,l:'1h'}];
-let execFocusMode=false;
-let execExpandedProject=null;
-let execTimerInt=null;
-let execAddModalState=null; // {status,projectId} when quick-add modal is open
-let execCollapsed={};   // projectId -> true when hidden
-let execShowDone={};    // projectId -> true when completed tasks revealed
+/* ============ TASKS: Today / Later / Projects ============ */
+let taskCollapsed={};
+let taskShowDone={};
+let taskDoneOpen=false;
+let _toastT=null;
 
 function execData(){
-  if(!S.exec)S.exec={tasks:{},nextOrder:[],projects:[],focusId:null};
+  if(!S.exec)S.exec={tasks:{},projects:[]};
   if(!S.exec.tasks)S.exec.tasks={};
-  if(!S.exec.nextOrder)S.exec.nextOrder=[];
   if(!S.exec.projects)S.exec.projects=[];
-  if(S.exec.focusId===undefined)S.exec.focusId=null;
-  if(!S.exec.migrated){
-    (S.tasks||[]).forEach(t=>{
-      if(t.done)return;
-      const id='t'+Date.now()+Math.random().toString(36).slice(2,7);
-      S.exec.tasks[id]={id,name:t.text,projectId:null,status:'inbox',est:null,notes:'',ts:Date.now(),startedAt:null,completedAt:null};
+  if(!S.exec.v2){
+    const order=[...(S.exec.focusId?[S.exec.focusId]:[]),...(S.exec.nextOrder||[])];
+    Object.values(S.exec.tasks).forEach(t=>{
+      t.today=t.status==='current'||t.status==='next';
+      if(t.status!=='completed')t.status='inbox';
     });
-    S.exec.migrated=true;
-    S.tasks=[];
-    save();
+    S.exec.todayOrder=order;
+    S.exec.v2=true;save();
   }
+  if(!Array.isArray(S.exec.todayOrder))S.exec.todayOrder=[];
   return S.exec;
 }
-function execTask(id){return execData().tasks[id];}
-function execProjectOf(t){if(!t||!t.projectId)return null;return execData().projects.find(p=>p.id===t.projectId)||null;}
-function execInbox(){return Object.values(execData().tasks).filter(t=>t.status==='inbox'&&!t.projectId).sort((a,b)=>b.ts-a.ts);}
-function execProjectTasks(pid){return Object.values(execData().tasks).filter(t=>t.projectId===pid);}
-function execProjectProgress(pid){const ts=execProjectTasks(pid);const done=ts.filter(t=>t.status==='completed').length;return {done,total:ts.length,pct:ts.length?Math.round(done/ts.length*100):0};}
-
-function execAddTask(opts){
+function taskProject(t){if(!t||!t.projectId)return null;return execData().projects.find(p=>p.id===t.projectId)||null;}
+function openTasks(){return Object.values(execData().tasks).filter(t=>t.status!=='completed');}
+function todayTasks(){
+  const E=execData();
+  const pos=id=>{const i=E.todayOrder.indexOf(id);return i===-1?1e9:i;};
+  return openTasks().filter(t=>t.today).sort((a,b)=>pos(a.id)-pos(b.id)||a.ts-b.ts);
+}
+function laterTasks(){return openTasks().filter(t=>!t.today&&!t.projectId).sort((a,b)=>b.ts-a.ts);}
+function doneToday(){
+  const start=new Date();start.setHours(0,0,0,0);
+  return Object.values(execData().tasks).filter(t=>t.status==='completed'&&t.completedAt>=start.getTime()).sort((a,b)=>b.completedAt-a.completedAt);
+}
+function projectTasks(pid){return Object.values(execData().tasks).filter(t=>t.projectId===pid);}
+function projectProgress(pid){const ts=projectTasks(pid);const done=ts.filter(t=>t.status==='completed').length;return {done,total:ts.length,pct:ts.length?Math.round(done/ts.length*100):0};}
+function openProjCount(){return Object.values(execData().tasks).filter(t=>t.projectId&&t.status!=='completed').length;}
+function addTask(name,opts){
+  opts=opts||{};
   const E=execData();
   const id='t'+Date.now()+Math.random().toString(36).slice(2,7);
-  const t={id,name:opts.name.trim(),projectId:opts.projectId||null,status:opts.status||'inbox',est:opts.est||null,notes:'',ts:Date.now(),startedAt:null,completedAt:null};
-  E.tasks[id]=t;
-  let warning=null;
-  if(t.status==='next'){
-    if(E.nextOrder.length>=5){t.status='inbox';warning='Up Next is full. Added to Brain dump.';}
-    else E.nextOrder.push(id);
-  }else if(t.status==='current'){
-    if(E.focusId){t.status='inbox';warning='Focus is taken. Added to Brain dump.';}
-    else E.focusId=id;
-  }
-  return {task:t,warning};
+  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,status:'inbox',today:!!opts.today,ts:Date.now(),completedAt:null};
+  if(opts.today)E.todayOrder.push(id);
+  return E.tasks[id];
 }
-function execPromoteToNext(id){
-  const E=execData();const t=E.tasks[id];if(!t)return{ok:false};
-  if(t.status==='next')return{ok:true};
-  if(E.nextOrder.length>=5)return{ok:false,warning:'Up Next is full.'};
-  t.status='next';E.nextOrder.push(id);return{ok:true};
-}
-function execPromoteToFocus(id){
-  const E=execData();const t=E.tasks[id];if(!t)return{ok:false};
-  if(E.focusId&&E.focusId!==id)return{ok:false,warning:'Complete the current focus first.'};
-  E.nextOrder=E.nextOrder.filter(x=>x!==id);
-  t.status='current';E.focusId=id;return{ok:true};
-}
-function execStartFocus(){const E=execData();if(!E.focusId)return;const t=E.tasks[E.focusId];if(t&&!t.startedAt)t.startedAt=Date.now();}
-function execCompleteTask(id){
+function completeTask(id){
   const E=execData();const t=E.tasks[id];if(!t)return;
   t.status='completed';t.completedAt=Date.now();
-  E.nextOrder=E.nextOrder.filter(x=>x!==id);
-  if(E.focusId===id){
-    E.focusId=null;
-    const nid=E.nextOrder.shift();
-    if(nid){const nt=E.tasks[nid];if(nt){nt.status='current';E.focusId=nid;}}
-  }
+  E.todayOrder=E.todayOrder.filter(x=>x!==id);
 }
-function execSendToInbox(id){
-  const E=execData();const t=E.tasks[id];if(!t)return;
-  t.status='inbox';E.nextOrder=E.nextOrder.filter(x=>x!==id);
-  if(E.focusId===id)E.focusId=null;
-}
-function execDeleteTask(id){
+function uncompleteTask(id){const t=execData().tasks[id];if(!t)return;t.status='inbox';t.completedAt=null;}
+function deleteTask(id){
   const E=execData();delete E.tasks[id];
-  E.nextOrder=E.nextOrder.filter(x=>x!==id);
-  if(E.focusId===id)E.focusId=null;
+  E.todayOrder=E.todayOrder.filter(x=>x!==id);
 }
-function execMoveNext(id,dir){
-  const E=execData();const i=E.nextOrder.indexOf(id);if(i<0)return;
-  const j=i+dir;if(j<0||j>=E.nextOrder.length)return;
-  [E.nextOrder[i],E.nextOrder[j]]=[E.nextOrder[j],E.nextOrder[i]];
+function setToday(id,on){
+  const E=execData();const t=E.tasks[id];if(!t)return;
+  t.today=!!on;
+  E.todayOrder=E.todayOrder.filter(x=>x!==id);
+  if(on)E.todayOrder.push(id);
 }
+const PROJ_COLORS=['var(--accent)','var(--accent-2)','var(--teal)','var(--gold)','var(--good)','var(--warn)'];
+function execProjColor(pid){const E=execData();const i=E.projects.findIndex(p=>p.id===pid);return PROJ_COLORS[Math.max(0,i)%PROJ_COLORS.length];}
+
 const EMOJI_SETS=[
   {n:'Work',e:['📁','💼','📊','📈','💰','🎯','📋','🗂️','📝','✍️','🧾','📌','🗓️','⏰','🏢','🤝','📞','📧','🔖','🏆']},
   {n:'Build',e:['⚡','🔧','🛠️','⚙️','🔨','🧱','🚀','💻','🖥️','📱','🌐','🔌','🧩','🗜️','📦','🔩','🧰','⌨️','🖱️','💾']},
@@ -1993,132 +1971,25 @@ function execDeleteProject(id){
   const E=execData();E.projects=E.projects.filter(p=>p.id!==id);
   Object.values(E.tasks).forEach(t=>{if(t.projectId===id)t.projectId=null;});
 }
-function estLabel(v){const c=EST_CHIPS.find(x=>x.v===v);return c?c.l:null;}
-function elapsedStr(ms){const s=Math.floor(ms/1000);const m=Math.floor(s/60);const r=s%60;return pad(m)+':'+pad(r);}
 
-function execTaskRow(t,opts){
+function taskRow(t,opts){
   opts=opts||{};
-  const proj=execProjectOf(t);
+  const proj=taskProject(t);
   const done=t.status==='completed';
-  const chips=`${proj&&!opts.hideProject?`<span class="et-chip" style="color:${execProjColor(proj.id)}">${proj.icon} ${esc(proj.name)}</span>`:''}${t.est?`<span class="et-chip et-est">${estLabel(t.est)}</span>`:''}`;
   return `<div class="et-row ${done?'completed':''}" data-id="${t.id}">
     ${opts.drag?'<span class="drag-grip">⠿</span>':''}
-    <span class="box et-complete ${done?'done':''}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-    <div class="et-main"><div class="et-name">${esc(t.name)}</div>${chips?`<div class="et-meta">${chips}</div>`:''}</div>
+    <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
+    <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}</div>${proj&&opts.showProj?`<div class="et-meta"><span class="et-chip" style="color:${execProjColor(proj.id)}">${proj.icon} ${esc(proj.name)}</span></div>`:''}</div>
     <div class="et-actions">${opts.actions||''}</div>
   </div>`;
 }
-const PROJ_COLORS=['var(--accent)','var(--accent-2)','var(--teal)','var(--gold)','var(--good)','var(--warn)'];
-function execProjColor(pid){const E=execData();const i=E.projects.findIndex(p=>p.id===pid);return PROJ_COLORS[Math.max(0,i)%PROJ_COLORS.length];}
-
-function renderTasks(){
-  const E=execData();
-  const focus=E.focusId?E.tasks[E.focusId]:null;
-  const nextTasks=E.nextOrder.map(id=>E.tasks[id]).filter(Boolean);
-  const inbox=execInbox();
-
-  if(execFocusMode){
-    main.innerHTML=`<div class="view">
-      <div class="focus-mode-wrap">
-        <button class="btn" id="exit-focus" style="margin-bottom:22px">← Exit focus mode</button>
-        ${execCurrentFocusCard(focus,true)}
-      </div>
-    </div>`;
-    document.getElementById('exit-focus').onclick=()=>{execFocusMode=false;renderTasks();};
-    wireFocusCard(focus);
-    return;
-  }
-
-  main.innerHTML=`<div class="view">
-    <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
-
-    <div class="et-addbar" style="margin-bottom:16px">
-      <input id="et-add-input" placeholder="Add a task (N)" autocomplete="off">
-      <select id="et-add-dest" title="Where it goes">
-        <option value="">Brain dump</option>
-        <option value="__next">Up Next</option>
-        ${E.projects.map(p=>`<option value="${p.id}">${p.icon} ${esc(p.name)}</option>`).join('')}
-      </select>
-      <button class="btn solid" id="et-add-btn">Add</button>
-    </div>
-
-    <div style="margin-bottom:20px">${execCurrentFocusCard(focus,false)}</div>
-
-    <div class="sect">
-      <div class="sect-head">Up next <span>${nextTasks.length}/5</span></div>
-      ${nextTasks.length?`<div class="et-list" id="et-next-list">${nextTasks.map(t=>execTaskRow(t,{drag:true,actions:`
-        ${!focus?`<button class="et-lblbtn act-focus" data-focus="${t.id}" title="Work on this now">Focus</button>`:''}
-        <button class="et-lblbtn" data-inbox="${t.id}" title="Remove from the queue">Unqueue</button>
-      `})).join('')}</div>`:'<div class="empty sect-empty">Nothing queued.</div>'}
-    </div>
-
-    <div class="sect">
-      <div class="sect-head">Brain dump <span>${inbox.length||''}</span></div>
-      ${inbox.length?`<div class="et-list" id="et-dump-list">${inbox.map(t=>execTaskRow(t,{hideProject:true,drag:true,actions:`
-        <select class="et-projsel" data-id="${t.id}" title="Move to a project"><option value="">📥 No project</option>${E.projects.map(p=>`<option value="${p.id}">${p.icon} ${esc(p.name)}</option>`).join('')}</select>
-        <button class="et-lblbtn act-next" data-next="${t.id}" title="Line it up after the current focus">Queue</button>
-        ${!focus?`<button class="et-lblbtn act-focus" data-focus="${t.id}" title="Work on this now">Focus</button>`:''}
-        <button class="rm" data-del="${t.id}">×</button>
-      `})).join('')}</div>`:'<div class="empty sect-empty">Empty.</div>'}
-      <div class="addrow ghost-add"><input id="inbox-add" placeholder="+ Add a task"><button class="btn" id="inbox-add-btn" style="display:none">Add</button></div>
-    </div>
-
-    <div class="sect">
-      <div class="sect-head">Projects <span>${E.projects.length?openAcrossProjects()+' open':''}</span></div>
-      ${E.projects.length?`<div class="proj-stack">${E.projects.map(p=>execProjectCard(p)).join('')}</div>`:'<div class="empty sect-empty">No projects yet.</div>'}
-      <div class="addrow proj-new"><button type="button" class="icon-btn" id="proj-icon-btn" data-icon="📁" title="Choose an icon">📁</button><input id="proj-name" placeholder="+ New project" style="flex:1"><button class="btn" id="proj-add-btn">Add</button></div>
-    </div>
-  </div>${execQuickAddModal()}`;
-
-  wireTasksView();
-}
-
-function execCurrentFocusCard(focus,big){
-  if(!focus){
-    return `<div class="card current-focus-card cf-empty">
-      <div class="cf-eyebrow">🎯 Current focus</div>
-      <div class="cf-empty-txt">Nothing in focus.</div>
-      <button class="btn solid" id="cf-pick">Pull from Up Next</button>
-    </div>`;
-  }
-  const proj=execProjectOf(focus);
-  const started=!!focus.startedAt;
-  return `<div class="card current-focus-card">
-    <div class="cf-top">
-      <div class="cf-eyebrow">🎯 Current focus</div>
-      ${!big?`<button class="et-iconbtn" id="cf-mode-btn" title="Focus mode">⛶</button>`:''}
-    </div>
-    <div class="cf-name">${esc(focus.name)}</div>
-    <div class="cf-meta">${proj?`<span class="et-chip" style="color:${execProjColor(proj.id)}">${proj.icon} ${esc(proj.name)}</span>`:''}${focus.est?`<span class="et-chip et-est">${estLabel(focus.est)}</span>`:''}${started?`<span class="et-chip cf-timer" id="cf-timer">${elapsedStr(Date.now()-focus.startedAt)}</span>`:''}</div>
-    <div class="cf-actions">
-      ${!started?`<button class="btn solid" id="cf-start">▶ Start focus</button>`:''}
-      <button class="btn ${started?'solid':''}" id="cf-complete">✓ Complete</button>
-    </div>
-  </div>`;
-}
-function wireFocusCard(focus){
-  const startBtn=document.getElementById('cf-start');
-  if(startBtn)startBtn.onclick=()=>{execStartFocus();save();renderTasks();};
-  const compBtn=document.getElementById('cf-complete');
-  if(compBtn)compBtn.onclick=()=>{if(focus){execCompleteTask(focus.id);save();renderTasks();}};
-  const pickBtn=document.getElementById('cf-pick');
-  if(pickBtn)pickBtn.onclick=()=>{const E=execData();const nid=E.nextOrder[0];if(nid){execPromoteToFocus(nid);save();renderTasks();}};
-  clearInterval(execTimerInt);
-  if(focus&&focus.startedAt){
-    execTimerInt=setInterval(()=>{const el=document.getElementById('cf-timer');if(el)el.textContent=elapsedStr(Date.now()-focus.startedAt);},1000);
-  }
-}
-function openAcrossProjects(){
-  return Object.values(execData().tasks).filter(t=>t.projectId&&t.status!=='completed').length;
-}
-
-function execProjectCard(p){
-  const prog=execProjectProgress(p.id);
-  const all=execProjectTasks(p.id);
+function projectCard(p){
+  const prog=projectProgress(p.id);
+  const all=projectTasks(p.id);
   const open=all.filter(t=>t.status!=='completed').sort((a,b)=>a.ts-b.ts);
   const done=all.filter(t=>t.status==='completed');
-  const collapsed=execCollapsed[p.id];
-  const showDone=execShowDone[p.id];
+  const collapsed=taskCollapsed[p.id];
+  const showDone=taskShowDone[p.id];
   return `<div class="proj-block ${collapsed?'collapsed':''}">
     <div class="proj-head">
       <button type="button" class="proj-icon icon-btn" data-picon="${p.id}" title="Change icon">${p.icon}</button>
@@ -2127,231 +1998,119 @@ function execProjectCard(p){
         <div class="proj-track"><div class="proj-fill" style="width:${prog.pct}%;background:${execProjColor(p.id)}"></div></div>
       </div>
       <span class="proj-count">${prog.done}/${prog.total}</span>
-      <button class="et-iconbtn proj-collapse" data-toggle="${p.id}" title="${collapsed?'Show tasks':'Hide tasks'}">${collapsed?'▸':'▾'}</button>
+      <button class="et-iconbtn proj-collapse" data-toggle="${p.id}">${collapsed?'▸':'▾'}</button>
       <button class="rm proj-del-btn" data-delproj="${p.id}" title="Delete project">×</button>
     </div>
     ${collapsed?'':`<div class="proj-body">
-      ${open.length?`<div class="et-list proj-list" data-plist="${p.id}">${open.map(t=>execTaskRow(t,{hideProject:true,drag:true,actions:execRowActions(t)})).join('')}</div>`:'<div class="empty proj-empty">Nothing open here.</div>'}
-      ${done.length?`<button class="proj-done-toggle" data-showdone="${p.id}">${showDone?'▾':'▸'} ${done.length} completed</button>${showDone?`<div class="et-list proj-done-list">${done.map(t=>execTaskRow(t,{hideProject:true,actions:`<button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:''}`:''}
-      <div class="addrow proj-add"><input class="proj-task-add" data-pid="${p.id}" placeholder="+ Add task to ${esc(p.name)}"></div>
+      ${open.length?`<div class="et-list">${open.map(t=>taskRow(t,{actions:`
+        ${t.today?`<button class="et-lblbtn on" data-later="${t.id}" title="Take off today">✓ Today</button>`:`<button class="et-lblbtn act-next" data-today="${t.id}" title="Do it today">Today</button>`}
+        <button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:'<div class="empty proj-empty">Nothing open.</div>'}
+      ${done.length?`<button class="proj-done-toggle" data-showdone="${p.id}">${showDone?'▾':'▸'} ${done.length} completed</button>${showDone?`<div class="et-list proj-done-list">${done.map(t=>taskRow(t,{actions:`<button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:''}`:''}
+      <div class="addrow proj-add"><input class="proj-task-add" data-pid="${p.id}" placeholder="+ Add task"></div>
     </div>`}
   </div>`;
 }
-
-// One consistent action set on every open task, everywhere it appears
-function execRowActions(t){
+function renderTasks(){
   const E=execData();
-  const inNext=t.status==='next';
-  const isFocus=t.status==='current';
-  if(isFocus)return `<span class="et-status-tag focus">in focus</span>`;
-  return `
-    ${inNext
-      ? `<span class="et-status-tag">queued</span><button class="et-lblbtn" data-inbox="${t.id}" title="Remove from the queue">Unqueue</button>`
-      : `<button class="et-lblbtn act-next" data-next="${t.id}" title="Line it up after the current focus">Queue</button>`}
-    ${!E.focusId?`<button class="et-lblbtn act-focus" data-focus="${t.id}" title="Work on this now">Focus</button>`:''}
-    <button class="rm" data-del="${t.id}">×</button>`;
-}
+  const tToday=todayTasks(),tLater=laterTasks(),dToday=doneToday();
+  main.innerHTML=`<div class="view">
+    <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
 
-function execQuickAddModal(){
-  if(!execAddModalState)return'';
-  const E=execData();
-  const st=execAddModalState;
-  return `<div class="note-modal" id="qa-modal">
-    <div class="nm-backdrop" id="qa-backdrop"></div>
-    <div class="qa-panel">
-      <div class="qa-title">New task</div>
-      <input id="qa-name" class="inp" placeholder="Task name" style="margin-bottom:12px" autocomplete="off">
-      <div class="qa-row">
-        <select id="qa-project" class="inp"><option value="">No project</option>${E.projects.map(p=>`<option value="${p.id}" ${st.projectId===p.id?'selected':''}>${p.icon} ${esc(p.name)}</option>`).join('')}</select>
-        <select id="qa-status" class="inp">
-          <option value="inbox" ${st.status==='inbox'?'selected':''}>Brain dump</option>
-          <option value="next" ${st.status==='next'?'selected':''}>Up Next</option>
-          <option value="current" ${st.status==='current'?'selected':''}>Current focus</option>
-        </select>
-      </div>
-      <div class="qa-est-row">${EST_CHIPS.map(c=>`<button class="qa-est-chip" data-est="${c.v}">${c.l}</button>`).join('')}</div>
-      <div class="qa-actions"><button class="btn" id="qa-cancel">Cancel</button><button class="btn solid" id="qa-save">Save</button></div>
+    <div class="et-addbar" style="margin-bottom:24px">
+      <input id="et-add-input" placeholder="Add a task for today (N)" autocomplete="off">
+      <button class="btn solid" id="et-add-btn">Add</button>
+    </div>
+
+    <div class="sect">
+      <div class="sect-head">Today <span>${tToday.length||''}</span></div>
+      ${tToday.length?`<div class="et-list" id="et-today-list">${tToday.map(t=>taskRow(t,{drag:true,showProj:true,actions:`
+        <button class="et-lblbtn" data-later="${t.id}" title="Not today">Later</button>
+        <button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`
+      :'<div class="empty sect-empty">Nothing for today yet.</div>'}
+      ${dToday.length?`<button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
+        ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>taskRow(t,{showProj:true,actions:`<button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:''}`:''}
+    </div>
+
+    <div class="sect">
+      <div class="sect-head">Later <span>${tLater.length||''}</span></div>
+      ${tLater.length?`<div class="et-list">${tLater.map(t=>taskRow(t,{actions:`
+        <select class="et-projsel" data-id="${t.id}" title="Move to a project"><option value="">No project</option>${E.projects.map(p=>`<option value="${p.id}">${p.icon} ${esc(p.name)}</option>`).join('')}</select>
+        <button class="et-lblbtn act-next" data-today="${t.id}">Today</button>
+        <button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:''}
+      <div class="addrow ghost-add"><input id="later-add" placeholder="+ Add for later"></div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-head">Projects <span>${E.projects.length?openProjCount()+' open':''}</span></div>
+      ${E.projects.length?`<div class="proj-stack">${E.projects.map(p=>projectCard(p)).join('')}</div>`:''}
+      <div class="addrow proj-new"><button type="button" class="icon-btn" id="proj-icon-btn" data-icon="📁" title="Choose an icon">📁</button><input id="proj-name" placeholder="+ New project" style="flex:1"><button class="btn" id="proj-add-btn" style="display:none">Add</button></div>
     </div>
   </div>`;
+  wireTasks();
 }
-function wireTasksView(){
+function wireTasks(){
   const E=execData();
-  const focus=E.focusId?E.tasks[E.focusId]:null;
-  wireFocusCard(focus);
-  const modeBtn=document.getElementById('cf-mode-btn');if(modeBtn)modeBtn.onclick=()=>{execFocusMode=true;renderTasks();};
+  const inp=document.getElementById('et-add-input');
+  const add=()=>{const v=inp.value.trim();if(!v)return;addTask(v,{today:true});save();renderTasks();const i=document.getElementById('et-add-input');if(i)i.focus();};
+  document.getElementById('et-add-btn').onclick=add;
+  inp.onkeydown=e=>{if(e.key==='Enter')add();};
 
-  main.querySelectorAll('.et-row').forEach(row=>{
-    const id=row.dataset.id;
-    const c=row.querySelector('.et-complete');
-    if(c)c.onclick=e=>{e.stopPropagation();execCompleteTask(id);save();renderTasks();};
-    // click the name to rename in place
-    const nm=row.querySelector('.et-name');
-    if(nm)nm.onclick=e=>{e.stopPropagation();startRenameTask(id,nm);};
-  });
+  const later=document.getElementById('later-add');
+  later.onkeydown=e=>{if(e.key==='Enter'){const v=later.value.trim();if(!v)return;addTask(v,{});save();renderTasks();const l=document.getElementById('later-add');if(l)l.focus();}};
 
-  main.querySelectorAll('[data-focus]').forEach(b=>b.onclick=e=>{
+  main.querySelectorAll('[data-c]').forEach(c=>c.onclick=e=>{
     e.stopPropagation();
-    const r=execPromoteToFocus(b.dataset.focus);
-    if(r&&r.warning)return etToast(r.warning,'warn');
-    save();renderTasks();
+    const id=c.dataset.c;const t=E.tasks[id];if(!t||t.status==='completed')return;
+    const name=t.name;
+    completeTask(id);save();renderTasks();
+    etToast('Done: '+clip(name,30),'undo',()=>{uncompleteTask(id);save();renderTasks();});
   });
-  main.querySelectorAll('[data-inbox]').forEach(b=>b.onclick=e=>{e.stopPropagation();execSendToInbox(b.dataset.inbox);save();renderTasks();});
-  main.querySelectorAll('[data-next]').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();
-    const r=execPromoteToNext(b.dataset.next);
-    if(r&&r.warning)return etToast(r.warning,'warn');
-    save();renderTasks();
+  main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
+  main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{deleteTask(b.dataset.del);save();renderTasks();});
+  main.querySelectorAll('[data-today]').forEach(b=>b.onclick=()=>{setToday(b.dataset.today,true);save();renderTasks();});
+  main.querySelectorAll('[data-later]').forEach(b=>b.onclick=()=>{setToday(b.dataset.later,false);save();renderTasks();});
+  main.querySelectorAll('.et-projsel').forEach(sel=>sel.onchange=()=>{
+    const t=E.tasks[sel.dataset.id];if(!t)return;
+    t.projectId=sel.value||null;save();renderTasks();
+    if(sel.value){const p=E.projects.find(x=>x.id===sel.value);if(p)etToast('Moved to '+p.icon+' '+p.name);}
   });
-  main.querySelectorAll('[data-del]').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();
-    const t=execTask(b.dataset.del);
-    execDeleteTask(b.dataset.del);save();renderTasks();
-    if(t)etToast('Deleted "'+clip(t.name,28)+'"','undo',()=>{
-      const E2=execData();E2.tasks[t.id]=t;
-      if(t.status==='next'&&!E2.nextOrder.includes(t.id))E2.nextOrder.push(t.id);
-      if(t.status==='current')E2.focusId=t.id;
-      save();renderTasks();
-    });
+  main.querySelectorAll('.et-name').forEach(nm=>nm.onclick=()=>{
+    const id=nm.dataset.n;const t=E.tasks[id];if(!t)return;
+    const input=document.createElement('input');
+    input.className='et-rename';input.value=t.name;
+    nm.replaceWith(input);input.focus();input.select();
+    input.onblur=()=>{t.name=input.value.trim()||t.name;save();renderTasks();};
+    input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
   });
-  main.querySelectorAll('.et-projsel').forEach(sel=>sel.onchange=e=>{
-    e.stopPropagation();
-    const t=execTask(sel.dataset.id);
-    if(t){t.projectId=sel.value||null;save();renderTasks();
-      if(sel.value){const p=E.projects.find(x=>x.id===sel.value);if(p)etToast('Moved to '+p.icon+' '+p.name);}}
-  });
+  makeSortable(document.getElementById('et-today-list'),'.et-row',ids=>{E.todayOrder=ids;save();});
+  const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
 
-  const iaInp=document.getElementById('inbox-add'),iaBtn=document.getElementById('inbox-add-btn');
-  if(iaInp){
-    const add=()=>{const v=iaInp.value.trim();if(!v)return;execAddTask({name:v,status:'inbox'});save();renderTasks();
-      const n=document.getElementById('inbox-add');if(n)n.focus();};
-    iaBtn.onclick=add;iaInp.onkeydown=e=>{if(e.key==='Enter')add();};
-  }
-
-  // project header: collapse, rename, delete, completed toggle
-  main.querySelectorAll('[data-toggle]').forEach(el=>el.onclick=e=>{
-    e.stopPropagation();
-    const pid=el.dataset.toggle;
-    execCollapsed[pid]=!execCollapsed[pid];
-    renderTasks();
+  main.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{taskCollapsed[b.dataset.toggle]=!taskCollapsed[b.dataset.toggle];renderTasks();});
+  main.querySelectorAll('[data-showdone]').forEach(b=>b.onclick=()=>{taskShowDone[b.dataset.showdone]=!taskShowDone[b.dataset.showdone];renderTasks();});
+  main.querySelectorAll('[data-delproj]').forEach(b=>b.onclick=()=>{
+    const p=E.projects.find(x=>x.id===b.dataset.delproj);
+    if(!confirm('Delete '+(p?p.name:'this project')+'? Its tasks move to Later.'))return;
+    execDeleteProject(b.dataset.delproj);save();renderTasks();
   });
-  main.querySelectorAll('[data-showdone]').forEach(el=>el.onclick=e=>{
-    e.stopPropagation();
-    const pid=el.dataset.showdone;
-    execShowDone[pid]=!execShowDone[pid];
-    renderTasks();
+  main.querySelectorAll('[data-pname]').forEach(pi=>{
+    pi.oninput=()=>{const p=E.projects.find(x=>x.id===pi.dataset.pname);if(p){p.name=pi.value;save();}};
+    pi.onkeydown=e=>{if(e.key==='Enter')pi.blur();};
   });
-  main.querySelectorAll('[data-pname]').forEach(inp=>{
-    inp.onclick=e=>e.stopPropagation();
-    inp.onchange=()=>{
-      const p=E.projects.find(x=>x.id===inp.dataset.pname);
-      if(p){p.name=inp.value.trim()||p.name;save();renderTasks();}
-    };
-    inp.onkeydown=e=>{if(e.key==='Enter')inp.blur();};
-  });
-  main.querySelectorAll('[data-delproj]').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();
-    const pid=b.dataset.delproj;
-    const n=execProjectTasks(pid).filter(t=>t.status!=='completed').length;
-    const p=E.projects.find(x=>x.id===pid);
-    if(confirm(`Delete "${p?p.name:'this project'}"?`+(n?`\n\n${n} open task${n>1?'s':''} will move to Brain dump.`:''))){
-      execDeleteProject(pid);save();renderTasks();
-    }
-  });
-
-  // per-project add: enter keeps focus so you can rattle off several
-  main.querySelectorAll('.proj-task-add').forEach(inp=>{
-    inp.onclick=e=>e.stopPropagation();
-    inp.onkeydown=e=>{
-      if(e.key!=='Enter')return;
-      const v=inp.value.trim();if(!v)return;
-      const pid=inp.dataset.pid;
-      execAddTask({name:v,status:'inbox',projectId:pid});
-      save();renderTasks();
-      const again=main.querySelector(`.proj-task-add[data-pid="${pid}"]`);
-      if(again)again.focus();
-    };
-  });
-
-  const projAddBtn=document.getElementById('proj-add-btn');
-  const projNameInp=document.getElementById('proj-name');
-  const addProj=()=>{
-    const name=projNameInp.value.trim();if(!name)return;
-    const iconBtn=document.getElementById('proj-icon-btn');
-    const icon=(iconBtn&&iconBtn.dataset.icon)||'📁';
-    execAddProject(name,icon);save();renderTasks();
-  };
-  if(projAddBtn)projAddBtn.onclick=addProj;
-  if(projNameInp)projNameInp.onkeydown=e=>{if(e.key==='Enter')addProj();};
-
+  main.querySelectorAll('[data-picon]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEmojiPicker(b.dataset.picon,b);});
   const pib=document.getElementById('proj-icon-btn');
   if(pib)pib.onclick=e=>{e.stopPropagation();openEmojiPicker('new',pib);};
-  main.querySelectorAll('[data-picon]').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();
-    openEmojiPicker(b.dataset.picon,b);
+  const pn=document.getElementById('proj-name');
+  const addProj=()=>{const v=pn.value.trim();if(!v)return;execAddProject(v,(pib&&pib.dataset.icon)||'📁');save();renderTasks();};
+  pn.onkeydown=e=>{if(e.key==='Enter')addProj();};
+  document.getElementById('proj-add-btn').onclick=addProj;
+  main.querySelectorAll('.proj-task-add').forEach(ia=>ia.onkeydown=e=>{
+    if(e.key==='Enter'){
+      const v=ia.value.trim();if(!v)return;
+      addTask(v,{projectId:ia.dataset.pid});save();renderTasks();
+      const again=main.querySelector(`.proj-task-add[data-pid="${ia.dataset.pid}"]`);if(again)again.focus();
+    }
   });
-
-  // drag: Up Next, brain dump, and inside each project
-  makeSortable(document.getElementById('et-next-list'),'.et-row',ids=>{
-    E.nextOrder=ids.filter(id=>E.tasks[id]);
-    save();renderTasks();
-  });
-  makeSortable(document.getElementById('et-dump-list'),'.et-row',ids=>{
-    const base=Date.now();
-    ids.forEach((id,i)=>{const t=E.tasks[id];if(t)t.ts=base-i;});
-    save();
-  });
-  main.querySelectorAll('[data-plist]').forEach(list=>{
-    makeSortable(list,'.et-row',ids=>{
-      const base=Date.now();
-      ids.forEach((id,i)=>{const t=E.tasks[id];if(t)t.ts=base-i;});
-      save();
-    });
-  });
-
-  const abInp=document.getElementById('et-add-input'),abDest=document.getElementById('et-add-dest'),abBtn=document.getElementById('et-add-btn');
-  if(abInp&&abBtn){
-    const addFromBar=()=>{
-      const v=abInp.value.trim();if(!v)return;
-      const dest=abDest.value;
-      const r=dest==='__next'?execAddTask({name:v,status:'next'})
-             :dest?execAddTask({name:v,projectId:dest,status:'inbox'})
-             :execAddTask({name:v,status:'inbox'});
-      save();const keep=abDest.value;renderTasks();
-      const i2=document.getElementById('et-add-input'),d2=document.getElementById('et-add-dest');
-      if(d2)d2.value=keep;if(i2)i2.focus();
-      if(r.warning)etToast(r.warning);
-    };
-    abBtn.onclick=addFromBar;
-    abInp.onkeydown=e=>{if(e.key==='Enter')addFromBar();};
-  }
-  wireQuickAddModal();
 }
-
-// Rename a task inline without opening a modal
-function startRenameTask(id,el){
-  const t=execTask(id);if(!t)return;
-  const row=el.closest('.et-row');
-  if(row.querySelector('.et-rename'))return;
-  const inp=document.createElement('input');
-  inp.className='et-rename';inp.value=t.name;
-  el.replaceWith(inp);
-  inp.focus();inp.setSelectionRange(inp.value.length,inp.value.length);
-  const commit=()=>{
-    const v=inp.value.trim();
-    if(v&&v!==t.name){t.name=v;save();}
-    renderTasks();
-  };
-  inp.onblur=commit;
-  inp.onclick=e=>e.stopPropagation();
-  inp.onkeydown=e=>{
-    e.stopPropagation();
-    if(e.key==='Enter'){e.preventDefault();inp.blur();}
-    if(e.key==='Escape'){inp.onblur=null;renderTasks();}
-  };
-}
-
-// Small toast, with an optional undo action
-let _toastT=null;
 function etToast(msg,kind,undoFn){
   const old=document.getElementById('et-toast');if(old)old.remove();
   clearTimeout(_toastT);
@@ -2364,42 +2123,10 @@ function etToast(msg,kind,undoFn){
   }
   _toastT=setTimeout(()=>el.remove(),kind==='undo'?6000:3200);
 }
-
-function openQuickAdd(presets){
-  execAddModalState=Object.assign({status:'inbox',projectId:''},presets||{});
-  renderTasks();
-}
-function wireQuickAddModal(){
-  const modal=document.getElementById('qa-modal');if(!modal)return;
-  let chosenEst=null;
-  const nameInp=document.getElementById('qa-name');
-  nameInp.focus();
-  const close=()=>{execAddModalState=null;renderTasks();};
-  document.getElementById('qa-backdrop').onclick=close;
-  document.getElementById('qa-cancel').onclick=close;
-  modal.querySelectorAll('.qa-est-chip').forEach(c=>c.onclick=()=>{
-    chosenEst=c.dataset.est==='null'?null:Number(c.dataset.est);
-    modal.querySelectorAll('.qa-est-chip').forEach(x=>x.classList.remove('on'));c.classList.add('on');
-  });
-  const doSave=()=>{
-    const name=nameInp.value.trim();if(!name)return;
-    const projectId=document.getElementById('qa-project').value||null;
-    const status=document.getElementById('qa-status').value;
-    const r=execAddTask({name,projectId,status,est:chosenEst});
-    if(r.warning)alert(r.warning);
-    execAddModalState=null;save();renderTasks();
-  };
-  document.getElementById('qa-save').onclick=doSave;
-  nameInp.onkeydown=e=>{if(e.key==='Enter')doSave();if(e.key==='Escape')close();};
-}
-// Global keyboard shortcuts for the execution engine
 document.addEventListener('keydown',e=>{
-  const typing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
   if(currentView!=='tasks')return;
-  if(e.key==='n'&&!typing&&!execAddModalState){e.preventDefault();const i=document.getElementById('et-add-input');if(i)i.focus();}
-  if(e.key===' '&&!typing&&!execAddModalState){
-    const E=execData();if(E.focusId){const t=E.tasks[E.focusId];if(t&&!t.startedAt){e.preventDefault();execStartFocus();save();renderTasks();}}
-  }
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+  if(e.key==='n'){e.preventDefault();const i=document.getElementById('et-add-input');if(i)i.focus();}
 });
 
 function makeSortable(container,rowSel,onDrop){
