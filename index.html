@@ -2273,10 +2273,34 @@ function renderHabits(){
   }
 }
 
+
 /* COACHING */
-const CLAUDE_KEY='mo-os:claude-key';
-let coSel=null,coBusy=false,coErr='',coShowKey=false,coTrOpen=null,coNotesOpen=true,coPull='';
+let coSel=null,coNotesOpen=true,coPull='';
 const ZAP_WEBHOOK_URL='https://hooks.zapier.com/hooks/catch/27212587/443o22l/';
+function coData(){
+  if(!S.coaching||typeof S.coaching!=='object')S.coaching={sessions:[]};
+  if(!Array.isArray(S.coaching.sessions))S.coaching.sessions=[];
+  if(!S.coaching.v2){
+    S.coaching.sessions.forEach(s=>{
+      if(s.coach!==undefined)return;
+      s.coach='Seth';
+      let n=s.moNotes||'';
+      if(s.sethNotes)n+=(n?'\n\n':'')+"Seth's notes:\n"+s.sethNotes;
+      if(Array.isArray(s.actions)&&s.actions.length)n+=(n?'\n\n':'')+'Action items:\n'+s.actions.map(a=>'- '+(a.done?'[done] ':'')+a.text).join('\n');
+      s.notes=n;
+    });
+    S.coaching.v2=true;save();
+  }
+  if(!S.coaching.v3){
+    S.coaching.sessions.forEach(s=>{
+      if(!Array.isArray(s.steps)){
+        s.steps=(s.ai&&Array.isArray(s.ai.actions)?s.ai.actions:[]).map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:!!(s.aiDone&&s.aiDone[i])}));
+      }
+    });
+    S.coaching.v3=true;save();
+  }
+  return S.coaching;
+}
 async function pullFromFathom(s){
   if(!(s.link||'').trim()){coPull='Add the Fathom link first.';renderCoaching();return;}
   coPull='Sending to Zapier…';renderCoaching();
@@ -2294,94 +2318,16 @@ async function pullFromFathom(s){
         clearInterval(poll);
         const d=doc.data();
         if(d.notes)s.notes=s.notes?s.notes+'\n\n'+d.notes:d.notes;
-        const acts=(d.actions||[]).map(String);
-        if(acts.length){
-          if(!s.ai)s.ai={summary:'',takeaways:[],actions:[]};
-          s.ai.actions=[...(s.ai.actions||[]),...acts];
-        }
+        (d.actions||[]).forEach((t,i)=>{s.steps.push({id:'st'+Date.now()+i,text:String(t),done:false});});
         save();coPull='Done. Notes added.';renderCoaching();
         db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
       }
     }catch(e){}
   },4000);
 }
-function claudeKey(){try{return localStorage.getItem(CLAUDE_KEY)||'';}catch(e){return'';}}
-function setClaudeKey(v){try{if(v)localStorage.setItem(CLAUDE_KEY,v);else localStorage.removeItem(CLAUDE_KEY);}catch(e){}}
-function coData(){
-  if(!S.coaching||typeof S.coaching!=='object')S.coaching={sessions:[]};
-  if(!Array.isArray(S.coaching.sessions))S.coaching.sessions=[];
-  if(!S.coaching.v2){
-    S.coaching.sessions.forEach(s=>{
-      if(s.coach!==undefined)return;
-      s.coach='Seth';
-      let n=s.moNotes||'';
-      if(s.sethNotes)n+=(n?'\n\n':'')+"Seth's notes:\n"+s.sethNotes;
-      if(Array.isArray(s.actions)&&s.actions.length)n+=(n?'\n\n':'')+'Action items:\n'+s.actions.map(a=>'- '+(a.done?'[done] ':'')+a.text).join('\n');
-      s.notes=n;s.transcript='';s.ai=null;
-    });
-    S.coaching.v2=true;save();
-  }
-  return S.coaching;
-}
-async function coSummarize(s){
-  const key=claudeKey();
-  if(!key){coShowKey=true;coErr='No API key. Either add one, or just ask Claude Code to summarize this session (free with your plan).';renderCoaching();return;}
-  if(!(s.transcript||'').trim()){coErr='Paste a transcript first.';renderCoaching();return;}
-  coBusy=true;coErr='';renderCoaching();
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':key,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true',
-        'anthropic-beta':'server-side-fallback-2026-07-01'
-      },
-      body:JSON.stringify({
-        model:'claude-opus-5',
-        max_tokens:16000,
-        stream:true,
-        fallbacks:'default',
-        system:'You summarize coaching call transcripts for the person being coached (Mo, a sales rep). Be direct and specific. Use the transcript\'s own language for numbers and commitments. Output only valid JSON, no markdown fences, in this shape: {"summary": string (3-5 sentences), "takeaways": string[] (the most important points and advice, max 8), "actions": string[] (concrete things Mo committed to or was told to do)}',
-        messages:[{role:'user',content:'Coach: '+(s.coach||'')+'\n\nTranscript:\n\n'+s.transcript}]
-      })
-    });
-    if(!res.ok){
-      const errBody=await res.text();
-      let msg='API error '+res.status;
-      try{const j=JSON.parse(errBody);if(j.error&&j.error.message)msg=j.error.message;}catch(e){}
-      throw new Error(msg);
-    }
-    const reader=res.body.getReader(),dec=new TextDecoder();
-    let buf='',text='',stopReason=null;
-    while(true){
-      const {done,value}=await reader.read();
-      if(done)break;
-      buf+=dec.decode(value,{stream:true});
-      const lines=buf.split('\n');buf=lines.pop();
-      for(const line of lines){
-        if(!line.startsWith('data:'))continue;
-        let ev;try{ev=JSON.parse(line.slice(5).trim());}catch(e){continue;}
-        if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta')text+=ev.delta.text;
-        if(ev.type==='message_delta'&&ev.delta&&ev.delta.stop_reason)stopReason=ev.delta.stop_reason;
-      }
-    }
-    if(stopReason==='refusal')throw new Error('The request was declined. Try again.');
-    const clean=text.trim().replace(/^```json?\s*/i,'').replace(/```\s*$/,'');
-    let ai;
-    try{
-      const j=JSON.parse(clean);
-      ai={summary:String(j.summary||''),takeaways:Array.isArray(j.takeaways)?j.takeaways.map(String):[],actions:Array.isArray(j.actions)?j.actions.map(String):[]};
-    }catch(e){ai={summary:text.trim(),takeaways:[],actions:[]};}
-    s.ai=ai;save();
-  }catch(e){coErr=e.message||'Something went wrong.';}
-  coBusy=false;renderCoaching();
-}
 function coDetailHTML(s){
-  const hasKey=!!claudeKey();
-  const trOpen=coTrOpen===null?!s.ai:coTrOpen;
-  if(!Array.isArray(s.aiDone))s.aiDone=[];
+  if(!Array.isArray(s.steps))s.steps=[];
+  const openSteps=s.steps.filter(x=>!x.done).length;
   return `
   <div class="co-header">
     <input id="co-title" class="co-title-big" placeholder="Untitled session" value="${esc(s.title||'')}" spellcheck="false">
@@ -2400,30 +2346,16 @@ function coDetailHTML(s){
   </div>
 
   <div class="sect">
-    <div class="sect-head">
-      <button class="sect-toggle" id="co-tr-toggle">${trOpen?'▾':'▸'} Transcript</button>
-      <span style="flex:1"></span>
-      <button class="btn btn-sm" id="co-key-btn">${hasKey?'API key':'Add API key'}</button>
-    </div>
-    ${trOpen?`
-      ${coShowKey?`<div class="addrow" style="margin-bottom:10px"><input id="co-key" type="password" placeholder="Claude API key (stays on this device)" value="${esc(claudeKey())}" autocomplete="off"><button class="btn" id="co-key-save">Save</button></div>`:''}
-      <textarea id="co-transcript" class="jr-surface" placeholder="Paste the transcript">${esc(s.transcript||'')}</textarea>
-      <div style="display:flex;gap:12px;align-items:center;margin-top:12px">
-        <button class="btn solid" id="co-sum" ${coBusy?'disabled':''}>${coBusy?'Summarizing…':(s.ai?'Summarize again':'Summarize')}</button>
-        ${coErr?`<span class="co-err">${esc(coErr)}</span>`:''}
-      </div>`
-    :(coErr?`<div class="co-err" style="padding:4px 0 0">${esc(coErr)}</div>`:'')}
+    <div class="sect-head">Action steps <span>${s.steps.length?openSteps+' open':''}</span></div>
+    ${s.steps.length?`<div class="jr-list">${s.steps.map(st=>`
+      <div class="big-goal ${st.done?'done':''}" data-step="${st.id}">
+        <button class="bg-check" data-step-check="${st.id}">${st.done?'✓':''}</button>
+        <span class="bg-text">${esc(st.text)}</span>
+        <button class="rm bg-del" data-step-del="${st.id}">×</button>
+      </div>`).join('')}</div>`
+    :'<div class="empty sect-empty">Pull notes fills this from the call.</div>'}
+    <div class="addrow ghost-add"><input id="co-step-add" placeholder="+ Add a step"></div>
   </div>
-
-  ${s.ai?`<div class="co-ai-wrap">
-    ${s.ai.summary?`<p class="co-sum-text">${esc(s.ai.summary)}</p>`:''}
-    ${s.ai.takeaways.length?`<div class="sect-head" style="margin-top:20px">Takeaways</div><ul class="co-ul">${s.ai.takeaways.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
-    ${s.ai.actions.length?`<div class="sect-head" style="margin-top:20px">Action items</div><div class="jr-list">${s.ai.actions.map((t,i)=>`
-      <div class="big-goal ${s.aiDone[i]?'done':''}" data-ai="${i}">
-        <button class="bg-check" data-ai="${i}">${s.aiDone[i]?'✓':''}</button>
-        <span class="bg-text">${esc(t)}</span>
-      </div>`).join('')}</div>`:''}
-  </div>`:''}
 
   <div class="sect">
     <div class="sect-head">
@@ -2452,7 +2384,7 @@ function renderCoaching(){
             <span class="co-badge ${(x.coach||'').toLowerCase()==='jj'?'jj':''}">${esc(x.coach||'?')}</span>
             <span class="note-main">
               <span class="note-title">${esc(x.title||'Untitled')}</span>
-              <span class="note-snip">${x.date?esc(longDate(x.date)):''}${x.ai?' · summarized':''}</span>
+              <span class="note-snip">${x.date?esc(longDate(x.date)):''}${(x.steps&&x.steps.length)?' · '+x.steps.filter(t=>!t.done).length+' steps open':''}</span>
             </span>
           </button>`).join('')}</div>`:'<div class="empty">None yet.</div>'}
       </div>
@@ -2460,10 +2392,10 @@ function renderCoaching(){
   </div>`;
 
   document.getElementById('co-new').onclick=()=>{
-    const n={id:'s'+Date.now(),date:today(),coach:'Seth',title:'',transcript:'',notes:'',ai:null};
-    C.sessions.push(n);coSel=n.id;coErr='';save();renderCoaching();
+    const n={id:'s'+Date.now(),date:today(),coach:'Seth',title:'',link:'',notes:'',steps:[]};
+    C.sessions.push(n);coSel=n.id;coPull='';save();renderCoaching();
   };
-  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coErr='';coShowKey=false;coTrOpen=null;coPull='';renderCoaching();});
+  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';renderCoaching();});
   if(!s)return;
   main.querySelectorAll('.co-pill').forEach(p=>p.onclick=()=>{s.coach=p.dataset.coach;save();renderCoaching();});
   document.getElementById('co-date').onchange=e=>{s.date=e.target.value;save();renderCoaching();};
@@ -2477,28 +2409,23 @@ function renderCoaching(){
   li.oninput=()=>{s.link=li.value.trim();save();};
   li.onblur=()=>renderCoaching();
   document.getElementById('co-pull').onclick=()=>pullFromFathom(s);
-  document.getElementById('co-tr-toggle').onclick=()=>{
-    coTrOpen=coTrOpen===null?!!s.ai:!coTrOpen;renderCoaching();
-  };
-  const tr=document.getElementById('co-transcript');
-  if(tr){
-    autosize(tr);
-    tr.oninput=()=>{s.transcript=tr.value.slice(0,150000);save();autosize(tr);};
-  }
-  const sumBtn=document.getElementById('co-sum');
-  if(sumBtn)sumBtn.onclick=()=>coSummarize(s);
-  main.querySelectorAll('[data-ai]').forEach(el=>el.onclick=()=>{
-    const i=Number(el.dataset.ai);
-    if(!Array.isArray(s.aiDone))s.aiDone=[];
-    s.aiDone[i]=!s.aiDone[i];save();renderCoaching();
+
+  main.querySelectorAll('[data-step-check]').forEach(b=>b.onclick=()=>{
+    const st=s.steps.find(x=>x.id===b.dataset.stepCheck);
+    if(st){st.done=!st.done;save();renderCoaching();}
   });
-  document.getElementById('co-key-btn').onclick=()=>{coShowKey=!coShowKey;renderCoaching();};
-  const ki=document.getElementById('co-key');
-  if(ki){
-    const saveKey=()=>{setClaudeKey(ki.value.trim());coShowKey=false;coErr='';renderCoaching();};
-    document.getElementById('co-key-save').onclick=saveKey;
-    ki.onkeydown=e=>{if(e.key==='Enter')saveKey();};
-  }
+  main.querySelectorAll('[data-step-del]').forEach(b=>b.onclick=()=>{
+    s.steps=s.steps.filter(x=>x.id!==b.dataset.stepDel);save();renderCoaching();
+  });
+  const sa=document.getElementById('co-step-add');
+  sa.onkeydown=e=>{
+    if(e.key==='Enter'){
+      const v=sa.value.trim();if(!v)return;
+      s.steps.push({id:'st'+Date.now(),text:v,done:false});save();renderCoaching();
+      const again=document.getElementById('co-step-add');if(again)again.focus();
+    }
+  };
+
   document.getElementById('co-notes-toggle').onclick=()=>{coNotesOpen=!coNotesOpen;renderCoaching();};
   const no=document.getElementById('co-notes');
   if(no){
