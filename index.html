@@ -2275,7 +2275,7 @@ function renderHabits(){
 
 
 /* COACHING */
-let coSel=null,coNotesOpen=true,coPull='';
+let coSel=null,coNotesOpen=true,coPull='',coCoach='Seth';
 const ZAP_WEBHOOK_URL='https://hooks.zapier.com/hooks/catch/27212587/443o22l/';
 function coData(){
   if(!S.coaching||typeof S.coaching!=='object')S.coaching={sessions:[]};
@@ -2332,7 +2332,6 @@ function coDetailHTML(s){
   <div class="co-header">
     <input id="co-title" class="co-title-big" placeholder="Untitled session" value="${esc(s.title||'')}" spellcheck="false">
     <div class="co-header-meta">
-      ${['Seth','JJ'].map(c=>`<button class="co-pill ${s.coach===c?'on':''}" data-coach="${c}">${c}</button>`).join('')}
       <input type="date" id="co-date" class="co-date-pill" value="${esc(s.date||'')}">
       <span style="flex:1"></span>
       <button class="rm" id="co-del" title="Delete session">×</button>
@@ -2367,24 +2366,29 @@ function coDetailHTML(s){
 }
 function renderCoaching(){
   const C=coData();
-  const list=C.sessions.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(coSel&&!C.sessions.find(x=>x.id===coSel))coSel=null;
+  const list=C.sessions.filter(x=>(x.coach||'Seth')===coCoach).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(coSel&&!list.find(x=>x.id===coSel))coSel=null;
   if(!coSel&&list.length)coSel=list[0].id;
-  const s=C.sessions.find(x=>x.id===coSel);
+  const s=list.find(x=>x.id===coSel);
   main.innerHTML=`<div class="view">
-    <div class="head"><div><h2 class="sec">Coaching</h2></div>
+    <div class="head">
+      <div style="display:flex;align-items:center;gap:16px">
+        <h2 class="sec">Coaching</h2>
+        <div class="jr-tabs">
+          ${['Seth','JJ'].map(c=>`<button class="jr-tab ${coCoach===c?'active':''}" data-cotab="${c}">${c}</button>`).join('')}
+        </div>
+      </div>
       <div style="display:flex;gap:8px">
-        ${list.length?'<button class="btn" id="co-export">↓ Download notes</button>':''}
+        ${list.length?`<button class="btn" id="co-export">↓ ${esc(coCoach)} notes</button>`:''}
         <button class="btn solid" id="co-new">+ New session</button>
       </div>
     </div>
     <div class="grid g23">
-      <div>${s?coDetailHTML(s):'<div class="card"><div class="empty">No sessions yet.</div></div>'}</div>
+      <div>${s?coDetailHTML(s):`<div class="card"><div class="empty">No ${esc(coCoach)} sessions yet.</div></div>`}</div>
       <div class="card co-list-card">
-        <h3>Sessions</h3>
+        <h3>${esc(coCoach)} sessions</h3>
         ${list.length?`<div class="note-list">${list.map(x=>`
           <button class="note-row ${x.id===coSel?'co-active':''}" data-sid="${x.id}">
-            <span class="co-badge ${(x.coach||'').toLowerCase()==='jj'?'jj':''}">${esc(x.coach||'?')}</span>
             <span class="note-main">
               <span class="note-title">${esc(x.title||'Untitled')}</span>
               <span class="note-snip">${x.date?esc(longDate(x.date)):''}${(x.steps&&x.steps.length)?' · '+x.steps.filter(t=>!t.done).length+' steps open':''}</span>
@@ -2394,15 +2398,15 @@ function renderCoaching(){
     </div>
   </div>`;
 
+  main.querySelectorAll('[data-cotab]').forEach(b=>b.onclick=()=>{coCoach=b.dataset.cotab;coSel=null;coPull='';renderCoaching();});
   document.getElementById('co-new').onclick=()=>{
-    const n={id:'s'+Date.now(),date:today(),coach:'Seth',title:'',link:'',notes:'',steps:[]};
+    const n={id:'s'+Date.now(),date:today(),coach:coCoach,title:'',link:'',notes:'',steps:[]};
     C.sessions.push(n);coSel=n.id;coPull='';save();renderCoaching();
   };
   const ex=document.getElementById('co-export');
-  if(ex)ex.onclick=exportCoaching;
+  if(ex)ex.onclick=()=>exportCoaching(coCoach);
   main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';renderCoaching();});
   if(!s)return;
-  main.querySelectorAll('.co-pill').forEach(p=>p.onclick=()=>{s.coach=p.dataset.coach;save();renderCoaching();});
   document.getElementById('co-date').onchange=e=>{s.date=e.target.value;save();renderCoaching();};
   const ti=document.getElementById('co-title');ti.oninput=()=>{s.title=ti.value;save();};
   ti.onblur=()=>renderCoaching();
@@ -2439,32 +2443,53 @@ function renderCoaching(){
   }
 }
 
-function exportCoaching(){
+function coNotesDocHtml(txt){
+  return txt.split(/\n/).map(l=>{
+    const t=l.trim();
+    if(!t)return '';
+    if(/^[-•*]\s+/.test(t))return `<p class="bl">•&nbsp;&nbsp;${esc(t.replace(/^[-•*]\s+/,''))}</p>`;
+    if(t.length<70&&/[:：]$/.test(t))return `<p class="nh">${esc(t)}</p>`;
+    return `<p>${esc(t)}</p>`;
+  }).join('');
+}
+function exportCoaching(coach){
   const C=coData();
-  const list=C.sessions.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const list=C.sessions.filter(x=>(x.coach||'Seth')===coach).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  if(!list.length)return;
+  const openSteps=list.reduce((n,s)=>n+((s.steps||[]).filter(x=>!x.done).length),0);
   const html=`<html><head><meta charset="utf-8"><title>Coaching Notes</title>
 <style>
-  body{font-family:Georgia,'Times New Roman',serif;max-width:680px;margin:48px auto;line-height:1.6;color:#141414;padding:0 20px}
-  h1{font-size:26px;margin:0 0 4px}
-  h2{font-size:19px;margin:38px 0 2px;border-top:1px solid #ddd;padding-top:26px}
-  h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#888;margin:18px 0 6px}
-  .meta{color:#888;font-size:13px;margin:0 0 8px}
-  ul{margin:0;padding-left:22px}
-  li{margin:3px 0}
-  li.done{color:#999;text-decoration:line-through}
-  pre{white-space:pre-wrap;font-family:inherit;font-size:15px;margin:0}
+  body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:660px;margin:44px auto;color:#1a1a1a;line-height:1.55;font-size:14px;padding:0 20px}
+  .brand{font-size:11px;letter-spacing:4px;color:#ff7a47;font-weight:bold;text-transform:uppercase}
+  h1{font-size:34px;margin:6px 0 4px;letter-spacing:-1px}
+  .statline{color:#555;font-size:13px;border-top:2px solid #1a1a1a;border-bottom:1px solid #ddd;padding:10px 2px;margin:20px 0 8px}
+  h2{font-size:21px;margin:0 0 1px;letter-spacing:-0.4px}
+  .smeta{font-size:11px;color:#999;letter-spacing:2px;text-transform:uppercase;margin:0 0 16px}
+  .smeta b{color:#ff7a47}
+  .smeta b.jj{color:#0d9488}
+  h3{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:#b0b0b0;margin:20px 0 8px;font-weight:bold}
+  .step{margin:6px 0}
+  .step .bx{color:#ff7a47;font-weight:bold}
+  .step.done{color:#b3b3b3;text-decoration:line-through}
+  .step.done .bx{color:#b3b3b3}
+  p{margin:7px 0}
+  .bl{margin:3px 0 3px 14px}
+  .nh{margin:16px 0 4px;font-weight:bold}
+  .hr{border:none;border-top:1px solid #e8e8e8;margin:40px 0 36px}
 </style></head><body>
-<h1>Coaching Notes</h1>
-<p class="meta">Exported ${longDate(today())} · ${list.length} session${list.length===1?'':'s'}</p>
-${list.map(s=>`<h2>${esc(s.title||'Untitled session')}</h2>
-<p class="meta">${esc(s.coach||'')}${s.date?' · '+longDate(s.date):''}</p>
-${(s.steps&&s.steps.length)?`<h3>Action steps</h3><ul>${s.steps.map(st=>`<li class="${st.done?'done':''}">${esc(st.text)}</li>`).join('')}</ul>`:''}
-${(s.notes||'').trim()?`<h3>Notes</h3><pre>${esc(s.notes)}</pre>`:''}`).join('')}
+<div class="brand">MO OS</div>
+<h1>Coaching with ${esc(coach)}</h1>
+<div class="statline">${list.length} session${list.length===1?'':'s'} &nbsp;·&nbsp; ${openSteps} action step${openSteps===1?'':'s'} open &nbsp;·&nbsp; exported ${longDate(today())}</div>
+${list.map((s,i)=>`${i?'<hr class="hr">':'<div style="margin-top:34px"></div>'}
+<h2>${esc(s.title||'Untitled session')}</h2>
+<div class="smeta"><b class="${coach.toLowerCase()==='jj'?'jj':''}">${esc(coach)}</b>${s.date?' &nbsp;·&nbsp; '+longDate(s.date):''}</div>
+${(s.steps&&s.steps.length)?`<h3>Action steps</h3>${s.steps.map(st=>`<p class="step ${st.done?'done':''}"><span class="bx">${st.done?'☑':'☐'}</span>&nbsp; ${esc(st.text)}</p>`).join('')}`:''}
+${(s.notes||'').trim()?`<h3>Notes</h3>${coNotesDocHtml(s.notes)}`:''}`).join('')}
 </body></html>`;
   const blob=new Blob(['﻿'+html],{type:'application/msword'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='coaching-notes-'+today()+'.doc';
+  a.download='coaching-'+coach.toLowerCase()+'-'+today()+'.doc';
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),5000);
 }
