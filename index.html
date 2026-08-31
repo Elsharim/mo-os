@@ -779,6 +779,12 @@
   .co-date-pill:hover{border-color:var(--border-2)}
   .co-ai-wrap{background:var(--card);border:1px solid rgba(255,122,71,.22);border-radius:var(--r);padding:20px;margin-bottom:26px;box-shadow:var(--shadow)}
   .co-ai-wrap .sect-head{margin-bottom:10px;padding:0}
+  .co-link-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding:0 2px;flex-wrap:wrap}
+  .co-link-in{flex:1;min-width:180px;max-width:420px;background:none;border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:12px;padding:7px 14px}
+  .co-link-in:focus{outline:none;border-color:var(--border-2);color:var(--text)}
+  .co-link-in::placeholder{color:var(--faint)}
+  .co-pull-status{font-size:12px;color:var(--muted)}
+  .co-pull-status.ok{color:var(--good)}
   .co-list-card{background:var(--card);border-radius:var(--r)}
 
   /* ===== VISION MODE ===== */
@@ -2269,7 +2275,36 @@ function renderHabits(){
 
 /* COACHING */
 const CLAUDE_KEY='mo-os:claude-key';
-let coSel=null,coBusy=false,coErr='',coShowKey=false,coTrOpen=null,coNotesOpen=true;
+let coSel=null,coBusy=false,coErr='',coShowKey=false,coTrOpen=null,coNotesOpen=true,coPull='';
+const ZAP_WEBHOOK_URL='https://hooks.zapier.com/hooks/catch/27212587/443o22l/';
+async function pullFromFathom(s){
+  if(!(s.link||'').trim()){coPull='Add the Fathom link first.';renderCoaching();return;}
+  coPull='Sending to Zapier…';renderCoaching();
+  try{
+    await fetch(ZAP_WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({sessionId:s.id,url:s.link})});
+  }catch(e){coPull='Could not reach Zapier.';renderCoaching();return;}
+  coPull='Processing… usually 20 to 40s';renderCoaching();
+  const db=await fbInit();
+  const start=Date.now();
+  const poll=setInterval(async()=>{
+    if(Date.now()-start>120000){clearInterval(poll);coPull='Timed out. Check the Zap in Zapier.';renderCoaching();return;}
+    try{
+      const doc=await db.collection('coaching_results').doc(s.id).get();
+      if(doc.exists&&doc.data().status==='ready'){
+        clearInterval(poll);
+        const d=doc.data();
+        if(d.notes)s.notes=s.notes?s.notes+'\n\n'+d.notes:d.notes;
+        const acts=(d.actions||[]).map(String);
+        if(acts.length){
+          if(!s.ai)s.ai={summary:'',takeaways:[],actions:[]};
+          s.ai.actions=[...(s.ai.actions||[]),...acts];
+        }
+        save();coPull='Done. Notes added.';renderCoaching();
+        db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
+      }
+    }catch(e){}
+  },4000);
+}
 function claudeKey(){try{return localStorage.getItem(CLAUDE_KEY)||'';}catch(e){return'';}}
 function setClaudeKey(v){try{if(v)localStorage.setItem(CLAUDE_KEY,v);else localStorage.removeItem(CLAUDE_KEY);}catch(e){}}
 function coData(){
@@ -2356,6 +2391,12 @@ function coDetailHTML(s){
       <span style="flex:1"></span>
       <button class="rm" id="co-del" title="Delete session">×</button>
     </div>
+    <div class="co-link-row">
+      <input id="co-link" class="co-link-in" placeholder="Fathom link" value="${esc(s.link||'')}" autocomplete="off">
+      <button class="btn btn-sm" id="co-pull" ${coPull&&coPull.includes('…')?'disabled':''}>Pull notes</button>
+      ${s.link?`<a class="btn btn-sm" href="${esc(s.link)}" target="_blank" rel="noopener" title="Open recording">↗</a>`:''}
+      ${coPull?`<span class="co-pull-status ${coPull.startsWith('Done')?'ok':''}">${esc(coPull)}</span>`:''}
+    </div>
   </div>
 
   <div class="sect">
@@ -2375,7 +2416,7 @@ function coDetailHTML(s){
   </div>
 
   ${s.ai?`<div class="co-ai-wrap">
-    <p class="co-sum-text">${esc(s.ai.summary)}</p>
+    ${s.ai.summary?`<p class="co-sum-text">${esc(s.ai.summary)}</p>`:''}
     ${s.ai.takeaways.length?`<div class="sect-head" style="margin-top:20px">Takeaways</div><ul class="co-ul">${s.ai.takeaways.map(t=>`<li>${esc(t)}</li>`).join('')}</ul>`:''}
     ${s.ai.actions.length?`<div class="sect-head" style="margin-top:20px">Action items</div><div class="jr-list">${s.ai.actions.map((t,i)=>`
       <div class="big-goal ${s.aiDone[i]?'done':''}" data-ai="${i}">
@@ -2422,7 +2463,7 @@ function renderCoaching(){
     const n={id:'s'+Date.now(),date:today(),coach:'Seth',title:'',transcript:'',notes:'',ai:null};
     C.sessions.push(n);coSel=n.id;coErr='';save();renderCoaching();
   };
-  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coErr='';coShowKey=false;coTrOpen=null;renderCoaching();});
+  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coErr='';coShowKey=false;coTrOpen=null;coPull='';renderCoaching();});
   if(!s)return;
   main.querySelectorAll('.co-pill').forEach(p=>p.onclick=()=>{s.coach=p.dataset.coach;save();renderCoaching();});
   document.getElementById('co-date').onchange=e=>{s.date=e.target.value;save();renderCoaching();};
@@ -2432,6 +2473,10 @@ function renderCoaching(){
     if(!confirm('Delete this session?'))return;
     C.sessions=C.sessions.filter(x=>x.id!==s.id);coSel=null;save();renderCoaching();
   };
+  const li=document.getElementById('co-link');
+  li.oninput=()=>{s.link=li.value.trim();save();};
+  li.onblur=()=>renderCoaching();
+  document.getElementById('co-pull').onclick=()=>pullFromFathom(s);
   document.getElementById('co-tr-toggle').onclick=()=>{
     coTrOpen=coTrOpen===null?!!s.ai:!coTrOpen;renderCoaching();
   };
