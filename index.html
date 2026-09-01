@@ -587,13 +587,18 @@
   .goal-chip span{font-size:11px;color:var(--muted);letter-spacing:.02em;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   /* ===== MORNING GOAL ===== */
-  .mo-goal{background:radial-gradient(120% 120% at 0 0,rgba(255,122,71,.10),transparent 55%),linear-gradient(150deg,var(--card-hi),var(--card));border-color:var(--border-2)}
-  .mo-goal-row{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
-  .mo-goal-cap{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
-  .mo-goal-big{font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:4px;line-height:1.3}
-  .mo-goal-cd{text-align:center;flex:0 0 auto;padding:8px 20px;border-radius:12px;background:rgba(255,122,71,.10);border:1px solid rgba(255,122,71,.3)}
-  .mo-goal-cd b{display:block;font-family:var(--mono);font-size:32px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.1}
-  .mo-goal-cd span{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .mo-goal{background:radial-gradient(120% 140% at 0 0,rgba(255,122,71,.12),transparent 58%),radial-gradient(80% 100% at 100% 100%,rgba(255,176,46,.06),transparent 60%),var(--card);border-color:var(--border-2);padding:26px 28px}
+  .mo-goal-row{display:flex;align-items:center;justify-content:space-between;gap:28px;flex-wrap:wrap}
+  .mo-goal-cap{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .mo-goal-big{font-family:var(--display);font-size:clamp(22px,3vw,30px);font-weight:700;letter-spacing:-.02em;margin-top:6px;line-height:1.25;
+    background:linear-gradient(95deg,var(--text),rgba(255,176,46,.85));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .mo-goal-cd{text-align:center;flex:0 0 auto;min-width:132px;padding:14px 22px;border-radius:14px;background:rgba(255,122,71,.09);border:1px solid rgba(255,122,71,.28)}
+  .mo-goal-cd b{display:block;font-family:var(--mono);font-size:38px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent-2));-webkit-background-clip:text;background-clip:text;color:transparent;line-height:1.05}
+  .mo-goal-cd span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .mo-goal-track{margin-top:10px;height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+  .mo-goal-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .6s ease}
+  .gl-label-in{background:none;border:none;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;font-family:inherit;padding:0;min-width:200px}
+  .gl-label-in:focus{outline:none;color:var(--text)}
   .mo-goal-edit{display:flex;flex-direction:column;gap:12px}
   .mo-goal-date{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
   .mo-goal-date input{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;color-scheme:dark}
@@ -1734,6 +1739,13 @@ const dow=k=>{const [y,m,d]=k.split('-').map(Number);return ['Su','Mo','Tu','We'
 const shortDate=k=>{const p=k.split('-');return Number(p[1])+'/'+Number(p[2]);};
 function longDate(k){const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});}
 function daysUntil(s){const [y,m,d]=s.split('-').map(Number);const t=new Date(y,m-1,d),n=new Date();n.setHours(0,0,0,0);return Math.round((t-n)/864e5);}
+function goalProgress(){
+  const g=S&&S.goals;if(!g||!g.targetDate||!g.setAt)return null;
+  const total=daysUntil(g.targetDate)-daysUntil(g.setAt);
+  if(total<=0)return null;
+  const done=-daysUntil(g.setAt);
+  return Math.max(0,Math.min(100,Math.round(done/total*100)));
+}
 function fmt(n){return Number(n||0).toLocaleString();}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function clip(s,n){s=(s||'').trim();return s.length>n?s.slice(0,n)+'…':s;}
@@ -1807,6 +1819,8 @@ async function load(){
   if(!S.journal||typeof S.journal!=='object')S.journal={};
   if(!Array.isArray(S.notes))S.notes=[];
   if(!Array.isArray(S.goalLog))S.goalLog=[];
+  if(!S.goals||typeof S.goals!=='object')S.goals={ninetyDay:"",targetDate:"",buyBox:"",big:[]};
+  if(!S.goals.label)S.goals.label='90-day goal';
 }
 
 function dayRatio(k){const r=S.days[k];if(!r||!r.disc||!S.disciplines.length)return 0;return S.disciplines.filter(d=>r.disc[d.id]).length/S.disciplines.length;}
@@ -2543,7 +2557,7 @@ function renderJournal(){
         </div>`;
   const goalsPane=`
         <div class="card mo-goal" style="margin-bottom:16px">
-          <h3>The 90-day goal <span class="saved" id="gl-saved">Saved</span></h3>
+          <h3><input id="gl-label" class="gl-label-in" value="${esc(g.label||'')}" placeholder="Goal name" spellcheck="false"> <span class="saved" id="gl-saved">Saved</span></h3>
           <div class="mo-goal-edit">
             <textarea id="gl-90" class="write" rows="2" placeholder="What's the goal?">${esc(g.ninetyDay||'')}</textarea>
             <div class="gl-meta-row">
@@ -2630,8 +2644,10 @@ function renderJournal(){
   // goals tab
   const g90=document.getElementById('gl-90');
   if(g90){autosize(g90);g90.oninput=()=>{g.ninetyDay=g90.value;save();flash('gl-saved');autosize(g90);topbar();};}
+  const glbl=document.getElementById('gl-label');
+  if(glbl)glbl.oninput=()=>{g.label=glbl.value;save();flash('gl-saved');};
   const gdate=document.getElementById('gl-date');
-  if(gdate)gdate.onchange=()=>{g.targetDate=gdate.value;save();flash('gl-saved');renderJournal();topbar();};
+  if(gdate)gdate.onchange=()=>{g.targetDate=gdate.value;g.setAt=today();save();flash('gl-saved');renderJournal();topbar();};
   const bigAdd=document.getElementById('gl-big-add'),bigBtn=document.getElementById('gl-big-btn');
   if(bigAdd&&bigBtn){
     if(!Array.isArray(g.big))g.big=[];
@@ -2903,17 +2919,21 @@ function renderMorning(){
 
     <div class="card mo-goal" style="margin-bottom:16px">
       ${moEdit?`
-        <h3>90-day goal <span class="h3sub">what everything points at</span></h3>
+        <h3>Goal</h3>
         <div class="mo-goal-edit">
+          <input id="mo-glabel" class="inp" placeholder="Name it (90-day goal, Q4, whatever)" value="${esc(g.label||'')}" style="max-width:280px">
           <textarea id="mo-g90" class="write" rows="2" placeholder="What's the goal?">${esc(g.ninetyDay||'')}</textarea>
           <label class="mo-goal-date">Target date <input type="date" id="mo-gdate" value="${esc(g.targetDate||'')}"></label>
         </div>`
       :(g.ninetyDay?`
         <div class="mo-goal-row">
-          <div class="mo-goal-text"><span class="mo-goal-cap">90-day goal</span><div class="mo-goal-big">${esc(g.ninetyDay)}</div></div>
-          ${cd!==null?`<div class="mo-goal-cd"><b>${cd>=0?cd:0}</b><span>${cd>=0?'days left':'past target'}</span></div>`:''}
+          <div class="mo-goal-text"><span class="mo-goal-cap">${esc(g.label||'Goal')}</span><div class="mo-goal-big">${esc(g.ninetyDay)}</div></div>
+          ${cd!==null?`<div class="mo-goal-cd">
+            <b>${cd>=0?cd:0}</b><span>${cd>=0?'days left':'past target'}</span>
+            ${goalProgress()!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${goalProgress()}%"></div></div>`:''}
+          </div>`:''}
         </div>`
-      :`<h3>90-day goal</h3><div class="empty">Turn on Edit to set it.</div>`)}
+      :`<h3>Goal</h3><div class="empty">Turn on Edit to set it.</div>`)}
     </div>
 
     <div class="card mo-vision" style="margin-bottom:16px">
@@ -2948,8 +2968,10 @@ function renderMorning(){
   document.getElementById('mo-start').onclick=()=>{currentView='tasks';setActiveNav('tasks');render();};
   const g90=document.getElementById('mo-g90');
   if(g90){autosize(g90);g90.oninput=()=>{g.ninetyDay=g90.value;save();autosize(g90);topbar();};}
+  const glabel=document.getElementById('mo-glabel');
+  if(glabel)glabel.oninput=()=>{g.label=glabel.value;save();};
   const gdate=document.getElementById('mo-gdate');
-  if(gdate)gdate.onchange=()=>{g.targetDate=gdate.value;save();topbar();};
+  if(gdate)gdate.onchange=()=>{g.targetDate=gdate.value;g.setAt=today();save();topbar();};
 
   if(moEdit){
     const vadd=document.getElementById('mo-vadd');
