@@ -2509,7 +2509,50 @@ function coData(){
     });
     S.coaching.v3=true;save();
   }
+  if(!S.coaching.v4){
+    S.coaching.sessions.forEach((s,si)=>{
+      if(!Array.isArray(s.takeaways))s.takeaways=[];
+      if(!s.takeaways.length&&(s.notes||'').trim()){
+        coExtractTakeaways(s.notes).forEach((t,i)=>s.takeaways.push({id:'tk'+Date.now()+si+'_'+i,text:t}));
+      }
+    });
+    S.coaching.v4=true;save();
+  }
   return S.coaching;
+}
+function coExtractTakeaways(txt){
+  const out=[];
+  const lines=(txt||'').split(/\n/);
+  // the high-level theme block comes first
+  const hi=lines.findIndex(l=>/high-?level theme/i.test(l));
+  if(hi>=0){
+    let theme='';
+    for(let i=hi+1;i<lines.length;i++){
+      const t=lines[i].trim();
+      if(!t){if(theme)break;continue;}
+      if(/^\d+\./.test(t)||/^🔹/.test(t))break;
+      theme+=(theme?' ':'')+t;
+    }
+    if(theme)out.push(theme);
+  }
+  // 📌 pinned lines
+  lines.forEach(l=>{const t=l.trim();if(/^📌/.test(t)){const v=t.replace(/^📌\s*/,'').trim();if(v)out.push(v);}});
+  // explicit takeaways section bullets
+  const ki=lines.findIndex(l=>/key ?take ?aways|key points|main take ?aways/i.test(l));
+  if(ki>=0){
+    for(let i=ki+1;i<lines.length;i++){
+      const t=lines[i].trim();
+      if(!t)continue;
+      if(/^[-•*]\s+/.test(t))out.push(t.replace(/^[-•*]\s+/,'').trim());
+      else break;
+    }
+  }
+  // fallback: numbered section titles
+  if(!out.length){
+    lines.forEach(l=>{const m=l.trim().match(/^\d+\.\s+(.{3,80})$/);if(m)out.push(m[1].trim());});
+  }
+  const seen=new Set();
+  return out.filter(t=>{const k=t.toLowerCase();if(seen.has(k)||t.length<8)return false;seen.add(k);return true;}).slice(0,8);
 }
 async function pullFromFathom(s){
   if(!(s.link||'').trim()){coPull='Add the Fathom link first.';renderCoaching();return;}
@@ -2531,7 +2574,8 @@ async function pullFromFathom(s){
         if(!Array.isArray(s.steps))s.steps=[];
         if(!Array.isArray(s.takeaways))s.takeaways=[];
         (d.actions||[]).forEach((t,i)=>{s.steps.push({id:'st'+Date.now()+i,text:String(t),done:false});});
-        (d.takeaways||[]).forEach((t,i)=>{s.takeaways.push({id:'tk'+Date.now()+i,text:String(t)});});
+        const tks=(Array.isArray(d.takeaways)&&d.takeaways.length)?d.takeaways.map(String):coExtractTakeaways(d.notes||'');
+        tks.forEach((t,i)=>{if(!s.takeaways.some(x=>x.text.toLowerCase()===t.toLowerCase()))s.takeaways.push({id:'tk'+Date.now()+i,text:t});});
         save();coPull='Done. Notes added.';renderCoaching();
         db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
       }
