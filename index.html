@@ -2599,7 +2599,7 @@ async function pullFromFathom(s){
     // a fresh pull replaces the previous pull, but never wipes with nothing
     if(notes){
       s.notes=notes;
-      const tks=coExtractTakeaways(notes);
+      const tks=(Array.isArray(d.takeaways)&&d.takeaways.length)?d.takeaways.map(String):coExtractTakeaways(notes);
       const seen=new Set();
       s.takeaways=tks.filter(t=>{const k=t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map((t,i)=>({id:'tk'+Date.now()+i,text:t}));
     }

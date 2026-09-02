@@ -31,17 +31,40 @@ export default async function handler(req, res) {
 
     const [a, n] = await Promise.all([part('aiNotes'), part('noteClips')]);
 
-    const note = a.aiNotes && (a.aiNotes.defaultNote || (a.aiNotes.notes || [])[0]);
-    if (note && note.isGenerating) {
-      res.status(200).json({ pending: true, error: 'Fathom is still generating the summary. Try again in a minute.' });
-      return;
-    }
-    const raw = (note && note.noteText) || '';
-    const notes = raw
+    const clean = t => String(t || '')
       .replace(/<a [^>]*>/g, '')
       .replace(/<\/a>/g, '')
       .replace(/\*\*/g, '')
       .trim();
+
+    const allNotes = ((a.aiNotes && a.aiNotes.notes) || []).filter(n => n && n.noteText);
+    const generating = ((a.aiNotes && a.aiNotes.notes) || []).some(n => n && n.isGenerating);
+    if (!allNotes.length && generating) {
+      res.status(200).json({ pending: true, error: 'Fathom is still generating the summary. Try again in a minute.' });
+      return;
+    }
+    // combine every generated note: Enhanced summary first, deeper templates after
+    const ordered = allNotes.slice().sort((x, y) => {
+      const en = n => (n.aiTemplate && n.aiTemplate.name === 'Enhanced') ? 0 : 1;
+      return en(x) - en(y) || (y.noteText || '').length - (x.noteText || '').length;
+    });
+    const notes = ordered.map(n => {
+      const name = (n.aiTemplate && n.aiTemplate.name) || '';
+      const body = clean(n.noteText);
+      const titled = /^#/.test(body) ? body : ('## ' + name + '\n\n' + body);
+      return titled;
+    }).join('\n\n\n').trim();
+
+    // takeaways come from whichever note has a Key Takeaways section
+    let takeaways = [];
+    for (const n of allNotes) {
+      const txt = clean(n.noteText);
+      const m = txt.match(/^#{1,4}\s*key\s*takeaways\s*$([\s\S]*?)(?=^#{1,4}\s|\n*$(?![\s\S]))/im);
+      if (m) {
+        takeaways = m[1].split(/\n/).map(l => l.trim().replace(/^[-•*]\s+/, '')).filter(l => l.length > 8);
+        if (takeaways.length) break;
+      }
+    }
 
     const clips = (n.noteClips && n.noteClips.clips) || [];
     const actions = clips
@@ -52,8 +75,7 @@ export default async function handler(req, res) {
         return who ? t + ' — ' + who : t;
       });
 
-    const title = null;
-    res.status(200).json({ notes, actions, title });
+    res.status(200).json({ notes, actions, takeaways });
   } catch (e) {
     res.status(502).json({ error: String((e && e.message) || e) });
   }
