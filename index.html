@@ -2516,7 +2516,7 @@ function renderHabits(){
 }
 
 /* COACHING */
-let coSel=null,coNotesOpen=true,coNotesEdit=false,coPull='',coCoach='Seth';
+let coSel=null,coNotesOpen=true,coNotesEdit=false,coDeepOpen=false,coPull='',coCoach='Seth';
 const ZAP_WEBHOOK_URL='https://hooks.zapier.com/hooks/catch/27212587/443o22l/';
 function coData(){
   if(!S.coaching||typeof S.coaching!=='object')S.coaching={sessions:[]};
@@ -2609,6 +2609,7 @@ async function pullFromFathom(s,attempt){
       s.takeaways=tks.filter(t=>{const k=t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map((t,i)=>({id:'tk'+Date.now()+i,text:t}));
     }
     if(actions.length)s.steps=actions.map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:false}));
+    if((d.deep||'').trim())s.deep=d.deep.trim();
     save();coPull='Done. Notes updated.';renderCoaching();
   }catch(e){
     coPull='Pull failed: '+((e&&e.message)||'network error');renderCoaching();
@@ -2672,7 +2673,15 @@ function coDetailHTML(s){
         ?`<div class="co-notes-view">${coNotesViewHtml(s.notes)}</div>`
         :'<div class="empty sect-empty">No notes yet.</div>'))
     :''}
-  </div>`;
+  </div>
+
+  ${(s.deep||'').trim()?`<div class="sect">
+    <div class="sect-head">
+      <button class="sect-toggle" id="co-deep-toggle">${coDeepOpen?'▾':'▸'} Deep dive</button>
+      ${!coDeepOpen?'<span>every angle of the call</span>':''}
+    </div>
+    ${coDeepOpen?`<div class="co-notes-view">${coNotesViewHtml(s.deep)}</div>`:''}
+  </div>`:''}`;
 }
 function coNotesViewHtml(txt){
   return txt.split(/\n/).map(l=>{
@@ -2733,7 +2742,7 @@ function renderCoaching(){
   };
   const ex=document.getElementById('co-export');
   if(ex)ex.onclick=()=>exportCoaching(coCoach);
-  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';coNotesEdit=false;renderCoaching();});
+  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';coNotesEdit=false;coDeepOpen=false;renderCoaching();});
   if(!s)return;
   document.getElementById('co-date').onchange=e=>{s.date=e.target.value;save();renderCoaching();};
   const ti=document.getElementById('co-title');ti.oninput=()=>{s.title=ti.value;save();};
@@ -2775,6 +2784,8 @@ function renderCoaching(){
   });
 
   document.getElementById('co-notes-toggle').onclick=()=>{coNotesOpen=!coNotesOpen;renderCoaching();};
+  const dt2=document.getElementById('co-deep-toggle');
+  if(dt2)dt2.onclick=()=>{coDeepOpen=!coDeepOpen;renderCoaching();};
   const neb=document.getElementById('co-notes-editbtn');
   if(neb)neb.onclick=()=>{coNotesEdit=!coNotesEdit;renderCoaching();};
   const no=document.getElementById('co-notes');

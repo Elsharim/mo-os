@@ -71,13 +71,16 @@ export default async function handler(req, res) {
       res.status(200).json({ pending: true, error: generating ? 'Fathom is writing the notes. Pull again in a minute.' : 'No notes on this call yet.' });
       return;
     }
-    // combine every generated note: Enhanced first, then the coaching-relevant templates
-    const RANK = { 23: 0, 49: 1, 46: 2 };
-    const rank = x => (x.aiTemplate && RANK[x.aiTemplate.id] !== undefined) ? RANK[x.aiTemplate.id] : 3;
-    const ordered = allNotes.slice().sort((x, y) => rank(x) - rank(y) || (y.noteText || '').length - (x.noteText || '').length);
-    let combined = ordered.map(n => {
-      const name = (n.aiTemplate && n.aiTemplate.name) || '';
-      const body = clean(n.noteText);
+    // the Enhanced note is the distilled lesson; every other template becomes the deep dive
+    const isEnhanced = x => x.aiTemplate && x.aiTemplate.id === 23;
+    const enhanced = allNotes.find(isEnhanced) || allNotes[0];
+    const RANK = { 49: 0, 46: 1 };
+    const rank = x => (x.aiTemplate && RANK[x.aiTemplate.id] !== undefined) ? RANK[x.aiTemplate.id] : 2;
+    const rest = allNotes.filter(x => x !== enhanced).sort((x, y) => rank(x) - rank(y) || (y.noteText || '').length - (x.noteText || '').length);
+    let combined = clean(enhanced ? enhanced.noteText : '');
+    const deep = rest.map(x => {
+      const name = (x.aiTemplate && x.aiTemplate.name) || '';
+      const body = clean(x.noteText);
       return /^#/.test(body) ? body : ('## ' + name + '\n\n' + body);
     }).join('\n\n\n').trim();
 
@@ -116,7 +119,7 @@ export default async function handler(req, res) {
       });
     const actions = clipActions.length ? clipActions : nextSteps;
 
-    res.status(200).json({ notes, actions, takeaways });
+    res.status(200).json({ notes, deep, actions, takeaways });
   } catch (e) {
     res.status(502).json({ error: String((e && e.message) || e) });
   }
