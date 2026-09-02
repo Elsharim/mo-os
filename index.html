@@ -897,6 +897,26 @@
   .co-link-in::placeholder{color:var(--faint)}
   .co-pull-status{font-size:12px;color:var(--muted)}
   .co-pull-status.ok{color:var(--good)}
+  .co-cardlist{display:flex;flex-direction:column;gap:8px}
+  .co-step{display:flex;align-items:flex-start;gap:13px;padding:12px 15px;background:var(--card);border:1px solid var(--border);border-radius:12px;transition:.13s}
+  .co-step:hover{border-color:var(--border-2)}
+  .co-step.done{opacity:.5}
+  .co-step.done .co-step-text{text-decoration:line-through;color:var(--muted)}
+  .co-step-check{width:21px;height:21px;flex:0 0 21px;border-radius:99px;border:1.5px solid var(--border-2);background:none;color:#08221a;font-size:12px;font-weight:800;display:grid;place-items:center;cursor:pointer;transition:.13s;padding:0;margin-top:1px}
+  .co-step.done .co-step-check{background:var(--good);border-color:var(--good)}
+  .co-step-check:hover{border-color:var(--good)}
+  .co-step-text{flex:1;font-size:13.5px;line-height:1.6}
+  .co-step .rm{opacity:0}
+  .co-step:hover .rm{opacity:1}
+  .co-notes-view{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px 26px;font-size:13.5px;line-height:1.7}
+  .cnv-h{font-family:var(--display);font-size:15.5px;font-weight:700;margin:24px 0 8px;letter-spacing:-.01em}
+  .cnv-h:first-child{margin-top:0}
+  .cnv-sub{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2);margin:16px 0 5px;opacity:.9}
+  .cnv-p{margin:6px 0;color:var(--muted)}
+  .cnv-b{display:flex;gap:11px;margin:5px 0;color:var(--muted);align-items:flex-start}
+  .cnv-dot{width:5px;height:5px;border-radius:99px;background:var(--accent);flex:0 0 auto;margin-top:8px;opacity:.8}
+  .cnv-num{font-family:var(--mono);font-size:12px;color:var(--accent);flex:0 0 auto;margin-top:1px}
+  .cnv-pin{background:var(--accent-soft);border:1px solid rgba(255,122,71,.28);border-radius:11px;padding:11px 15px;margin:12px 0;color:var(--text);font-size:13px;line-height:1.6}
   .co-tk{display:flex;align-items:flex-start;gap:13px;padding:12px 15px;background:var(--card);border:1px solid var(--border);border-radius:12px;transition:.13s}
   .co-tk:hover{border-color:var(--border-2)}
   .co-tk-dot{width:7px;height:7px;border-radius:99px;background:var(--accent-2);box-shadow:0 0 8px rgba(255,176,46,.5);flex:0 0 auto;margin-top:7px}
@@ -2485,7 +2505,7 @@ function renderHabits(){
 }
 
 /* COACHING */
-let coSel=null,coNotesOpen=true,coPull='',coCoach='Seth';
+let coSel=null,coNotesOpen=true,coNotesEdit=false,coPull='',coCoach='Seth';
 const ZAP_WEBHOOK_URL='https://hooks.zapier.com/hooks/catch/27212587/443o22l/';
 function coData(){
   if(!S.coaching||typeof S.coaching!=='object')S.coaching={sessions:[]};
@@ -2604,11 +2624,11 @@ function coDetailHTML(s){
 
   <div class="sect">
     <div class="sect-head">Action steps <span>${s.steps.length?openSteps+' open':''}</span></div>
-    ${s.steps.length?`<div class="jr-list">${s.steps.map(st=>`
-      <div class="big-goal ${st.done?'done':''}" data-step="${st.id}">
-        <button class="bg-check" data-step-check="${st.id}">${st.done?'✓':''}</button>
-        <span class="bg-text">${esc(st.text)}</span>
-        <button class="rm bg-del" data-step-del="${st.id}">×</button>
+    ${s.steps.length?`<div class="co-cardlist">${s.steps.map(st=>`
+      <div class="co-step ${st.done?'done':''}" data-step="${st.id}">
+        <button class="co-step-check" data-step-check="${st.id}">${st.done?'✓':''}</button>
+        <span class="co-step-text">${esc(st.text)}</span>
+        <button class="rm" data-step-del="${st.id}">×</button>
       </div>`).join('')}</div>`
     :'<div class="empty sect-empty">Pull notes fills this from the call.</div>'}
     <div class="addrow ghost-add"><input id="co-step-add" placeholder="+ Add a step"></div>
@@ -2616,7 +2636,7 @@ function coDetailHTML(s){
 
   <div class="sect">
     <div class="sect-head">Key takeaways <span>${s.takeaways.length||''}</span></div>
-    ${s.takeaways.length?`<div class="jr-list">${s.takeaways.map(t=>`
+    ${s.takeaways.length?`<div class="co-cardlist">${s.takeaways.map(t=>`
       <div class="co-tk" data-tkrow="${t.id}">
         <span class="co-tk-dot"></span>
         <span class="co-tk-text">${esc(t.text)}</span>
@@ -2628,10 +2648,34 @@ function coDetailHTML(s){
   <div class="sect">
     <div class="sect-head">
       <button class="sect-toggle" id="co-notes-toggle">${coNotesOpen?'▾':'▸'} Full notes</button>
-      ${coNotesOpen?'<span class="saved" id="co-saved">Saved</span>':`<span>${(s.notes||'').trim()?clip(s.notes.trim().replace(/\s+/g,' '),48):''}</span>`}
+      <span style="flex:1"></span>
+      ${coNotesOpen&&coNotesEdit?'<span class="saved" id="co-saved">Saved</span>':''}
+      ${coNotesOpen?`<button class="btn btn-sm" id="co-notes-editbtn">${coNotesEdit?'Done':'Edit'}</button>`:''}
     </div>
-    ${coNotesOpen?`<textarea id="co-notes" class="jr-surface" placeholder="Write…">${esc(s.notes||'')}</textarea>`:''}
+    ${coNotesOpen?(coNotesEdit
+      ?`<textarea id="co-notes" class="jr-surface">${esc(s.notes||'')}</textarea>`
+      :((s.notes||'').trim()
+        ?`<div class="co-notes-view">${coNotesViewHtml(s.notes)}</div>`
+        :'<div class="empty sect-empty">No notes yet.</div>'))
+    :''}
   </div>`;
+}
+function coNotesViewHtml(txt){
+  return txt.split(/\n/).map(l=>{
+    const t=l.trim();
+    if(!t)return'';
+    if(/^📌/.test(t))return `<div class="cnv-pin">${esc(t.replace(/^📌\s*/,''))}</div>`;
+    if(/^\d+\.\d+/.test(t))return `<div class="cnv-sub">${esc(t)}</div>`;
+    const mNum=t.match(/^(\d+)\.\s+(.*)/);
+    if(mNum){
+      if(t.length<=60)return `<div class="cnv-h">${esc(t)}</div>`;
+      return `<div class="cnv-b"><span class="cnv-num">${mNum[1]}</span><span>${esc(mNum[2])}</span></div>`;
+    }
+    if(/^[-•*]\s+/.test(t))return `<div class="cnv-b"><span class="cnv-dot"></span><span>${esc(t.replace(/^[-•*]\s+/,''))}</span></div>`;
+    if(!/^[a-zA-Z0-9"'(]/.test(t))return `<div class="cnv-h">${esc(t)}</div>`;
+    if(t.length<60&&/[:：]$/.test(t))return `<div class="cnv-sub">${esc(t)}</div>`;
+    return `<p class="cnv-p">${esc(t)}</p>`;
+  }).join('');
 }
 function renderCoaching(){
   const C=coData();
@@ -2674,7 +2718,7 @@ function renderCoaching(){
   };
   const ex=document.getElementById('co-export');
   if(ex)ex.onclick=()=>exportCoaching(coCoach);
-  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';renderCoaching();});
+  main.querySelectorAll('[data-sid]').forEach(b=>b.onclick=()=>{coSel=b.dataset.sid;coPull='';coNotesEdit=false;renderCoaching();});
   if(!s)return;
   document.getElementById('co-date').onchange=e=>{s.date=e.target.value;save();renderCoaching();};
   const ti=document.getElementById('co-title');ti.oninput=()=>{s.title=ti.value;save();};
@@ -2716,6 +2760,8 @@ function renderCoaching(){
   });
 
   document.getElementById('co-notes-toggle').onclick=()=>{coNotesOpen=!coNotesOpen;renderCoaching();};
+  const neb=document.getElementById('co-notes-editbtn');
+  if(neb)neb.onclick=()=>{coNotesEdit=!coNotesEdit;renderCoaching();};
   const no=document.getElementById('co-notes');
   if(no){
     autosize(no);
