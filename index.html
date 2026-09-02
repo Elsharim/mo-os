@@ -2594,22 +2594,34 @@ async function pullFromFathom(s){
   coPull='Processing… usually 20 to 40s';renderCoaching();
   const db=await fbInit();
   const start=Date.now();
+  let readyAt=null;
   const poll=setInterval(async()=>{
-    if(Date.now()-start>120000){clearInterval(poll);coPull='Timed out. Check the Zap in Zapier.';renderCoaching();return;}
+    if(Date.now()-start>180000){clearInterval(poll);coPull='Timed out. Check the Zap in Zapier.';renderCoaching();return;}
     try{
       const doc=await db.collection('coaching_results').doc(s.id).get();
-      if(doc.exists&&doc.data().status==='ready'){
-        clearInterval(poll);
-        const d=doc.data();
-        // a fresh pull replaces the previous pull
-        s.notes=d.notes||'';
-        s.steps=(d.actions||[]).map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:false}));
-        const tks=(Array.isArray(d.takeaways)&&d.takeaways.length)?d.takeaways.map(String):coExtractTakeaways(d.notes||'');
+      if(!doc.exists||doc.data().status!=='ready')return;
+      const d=doc.data();
+      if(!readyAt)readyAt=Date.now();
+      const notes=(d.notes&&String(d.notes).trim())?String(d.notes):'';
+      const actions=Array.isArray(d.actions)?d.actions.filter(x=>String(x).trim()):[];
+      // wait for the full result: the Zap can set status before all fields land
+      if((!notes||!actions.length)&&Date.now()-readyAt<30000)return;
+      clearInterval(poll);
+      // a fresh pull replaces the previous pull, but never wipes with nothing
+      if(notes){
+        s.notes=notes;
+        const tks=(Array.isArray(d.takeaways)&&d.takeaways.length)?d.takeaways.map(String):coExtractTakeaways(notes);
         const seen=new Set();
         s.takeaways=tks.filter(t=>{const k=t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map((t,i)=>({id:'tk'+Date.now()+i,text:t}));
-        save();coPull='Done. Notes updated.';renderCoaching();
-        db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
       }
+      if(actions.length)s.steps=actions.map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:false}));
+      if(notes||actions.length){
+        save();coPull='Done. Notes updated.';
+        db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
+      }else{
+        coPull='The Zap sent an empty result. Try again.';
+      }
+      renderCoaching();
     }catch(e){}
   },4000);
 }
