@@ -803,6 +803,9 @@
   @keyframes haloBreathe{from{opacity:.5;transform:translate(-50%,-50%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1.05)}}
   .wr-chrome{position:fixed;top:18px;right:22px;z-index:3;display:flex;align-items:center;gap:14px}
   .wr-count{font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.4)}
+  .wr-icon{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75);width:36px;height:36px;border-radius:99px;font-size:16px;cursor:pointer;transition:.14s;backdrop-filter:blur(8px);display:grid;place-items:center}
+  .wr-icon:hover{color:#fff;border-color:rgba(255,255,255,.4)}
+  .wr-x{font-size:22px}
   .wr-stage{position:relative;display:flex;flex-direction:column;align-items:center}
   .wr-label{margin-top:34px;font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:rgba(255,122,71,.9);font-weight:700;
     padding:7px 18px;border:1px solid rgba(255,122,71,.35);border-radius:99px;background:rgba(255,122,71,.07);
@@ -3023,7 +3026,10 @@ function renderJournal(){
       <span class="jwc-hint">${activeK?(words?words+' words · keep going →':'start writing →'):'open the page →'}</span>
     </button>
     <div class="sect" style="margin-top:26px">
-      <div class="sect-head">Past entries <span>${past.length||''}</span></div>
+      <div class="sect-head">Past entries <span>${past.length||''}</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" id="jr-dl">↓ Download all</button>
+      </div>
       ${past.length?(()=>{
         const groups=[];let cur=null;
         past.forEach(k=>{
@@ -3094,6 +3100,7 @@ function renderJournal(){
     <div class="sect">
       <div class="sect-head">Notes <span>${notesData().length||''}</span>
         <span style="flex:1"></span>
+        <button class="btn btn-sm" id="notes-dl">↓ Download</button>
         <button class="btn solid btn-sm" id="note-new">+ New</button>
       </div>
       <input id="note-search" class="inp note-search" placeholder="Search notes" value="${esc(noteQuery)}" autocomplete="off">
@@ -3125,6 +3132,10 @@ function renderJournal(){
   const cta=document.getElementById('jr-open-writer');
   if(cta)cta.onclick=()=>openWriter(activeK||jrNewKey());
   main.querySelectorAll('[data-open-day]').forEach(b=>b.onclick=()=>openWriter(b.dataset.openDay));
+  const jd=document.getElementById('jr-dl');
+  if(jd)jd.onclick=exportJournals;
+  const nd=document.getElementById('notes-dl');
+  if(nd)nd.onclick=exportNotes;
 
   // goals tab
   const glNew=document.getElementById('gl-new');
@@ -3186,6 +3197,53 @@ function renderJournal(){
   });
 }
 
+/* EXPORTS */
+function fullDate(k){const [y,m,d]=jrBase(k).split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'});}
+function docShell(title,body){return `<html><head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>body{font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;max-width:660px;margin:44px auto;color:#1a1a1a;line-height:1.6;font-size:14px;padding:0 20px}
+.brand{font-size:11px;letter-spacing:4px;color:#ff7a47;font-weight:bold;text-transform:uppercase}
+h1{font-size:32px;margin:6px 0 4px;letter-spacing:-1px}
+.meta{color:#888;font-size:12px;letter-spacing:1px;text-transform:uppercase;margin:0 0 14px}
+h2{font-size:20px;margin:0 0 2px}
+.hr{border:none;border-top:1px solid #e8e8e8;margin:36px 0}
+pre{white-space:pre-wrap;font-family:inherit;font-size:14.5px;margin:0;line-height:1.7}</style></head><body>${body}</body></html>`;}
+function dlDoc(name,html){
+  const blob=new Blob(['﻿'+html],{type:'application/msword'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+}
+function slug(s){return String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,30);}
+function jrEntryDocHtml(k){
+  const e=jrData()[k];
+  return `<h2>${esc(e.title||'Untitled')}</h2><div class="meta">${fullDate(k)}</div><pre>${esc((e.text||'').trim())}</pre>`;
+}
+function jrAllKeys(){return Object.keys(jrData()).filter(k=>((jrData()[k]||{}).text||'').trim()).sort();}
+function exportJournals(){
+  const keys=jrAllKeys();if(!keys.length)return;
+  const body=`<div class="brand">MO OS</div><h1>Journal</h1><div class="meta">${keys.length} entries · exported ${fullDate(today())}</div>`+
+    keys.map((k,i)=>(i?'<hr class="hr">':'<div style="margin-top:28px"></div>')+jrEntryDocHtml(k)).join('');
+  dlDoc('journal-'+today()+'.doc',docShell('Journal',body));
+}
+function exportJournalOne(k){
+  const e=jrData()[k];if(!e)return;
+  dlDoc('journal-'+jrBase(k)+(e.title?'-'+slug(e.title):'')+'.doc',
+    docShell(e.title||'Journal entry','<div class="brand">MO OS</div><div style="margin-top:22px"></div>'+jrEntryDocHtml(k)));
+}
+function noteDocHtml(n){
+  return `<h2>${esc(n.title||'Untitled')}</h2><div class="meta">${new Date(n.updated||n.created||Date.now()).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'})}</div><pre>${esc((n.body||'').trim())}</pre>`;
+}
+function exportNotes(){
+  const ns=notesData().filter(n=>(n.title||'').trim()||(n.body||'').trim());if(!ns.length)return;
+  const body=`<div class="brand">MO OS</div><h1>Notes</h1><div class="meta">${ns.length} notes · exported ${fullDate(today())}</div>`+
+    ns.map((n,i)=>(i?'<hr class="hr">':'<div style="margin-top:28px"></div>')+noteDocHtml(n)).join('');
+  dlDoc('notes-'+today()+'.doc',docShell('Notes',body));
+}
+function exportNoteOne(id){
+  const n=notesData().find(x=>x.id===id);if(!n)return;
+  dlDoc('note-'+(slug(n.title)||id)+'.doc',docShell(n.title||'Note','<div class="brand">MO OS</div><div style="margin-top:22px"></div>'+noteDocHtml(n)));
+}
+
 /* IMMERSIVE WRITER */
 function openWriter(k){
   const old=document.getElementById('writer-modal');if(old)old.remove();
@@ -3197,7 +3255,10 @@ function openWriter(k){
     <div class="wr-halo"></div>
     <div class="wr-chrome">
       <span class="wr-count" id="wr-count"></span>
-      <button class="btn solid" id="wr-done">Finish</button>
+      <button class="wr-icon" id="wr-copy" title="Copy this entry">⧉</button>
+      <button class="wr-icon" id="wr-dl" title="Download this entry">↓</button>
+      <button class="btn solid" id="wr-done" title="Finish this entry">Finish</button>
+      <button class="wr-icon wr-x" id="wr-leave" title="Save and come back later">×</button>
     </div>
     <div class="wr-stage">
       <div class="wr-label">Journal</div>
@@ -3233,6 +3294,13 @@ function openWriter(k){
     if(e&&(e.text||'').trim()){e.done=true;save();}
     close();
   };
+  el.querySelector('#wr-leave').onclick=close;
+  el.querySelector('#wr-dl').onclick=()=>exportJournalOne(k);
+  el.querySelector('#wr-copy').onclick=async()=>{
+    const e=J[k]||{};
+    const txt=(e.title?e.title+'\n':'')+fullDate(k)+'\n\n'+(e.text||'').trim();
+    try{await navigator.clipboard.writeText(txt);const b=el.querySelector('#wr-copy');b.textContent='✓';setTimeout(()=>b.textContent='⧉',1200);}catch(_){}
+  };
   document.addEventListener('keydown',wrEsc);
   ta.focus();
   ta.setSelectionRange(ta.value.length,ta.value.length);
@@ -3260,7 +3328,10 @@ function openNote(id,editing){
         :`<div class="note-body-view co-notes-view">${coNotesViewHtml(n.body||'')}</div>`}
       <div class="note-foot">
         <span>Created ${noteTime(n.created)}</span>
-        <button class="btn danger-ghost" id="ne-del">Delete note</button>
+        <span style="display:flex;gap:8px">
+          <button class="btn" id="ne-dl">↓ Download</button>
+          <button class="btn danger-ghost" id="ne-del">Delete note</button>
+        </span>
       </div>
     </div>`;
   document.body.appendChild(el);
@@ -3279,6 +3350,7 @@ function openNote(id,editing){
     if(!confirm('Delete this note for good?'))return;
     S.notes=notesData().filter(x=>x.id!==id);save();close();
   };
+  el.querySelector('#ne-dl').onclick=()=>exportNoteOne(id);
   if(isEdit){if(!n.title)ti.focus();else if(bo)bo.focus();}
   document.addEventListener('keydown',function esc(e){
     if(e.key==='Escape'){const m=document.getElementById('note-edit-modal');if(m){m.remove();if(currentView==='journal')renderJournal();}document.removeEventListener('keydown',esc);}
