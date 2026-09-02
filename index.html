@@ -715,7 +715,10 @@
   .hb-name-in{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:13.5px}
   .hb-wt-in{width:52px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 6px;color:var(--text);font-size:13px;text-align:center;font-family:var(--mono)}
   .hb-week{display:flex;gap:10px;align-items:flex-end;justify-content:space-between}
-  .hb-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px}
+  .hb-day{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:1px solid transparent;border-radius:12px;padding:8px 4px;cursor:pointer;font-family:inherit;transition:.13s}
+  .hb-day:disabled{cursor:default}
+  .hb-day:not(:disabled):hover{background:rgba(255,255,255,.03);border-color:var(--border)}
+  .hb-day.sel{border-color:rgba(255,122,71,.45);background:var(--accent-soft)}
   .hb-day-bar{width:100%;max-width:44px;height:110px;background:var(--card-2);border-radius:9px;display:flex;align-items:flex-end;overflow:hidden}
   .hb-day-fill{width:100%;background:linear-gradient(180deg,var(--accent),var(--accent-2));border-radius:9px 9px 0 0;transition:height .4s ease}
   .hb-day-fill.perfect{background:linear-gradient(180deg,var(--good),var(--teal))}
@@ -2381,11 +2384,11 @@ function renderHabits(){
       <div class="hb-week">
         ${wk.map(k=>{
           const fut=k>tk;const sc=fut?0:dayScore(k);
-          return `<div class="hb-day ${k===tk?'today':''}">
+          return `<button class="hb-day ${k===tk?'today':''} ${k===dk&&!isToday?'sel':''}" ${fut?'disabled':`data-wday="${k}"`}>
             <div class="hb-day-bar"><div class="hb-day-fill ${sc>=100?'perfect':''}" style="height:${fut?0:Math.max(sc,4)}%"></div></div>
             <span class="hb-day-val">${fut?'':Math.round(sc)}</span>
             <span class="hb-day-lbl">${dow(k)}</span>
-          </div>`;
+          </button>`;
         }).join('')}
       </div>
     </div>`;}
@@ -2416,6 +2419,9 @@ function renderHabits(){
   if(back)back.onclick=()=>{hbDay=null;hbMonth=0;renderHabits();};
   main.querySelectorAll('.hb-cal-cell[data-day]').forEach(c=>c.onclick=()=>{
     hbDay=c.dataset.day===tk?null:c.dataset.day;hbTab='board';renderHabits();
+  });
+  main.querySelectorAll('[data-wday]').forEach(c=>c.onclick=()=>{
+    hbDay=c.dataset.wday===tk?null:c.dataset.wday;renderHabits();
   });
   const mp=document.getElementById('hb-mprev');
   if(mp)mp.onclick=()=>{hbMonth--;renderHabits();};
