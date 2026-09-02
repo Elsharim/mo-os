@@ -814,6 +814,24 @@
   #wr-ta::selection{background:rgba(255,122,71,.3)}
   @media (max-width:640px){.wr-page{padding:40px 26px 56px;margin-top:38px}}
 
+  /* ===== LOCK SCREEN ===== */
+  #lock-screen{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    background:
+      radial-gradient(80% 55% at 50% 115%,rgba(255,122,71,.16),transparent 62%),
+      radial-gradient(120% 90% at 50% -30%,#131315,#050506 72%);
+    animation:vmIn .3s ease both}
+  .lk-mark{width:54px;height:54px;border-radius:15px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:grid;place-items:center;font-weight:800;font-size:24px;color:#141414;box-shadow:0 8px 30px rgba(255,122,71,.35);animation:vmRise .6s ease both}
+  .lk-title{font-family:var(--display);font-size:17px;font-weight:700;color:var(--muted);animation:vmRise .7s .1s ease both}
+  .lk-dots{display:flex;gap:14px;animation:vmRise .7s .15s ease both}
+  .lk-dots span{width:14px;height:14px;border-radius:99px;border:1.5px solid var(--border-2);transition:.15s}
+  .lk-dots span.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 12px rgba(255,122,71,.55)}
+  .lk-dots.shake{animation:lkShake .4s ease}
+  @keyframes lkShake{0%,100%{transform:translateX(0)}20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+  .lk-pad{display:grid;grid-template-columns:repeat(3,72px);gap:12px;margin-top:8px;animation:vmRise .8s .2s ease both}
+  .lk-pad button{height:64px;border-radius:99px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);font-size:22px;font-family:var(--mono);cursor:pointer;transition:.12s}
+  .lk-pad button:hover{background:rgba(255,255,255,.08);border-color:var(--border-2)}
+  .lk-pad button:active{background:var(--accent-soft);border-color:rgba(255,122,71,.4)}
+
   /* ===== COACHING ===== */
   .co-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
   .co-sel{background:var(--card-2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:13px;padding:9px 11px;cursor:pointer}
@@ -3474,6 +3492,64 @@ document.addEventListener('keydown',e=>{
   if(n>=1&&n<=9&&S.disciplines[n-1]){e.preventDefault();toggleHabit(today(),S.disciplines[n-1].id);save();renderHabits();}
 });
 
+/* lock screen */
+async function pinHash(pin){
+  const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('mo-os:'+pin));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+function showLock(mode,onUnlock){
+  // mode: 'enter' | 'set'
+  let stage=mode,firstPin='',buf='';
+  const el=document.createElement('div');
+  el.id='lock-screen';
+  el.innerHTML=`
+    <div class="lk-mark">M</div>
+    <div class="lk-title" id="lk-title"></div>
+    <div class="lk-dots" id="lk-dots">${'<span></span>'.repeat(4)}</div>
+    <div class="lk-pad">
+      ${[1,2,3,4,5,6,7,8,9].map(n=>`<button data-k="${n}">${n}</button>`).join('')}
+      <span></span><button data-k="0">0</button><button data-k="del">⌫</button>
+    </div>`;
+  document.body.appendChild(el);
+  const title=el.querySelector('#lk-title');
+  const dots=el.querySelectorAll('#lk-dots span');
+  const setTitle=()=>{title.textContent=stage==='enter'?'Enter your code':stage==='set'?'Set a 4-digit code':'Enter it again';};
+  const paint=()=>{dots.forEach((d,i)=>d.classList.toggle('on',i<buf.length));};
+  const shake=()=>{
+    const w=el.querySelector('#lk-dots');
+    w.classList.remove('shake');void w.offsetWidth;w.classList.add('shake');
+    buf='';setTimeout(paint,250);
+  };
+  const submit=async()=>{
+    const h=await pinHash(buf);
+    if(stage==='enter'){
+      if(h===S.pinHash){try{localStorage.setItem('os:unlock',h);}catch(_){}el.remove();document.removeEventListener('keydown',keys);onUnlock();}
+      else shake();
+    }else if(stage==='set'){
+      firstPin=buf;buf='';stage='confirm';setTitle();paint();
+    }else{
+      if(buf===firstPin){
+        S.pinHash=h;save();
+        try{localStorage.setItem('os:unlock',h);}catch(_){}
+        el.remove();document.removeEventListener('keydown',keys);onUnlock();
+      }else{stage='set';firstPin='';setTitle();shake();}
+    }
+  };
+  const press=k=>{
+    if(k==='del'){buf=buf.slice(0,-1);paint();return;}
+    if(buf.length>=4)return;
+    buf+=k;paint();
+    if(buf.length===4)setTimeout(submit,140);
+  };
+  el.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>press(b.dataset.k));
+  function keys(e){
+    if(/^[0-9]$/.test(e.key))press(e.key);
+    if(e.key==='Backspace')press('del');
+  }
+  document.addEventListener('keydown',keys);
+  setTitle();paint();
+}
+
 /* boot */
 (async function(){
   await load();
@@ -3482,7 +3558,10 @@ document.addEventListener('keydown',e=>{
   document.title=S.wsName||'MO OS';
   document.getElementById('brandmark').textContent=(S.name||S.wsName||'M').trim().charAt(0).toUpperCase()||'M';
   tick();setInterval(tick,20000);
-  render();
+  let stored=null;try{stored=localStorage.getItem('os:unlock');}catch(_){}
+  if(!S.pinHash)showLock('set',render);
+  else if(stored!==S.pinHash)showLock('enter',render);
+  else render();
 })();
 </script>
 </body>
