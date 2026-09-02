@@ -597,8 +597,24 @@
   .mo-goal-cd span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
   .mo-goal-track{margin-top:10px;height:4px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
   .mo-goal-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .6s ease}
-  .gl-label-in{background:none;border:none;color:var(--muted);font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;font-family:inherit;padding:0;min-width:200px}
+  .gl-label-in{background:none;border:none;color:var(--accent);font-size:11px;letter-spacing:.16em;text-transform:uppercase;font-weight:700;font-family:inherit;padding:0;min-width:160px;flex:1}
   .gl-label-in:focus{outline:none;color:var(--text)}
+  .gl-card{margin-bottom:12px;padding:18px 20px}
+  .gl-card.done{opacity:.55}
+  .gl-card.done .gl-text-in{text-decoration:line-through}
+  .gl-card-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .gl-card-acts{display:flex;align-items:center;gap:6px;opacity:0;transition:.13s}
+  .gl-card:hover .gl-card-acts{opacity:1}
+  .gl-card-acts .et-status-tag{opacity:1}
+  textarea.gl-text-in{border:1px solid transparent;background:none;padding:2px 4px;min-height:0;font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.3;resize:none;overflow:hidden;border-radius:6px;width:100%;color:var(--text)}
+  textarea.gl-text-in:hover{background:rgba(255,255,255,.02)}
+  textarea.gl-text-in:focus{outline:none;background:rgba(255,255,255,.03)}
+  .gl-card .gl-meta-row{margin-top:10px}
+  .mo-goal-minis{margin-top:18px;padding-top:14px;border-top:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;gap:7px}
+  .mo-goal-mini{display:flex;align-items:center;gap:12px;font-size:13px}
+  .mgm-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;flex:0 0 auto;min-width:74px}
+  .mgm-text{color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mgm-days{font-family:var(--mono);font-size:12px;color:var(--accent);flex:0 0 auto}
   .mo-goal-edit{display:flex;flex-direction:column;gap:12px}
   .mo-goal-date{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted)}
   .mo-goal-date input{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:8px 12px;color:var(--text);font-size:13px;color-scheme:dark}
@@ -1739,12 +1755,23 @@ const dow=k=>{const [y,m,d]=k.split('-').map(Number);return ['Su','Mo','Tu','We'
 const shortDate=k=>{const p=k.split('-');return Number(p[1])+'/'+Number(p[2]);};
 function longDate(k){const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});}
 function daysUntil(s){const [y,m,d]=s.split('-').map(Number);const t=new Date(y,m-1,d),n=new Date();n.setHours(0,0,0,0);return Math.round((t-n)/864e5);}
-function goalProgress(){
-  const g=S&&S.goals;if(!g||!g.targetDate||!g.setAt)return null;
-  const total=daysUntil(g.targetDate)-daysUntil(g.setAt);
+function goalsList(){
+  if(!Array.isArray(S.goalsList)){
+    S.goalsList=[];
+    const g=S.goals||{};
+    if((g.ninetyDay||'').trim())S.goalsList.push({id:'g'+Date.now(),label:g.label||'90-day goal',text:g.ninetyDay,targetDate:g.targetDate||'',setAt:g.setAt||'',done:false});
+    (g.big||[]).forEach((b,i)=>{if((b.text||'').trim())S.goalsList.push({id:'g'+Date.now()+'b'+i,label:'Big goal',text:b.text,targetDate:'',setAt:'',done:!!b.done});});
+    save();
+  }
+  return S.goalsList;
+}
+function featuredGoal(){return goalsList().find(x=>!x.done)||null;}
+function goalDays(gl){return gl&&gl.targetDate?daysUntil(gl.targetDate):null;}
+function goalPct(gl){
+  if(!gl||!gl.targetDate||!gl.setAt)return null;
+  const total=daysUntil(gl.targetDate)-daysUntil(gl.setAt);
   if(total<=0)return null;
-  const done=-daysUntil(g.setAt);
-  return Math.max(0,Math.min(100,Math.round(done/total*100)));
+  return Math.max(0,Math.min(100,Math.round(-daysUntil(gl.setAt)/total*100)));
 }
 function fmt(n){return Number(n||0).toLocaleString();}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -1866,10 +1893,10 @@ function render(){({morning:renderMorning,tasks:renderTasks,habits:renderHabits,
 function topbar(){
   const n=S.name?.trim();
   const st=streak();
-  const g=S.goals||{};
-  const cd=g.targetDate?daysUntil(g.targetDate):null;
-  const goalChip=(g.ninetyDay&&cd!==null&&cd>=0)
-    ?`<span class="goal-chip" title="${esc(g.ninetyDay)}"><b>${cd}</b><span>days · ${esc(clip(g.ninetyDay,28))}</span></span>`
+  const fg=featuredGoal();
+  const cd=goalDays(fg);
+  const goalChip=(fg&&cd!==null&&cd>=0)
+    ?`<span class="goal-chip" title="${esc(fg.text)}"><b>${cd}</b><span>days · ${esc(clip(fg.text,28))}</span></span>`
     :'';
   document.getElementById('greet').innerHTML=
     `<span class="greet-hey">Hey${n?', '+esc(n):''}</span>`+
@@ -2555,29 +2582,35 @@ function renderJournal(){
           }).join('')}</div>`
           :'<div class="empty sect-empty">No entries yet.</div>'}
         </div>`;
-  const goalsPane=`
-        <div class="card mo-goal" style="margin-bottom:16px">
-          <h3><input id="gl-label" class="gl-label-in" value="${esc(g.label||'')}" placeholder="Goal name" spellcheck="false"> <span class="saved" id="gl-saved">Saved</span></h3>
-          <div class="mo-goal-edit">
-            <textarea id="gl-90" class="write" rows="2" placeholder="What's the goal?">${esc(g.ninetyDay||'')}</textarea>
-            <div class="gl-meta-row">
-              <label class="mo-goal-date">Target date <input type="date" id="gl-date" value="${esc(g.targetDate||'')}"></label>
-              ${cd!==null?`<span class="gl-countdown">${cd>=0?`<b>${cd}</b> days left`:`<b>${-cd}</b> days past`}</span>`:''}
-            </div>
-          </div>
+  const GL=goalsList();
+  const feat=featuredGoal();
+  const activeGoals=GL.filter(x=>!x.done),doneGoals=GL.filter(x=>x.done);
+  const goalCard=gl=>{
+    const gcd=goalDays(gl),gpct=goalPct(gl);
+    return `<div class="card gl-card ${gl.done?'done':''}" data-gid="${gl.id}">
+      <div class="gl-card-top">
+        <input class="gl-label-in" data-glabel="${gl.id}" value="${esc(gl.label||'')}" placeholder="Goal name" spellcheck="false">
+        <div class="gl-card-acts">
+          ${!gl.done&&feat&&gl.id!==feat.id?`<button class="et-lblbtn" data-gfeat="${gl.id}" title="Show this one in Morning">★ Feature</button>`:''}
+          ${feat&&gl.id===feat.id?'<span class="et-status-tag focus">featured</span>':''}
+          <button class="et-lblbtn ${gl.done?'on':''}" data-gdone="${gl.id}">${gl.done?'Reopen':'Done'}</button>
+          <button class="rm" data-gdel="${gl.id}">×</button>
         </div>
+      </div>
+      <textarea class="write gl-text-in" data-gtext="${gl.id}" rows="1" placeholder="What's the goal?">${esc(gl.text||'')}</textarea>
+      <div class="gl-meta-row">
+        <label class="mo-goal-date">Target <input type="date" data-gdate="${gl.id}" value="${esc(gl.targetDate||'')}"></label>
+        ${gcd!==null?`<span class="gl-countdown">${gcd>=0?`<b>${gcd}</b> days left`:`<b>${-gcd}</b> days past`}</span>`:''}
+        ${gpct!==null?`<div class="mo-goal-track" style="flex:1;max-width:160px"><div class="mo-goal-fill" style="width:${gpct}%"></div></div>`:''}
+      </div>
+    </div>`;
+  };
+  const goalsPane=`
         <div class="sect">
-          <div class="sect-head">Big goals</div>
-          <div class="jr-list" id="gl-big">
-            ${(g.big&&g.big.length)?g.big.map(b=>`
-              <div class="big-goal ${b.done?'done':''}" data-id="${b.id}">
-                <button class="bg-check" data-id="${b.id}">${b.done?'✓':''}</button>
-                <span class="bg-text">${esc(b.text)}</span>
-                <button class="rm bg-del" data-id="${b.id}">×</button>
-              </div>`).join('')
-            :''}
-          </div>
-          <div class="addrow ghost-add"><input id="gl-big-add" placeholder="+ Add a big goal"><button class="btn" id="gl-big-btn" style="display:none">Add</button></div>
+          <div class="sect-head">Goals <span>${activeGoals.length||''}</span></div>
+          ${activeGoals.map(goalCard).join('')||''}
+          <div class="addrow ghost-add"><input id="gl-new" placeholder="+ New goal"></div>
+          ${doneGoals.length?`<div class="sect-head" style="margin-top:20px">Done <span>${doneGoals.length}</span></div>${doneGoals.map(goalCard).join('')}`:''}
         </div>
         <div class="sect">
           <div class="sect-head">Goal journal</div>
@@ -2642,20 +2675,35 @@ function renderJournal(){
   });
 
   // goals tab
-  const g90=document.getElementById('gl-90');
-  if(g90){autosize(g90);g90.oninput=()=>{g.ninetyDay=g90.value;save();flash('gl-saved');autosize(g90);topbar();};}
-  const glbl=document.getElementById('gl-label');
-  if(glbl)glbl.oninput=()=>{g.label=glbl.value;save();flash('gl-saved');};
-  const gdate=document.getElementById('gl-date');
-  if(gdate)gdate.onchange=()=>{g.targetDate=gdate.value;g.setAt=today();save();flash('gl-saved');renderJournal();topbar();};
-  const bigAdd=document.getElementById('gl-big-add'),bigBtn=document.getElementById('gl-big-btn');
-  if(bigAdd&&bigBtn){
-    if(!Array.isArray(g.big))g.big=[];
-    const add=()=>{const v=bigAdd.value.trim();if(!v)return;g.big.push({id:'x'+Date.now(),text:v,done:false});save();renderJournal();};
-    bigBtn.onclick=add;bigAdd.onkeydown=e=>{if(e.key==='Enter')add();};
-    main.querySelectorAll('.bg-check').forEach(b=>b.onclick=()=>{const it=g.big.find(x=>x.id===b.dataset.id);if(it){it.done=!it.done;save();renderJournal();}});
-    main.querySelectorAll('.bg-del').forEach(b=>b.onclick=()=>{g.big=g.big.filter(x=>x.id!==b.dataset.id);save();renderJournal();});
-  }
+  const glNew=document.getElementById('gl-new');
+  if(glNew)glNew.onkeydown=e=>{
+    if(e.key==='Enter'){
+      const v=glNew.value.trim();if(!v)return;
+      goalsList().push({id:'g'+Date.now(),label:'Goal',text:v,targetDate:'',setAt:'',done:false});
+      save();renderJournal();topbar();
+      const again=document.getElementById('gl-new');if(again)again.focus();
+    }
+  };
+  const glFind=id=>goalsList().find(x=>x.id===id);
+  main.querySelectorAll('[data-glabel]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.glabel);if(gl){gl.label=inp.value;save();topbar();}});
+  main.querySelectorAll('[data-gtext]').forEach(ta=>{
+    autosize(ta);
+    ta.oninput=()=>{const gl=glFind(ta.dataset.gtext);if(gl){gl.text=ta.value;save();autosize(ta);topbar();}};
+  });
+  main.querySelectorAll('[data-gdate]').forEach(inp=>inp.onchange=()=>{
+    const gl=glFind(inp.dataset.gdate);if(gl){gl.targetDate=inp.value;gl.setAt=today();save();renderJournal();topbar();}
+  });
+  main.querySelectorAll('[data-gfeat]').forEach(b=>b.onclick=()=>{
+    const L=goalsList();const i=L.findIndex(x=>x.id===b.dataset.gfeat);
+    if(i>0){const [gl]=L.splice(i,1);L.unshift(gl);save();renderJournal();topbar();}
+  });
+  main.querySelectorAll('[data-gdone]').forEach(b=>b.onclick=()=>{
+    const gl=glFind(b.dataset.gdone);if(gl){gl.done=!gl.done;save();renderJournal();topbar();}
+  });
+  main.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=()=>{
+    if(!confirm('Delete this goal?'))return;
+    S.goalsList=goalsList().filter(x=>x.id!==b.dataset.gdel);save();renderJournal();topbar();
+  });
   const glEntry=document.getElementById('gl-entry'),glAdd=document.getElementById('gl-entry-add');
   if(glEntry&&glAdd){
     autosize(glEntry);glEntry.oninput=()=>autosize(glEntry);
@@ -2884,9 +2932,9 @@ function slideShow(){
     cap.textContent='';
     dwell=Math.min(14000,Math.max(5200,2800+words.length*380));
   }
-  const g=S.goals||{};
-  const cd=g.targetDate?daysUntil(g.targetDate):null;
-  el.querySelector('.vm-goal').textContent=g.ninetyDay?(g.ninetyDay+(cd!==null&&cd>=0?' · '+cd+' days':'')):'';
+  const fg=featuredGoal();
+  const cd=goalDays(fg);
+  el.querySelector('.vm-goal').textContent=fg?(fg.text+(cd!==null&&cd>=0?' · '+cd+' days':'')):'';
   el.querySelector('.vm-dots').innerHTML=slideDeck.map((x,i)=>`<span class="${i===slideIdx?'on':''}"></span>`).join('');
   const nxt=slideDeck[(slideIdx+1)%slideDeck.length];
   if(nxt&&nxt.img){const im=new Image();im.src=nxt.img;}
@@ -2917,24 +2965,25 @@ function renderMorning(){
       </div>
     </div>
 
-    <div class="card mo-goal" style="margin-bottom:16px">
-      ${moEdit?`
-        <h3>Goal</h3>
-        <div class="mo-goal-edit">
-          <input id="mo-glabel" class="inp" placeholder="Name it (90-day goal, Q4, whatever)" value="${esc(g.label||'')}" style="max-width:280px">
-          <textarea id="mo-g90" class="write" rows="2" placeholder="What's the goal?">${esc(g.ninetyDay||'')}</textarea>
-          <label class="mo-goal-date">Target date <input type="date" id="mo-gdate" value="${esc(g.targetDate||'')}"></label>
-        </div>`
-      :(g.ninetyDay?`
+    ${(()=>{
+      const feat=featuredGoal();
+      if(!feat)return `<div class="card mo-goal" style="margin-bottom:16px"><h3>Goals</h3><div class="empty">Set them in Journal → Goals.</div></div>`;
+      const fcd=goalDays(feat),fpct=goalPct(feat);
+      const others=goalsList().filter(x=>!x.done&&x.id!==feat.id);
+      return `<div class="card mo-goal" style="margin-bottom:16px">
         <div class="mo-goal-row">
-          <div class="mo-goal-text"><span class="mo-goal-cap">${esc(g.label||'Goal')}</span><div class="mo-goal-big">${esc(g.ninetyDay)}</div></div>
-          ${cd!==null?`<div class="mo-goal-cd">
-            <b>${cd>=0?cd:0}</b><span>${cd>=0?'days left':'past target'}</span>
-            ${goalProgress()!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${goalProgress()}%"></div></div>`:''}
+          <div class="mo-goal-text"><span class="mo-goal-cap">${esc(feat.label||'Goal')}</span><div class="mo-goal-big">${esc(feat.text)}</div></div>
+          ${fcd!==null?`<div class="mo-goal-cd">
+            <b>${fcd>=0?fcd:0}</b><span>${fcd>=0?'days left':'past target'}</span>
+            ${fpct!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${fpct}%"></div></div>`:''}
           </div>`:''}
-        </div>`
-      :`<h3>Goal</h3><div class="empty">Turn on Edit to set it.</div>`)}
-    </div>
+        </div>
+        ${others.length?`<div class="mo-goal-minis">${others.map(o=>{
+          const ocd=goalDays(o);
+          return `<div class="mo-goal-mini"><span class="mgm-label">${esc(o.label||'Goal')}</span><span class="mgm-text">${esc(clip(o.text,52))}</span>${ocd!==null&&ocd>=0?`<span class="mgm-days">${ocd}d</span>`:''}</div>`;
+        }).join('')}</div>`:''}
+      </div>`;
+    })()}
 
     <div class="card mo-vision" style="margin-bottom:16px">
       <h3>Vision board${moEdit?' <span class="h3sub">add image links or notes</span>':(m.vision.length?' <button class="btn btn-sm" id="mo-vision-play">▶ Vision mode</button>':'')}</h3>
@@ -2966,12 +3015,6 @@ function renderMorning(){
   document.getElementById('ht-open').onclick=()=>openHeadTrash();
   document.getElementById('mo-edit').onclick=()=>{moEdit=!moEdit;renderMorning();};
   document.getElementById('mo-start').onclick=()=>{currentView='tasks';setActiveNav('tasks');render();};
-  const g90=document.getElementById('mo-g90');
-  if(g90){autosize(g90);g90.oninput=()=>{g.ninetyDay=g90.value;save();autosize(g90);topbar();};}
-  const glabel=document.getElementById('mo-glabel');
-  if(glabel)glabel.oninput=()=>{g.label=glabel.value;save();};
-  const gdate=document.getElementById('mo-gdate');
-  if(gdate)gdate.onchange=()=>{g.targetDate=gdate.value;g.setAt=today();save();topbar();};
 
   if(moEdit){
     const vadd=document.getElementById('mo-vadd');
