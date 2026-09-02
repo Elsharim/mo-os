@@ -62,6 +62,7 @@ export default async function handler(req, res) {
       .replace(/<a [^>]*>/g, '')
       .replace(/<\/a>/g, '')
       .replace(/\*\*/g, '')
+      .replace(/\\([&_#*~`>[\]])/g, '$1')
       .trim();
 
     const allNotes = ((a.aiNotes && a.aiNotes.notes) || []).filter(x => x && x.noteText && x.isReady);
