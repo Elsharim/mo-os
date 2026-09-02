@@ -2587,43 +2587,27 @@ function coExtractTakeaways(txt){
 }
 async function pullFromFathom(s){
   if(!(s.link||'').trim()){coPull='Add the Fathom link first.';renderCoaching();return;}
-  coPull='Sending to Zapier…';renderCoaching();
+  coPull='Pulling from Fathom…';renderCoaching();
   try{
-    await fetch(ZAP_WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({sessionId:s.id,url:s.link})});
-  }catch(e){coPull='Could not reach Zapier.';renderCoaching();return;}
-  coPull='Processing… usually 20 to 40s';renderCoaching();
-  const db=await fbInit();
-  const start=Date.now();
-  let readyAt=null;
-  const poll=setInterval(async()=>{
-    if(Date.now()-start>180000){clearInterval(poll);coPull='Timed out. Check the Zap in Zapier.';renderCoaching();return;}
-    try{
-      const doc=await db.collection('coaching_results').doc(s.id).get();
-      if(!doc.exists||doc.data().status!=='ready')return;
-      const d=doc.data();
-      if(!readyAt)readyAt=Date.now();
-      const notes=(d.notes&&String(d.notes).trim())?String(d.notes):'';
-      const actions=Array.isArray(d.actions)?d.actions.filter(x=>String(x).trim()):[];
-      // wait for the full result: the Zap can set status before all fields land
-      if((!notes||!actions.length)&&Date.now()-readyAt<30000)return;
-      clearInterval(poll);
-      // a fresh pull replaces the previous pull, but never wipes with nothing
-      if(notes){
-        s.notes=notes;
-        const tks=(Array.isArray(d.takeaways)&&d.takeaways.length)?d.takeaways.map(String):coExtractTakeaways(notes);
-        const seen=new Set();
-        s.takeaways=tks.filter(t=>{const k=t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map((t,i)=>({id:'tk'+Date.now()+i,text:t}));
-      }
-      if(actions.length)s.steps=actions.map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:false}));
-      if(notes||actions.length){
-        save();coPull='Done. Notes updated.';
-        db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
-      }else{
-        coPull='The Zap sent an empty result. Try again.';
-      }
-      renderCoaching();
-    }catch(e){}
-  },4000);
+    const r=await fetch('/api/pull?url='+encodeURIComponent(s.link.trim().split('?')[0]));
+    let d={};try{d=await r.json();}catch(_){}
+    if(d.pending){coPull=d.error;renderCoaching();return;}
+    if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));
+    const notes=(d.notes||'').trim();
+    const actions=Array.isArray(d.actions)?d.actions.filter(x=>String(x).trim()):[];
+    if(!notes&&!actions.length){coPull='Fathom has nothing for this link yet.';renderCoaching();return;}
+    // a fresh pull replaces the previous pull, but never wipes with nothing
+    if(notes){
+      s.notes=notes;
+      const tks=coExtractTakeaways(notes);
+      const seen=new Set();
+      s.takeaways=tks.filter(t=>{const k=t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map((t,i)=>({id:'tk'+Date.now()+i,text:t}));
+    }
+    if(actions.length)s.steps=actions.map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:false}));
+    save();coPull='Done. Notes updated.';renderCoaching();
+  }catch(e){
+    coPull='Pull failed: '+((e&&e.message)||'network error');renderCoaching();
+  }
 }
 function coDetailHTML(s){
   if(!Array.isArray(s.steps))s.steps=[];
@@ -2690,6 +2674,7 @@ function coNotesViewHtml(txt){
     const t=l.trim();
     if(!t)return'';
     if(/^📌/.test(t))return `<div class="cnv-pin">${esc(t.replace(/^📌\s*/,''))}</div>`;
+    if(/^#{1,4}\s/.test(t))return `<div class="cnv-h">${esc(t.replace(/^#+\s*/,''))}</div>`;
     if(/^\d+\.\d+/.test(t))return `<div class="cnv-sub">${esc(t)}</div>`;
     const mNum=t.match(/^(\d+)\.\s+(.*)/);
     if(mNum){
@@ -2799,6 +2784,7 @@ function coNotesDocHtml(txt){
     const t=l.trim();
     if(!t)return '';
     if(/^[-•*]\s+/.test(t))return `<p class="bl">•&nbsp;&nbsp;${esc(t.replace(/^[-•*]\s+/,''))}</p>`;
+    if(/^#{1,4}\s/.test(t))return `<p class="nh">${esc(t.replace(/^#+\s*/,''))}</p>`;
     if(t.length<70&&/[:：]$/.test(t))return `<p class="nh">${esc(t)}</p>`;
     return `<p>${esc(t)}</p>`;
   }).join('');
