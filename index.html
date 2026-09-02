@@ -768,12 +768,12 @@
   .note-search{width:100%;max-width:360px;border-radius:99px;margin-bottom:14px;background:rgba(255,255,255,.03);border-color:transparent;padding:10px 16px}
   .note-search:focus{outline:none;background:var(--bg);border-color:var(--border)}
   .note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
-  .note-card{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:13px;padding:15px 16px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s;min-height:110px}
-  .note-card:hover{border-color:var(--border-2);transform:translateY(-2px)}
-  .note-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;width:100%}
-  .note-card .note-title{white-space:normal}
-  .note-card-body{font-size:12px;color:var(--faint);line-height:1.55;flex:1}
-  .note-card .note-date{align-self:flex-end}
+  .note-card{display:flex;flex-direction:column;gap:7px;text-align:left;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:13px;padding:15px 16px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s}
+  .note-card:hover{border-color:rgba(255,122,71,.35);background:rgba(255,255,255,.04);transform:translateY(-2px)}
+  .note-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
+  .note-card-ico{font-size:22px;line-height:1}
+  .note-card .note-title{white-space:normal;font-size:14px;font-weight:650;line-height:1.35}
+  .note-card-date{font-size:11px;color:var(--faint)}
 
   /* immersive writer: a page in a dark room */
   #writer-modal{position:fixed;inset:0;z-index:6000;overflow-y:auto;
@@ -2072,6 +2072,14 @@ async function load(){
     });
     S.jrV2=true;save();
   }
+  if(!S.jrV3){
+    const tk=today();
+    Object.entries(S.journal).forEach(([k,e])=>{
+      if(!e||typeof e!=='object')return;
+      if(e.done===undefined)e.done=k.split('#')[0]<tk;
+    });
+    S.jrV3=true;save();
+  }
   if(!S.goals||typeof S.goals!=='object')S.goals={ninetyDay:"",targetDate:"",buyBox:"",big:[]};
   if(!S.goals.label)S.goals.label='90-day goal';
 }
@@ -2965,7 +2973,31 @@ let jrExpanded=null,noteQuery='',noteSel=null,jrTab='daily';
 function goalLog(){if(!Array.isArray(S.goalLog))S.goalLog=[];return S.goalLog;}
 function jrData(){if(!S.journal||typeof S.journal!=='object')S.journal={};return S.journal;}
 function notesData(){if(!Array.isArray(S.notes))S.notes=[];return S.notes;}
-function jrEntryKeys(){return Object.keys(jrData()).filter(k=>k!==today()&&(jrData()[k].text||'').trim()).sort().reverse();}
+function jrBase(k){return k.split('#')[0];}
+function jrActiveKey(){
+  const tk=today();
+  const keys=Object.keys(jrData()).filter(k=>jrBase(k)===tk&&!jrData()[k].done).sort();
+  return keys.length?keys[keys.length-1]:null;
+}
+function jrNewKey(){
+  const tk=today();
+  let k=tk,n=1;
+  while(jrData()[k])k=tk+'#'+(++n);
+  return k;
+}
+function jrEntryKeys(){
+  const active=jrActiveKey();
+  return Object.keys(jrData()).filter(k=>k!==active&&((jrData()[k]||{}).text||'').trim()).sort((a,b)=>b.localeCompare(a));
+}
+function noteIcon(n){
+  try{if(/^\p{Extended_Pictographic}/u.test((n.title||'').trim()))return '';}catch(e){}
+  const t=((n.title||'')+' '+(n.body||'').slice(0,80)).toLowerCase();
+  const map=[[/money|sale|close|revenue|pay|cc\b/,'💰'],[/idea|insight/,'💡'],[/call|phone/,'📞'],[/gym|lift|workout|body|bulk/,'🏋️'],[/girl|date|love/,'❤️'],[/plan|goal|vision/,'🎯'],[/script|write|copy/,'📝'],[/book|read/,'📚'],[/ai|gpt|claude|poppy/,'🤖'],[/food|eat|meal/,'🍽️'],[/trip|travel|flight|spain|dubai/,'✈️']];
+  for(const [re,ic] of map)if(re.test(t))return ic;
+  const set=['🗒️','🧠','⚡','🌙','🔥','🧭','🌊','🪨'];
+  let h=0;for(const c of String(n.id||''))h=(h*31+c.charCodeAt(0))>>>0;
+  return set[h%set.length];
+}
 function noteSnippet(n){const b=(n.body||'').trim().replace(/\s+/g,' ');return b?clip(b,64):'No content yet';}
 function noteTime(ts){const d=new Date(ts||Date.now());return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
 function sortedNotes(){
@@ -2976,7 +3008,8 @@ function sortedNotes(){
 }
 function renderJournal(){
   const J=jrData(),tk=today();
-  const entry=J[tk]||{text:''};
+  const activeK=jrActiveKey();
+  const entry=activeK?J[activeK]:{text:'',title:''};
   const words=(entry.text||'').trim()?entry.text.trim().split(/\s+/).length:0;
   const past=jrEntryKeys();
   const notes=sortedNotes();
@@ -2985,17 +3018,17 @@ function renderJournal(){
   const niceDate=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'});};
   const writePane=`
     <button class="jr-write-cta" id="jr-open-writer">
-      <span class="jwc-cap">${words?'Continue today':'Today'}</span>
-      <span class="jwc-date">${entry.title?esc(entry.title):longDate(tk)}</span>
+      <span class="jwc-cap">Today</span>
+      <span class="jwc-date">${activeK?(entry.title?esc(entry.title):longDate(tk)):'Start a new entry'}</span>
       ${words?`<span class="jwc-preview">${esc(clip(entry.text,150))}</span>`:''}
-      <span class="jwc-hint">${words?words+' words · keep going →':'start writing →'}</span>
+      <span class="jwc-hint">${activeK?(words?words+' words · keep going →':'start writing →'):'open the page →'}</span>
     </button>
     <div class="sect" style="margin-top:26px">
       <div class="sect-head">Past entries <span>${past.length||''}</span></div>
       ${past.length?(()=>{
         const groups=[];let cur=null;
         past.forEach(k=>{
-          const [y,m]=k.split('-');
+          const [y,m]=jrBase(k).split('-');
           const gk=y+'-'+m;
           if(!cur||cur.gk!==gk){cur={gk,label:new Date(+y,+m-1,1).toLocaleDateString(undefined,{month:'long',year:'numeric'}),items:[]};groups.push(cur);}
           cur.items.push(k);
@@ -3004,8 +3037,8 @@ function renderJournal(){
           <div class="jr-month" ${gi===0?'style="margin-top:4px"':''}>${g.label}</div>
           <div class="jr-cards">${g.items.map(k=>{
             const e=J[k];
-            const [y,m,d]=k.split('-').map(Number);
-            const day=new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:'short',day:'numeric'});
+            const [y,m,d]=jrBase(k).split('-').map(Number);
+            const day=new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
             const title=e.title||clip((e.text||'').trim().split('\n')[0],42)||'Untitled';
             const prev=clip((e.text||'').replace(/^#+\s*/gm,'').replace(/^---$/gm,'').trim().replace(/\s+/g,' '),100);
             return `<button class="jr-card" data-open-day="${k}">
@@ -3070,11 +3103,11 @@ function renderJournal(){
       ${notes.length?`<div class="note-grid">${notes.map(n=>`
         <button class="note-card" data-id="${n.id}">
           <span class="note-card-top">
-            <span class="note-title">${esc(n.title||'Untitled')}</span>
+            <span class="note-card-ico">${noteIcon(n)}</span>
             <span class="note-pin ${n.pinned?'on':''}" data-pin="${n.id}">${n.pinned?'★':'☆'}</span>
           </span>
-          <span class="note-card-body">${esc(clip((n.body||'').replace(/\s+/g,' '),130))}</span>
-          <span class="note-date">${noteTime(n.updated)}</span>
+          <span class="note-title">${esc(n.title||'Untitled')}</span>
+          <span class="note-card-date">${new Date(n.updated||n.created||Date.now()).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>
         </button>`).join('')}</div>`
       :`<div class="empty sect-empty" style="margin-top:12px">${noteQuery?'No matches.':'No notes yet.'}</div>`}
     </div>`;
@@ -3093,7 +3126,7 @@ function renderJournal(){
 
   // write tab
   const cta=document.getElementById('jr-open-writer');
-  if(cta)cta.onclick=()=>openWriter(tk);
+  if(cta)cta.onclick=()=>openWriter(activeK||jrNewKey());
   main.querySelectorAll('[data-open-day]').forEach(b=>b.onclick=()=>openWriter(b.dataset.openDay));
 
   // goals tab
@@ -3172,7 +3205,7 @@ function openWriter(k){
     <div class="wr-stage">
       <div class="wr-label">Journal</div>
       <div class="wr-page">
-        <div class="wr-page-date">${longDate(k)}</div>
+        <div class="wr-page-date">${(()=>{const [y,m,d]=jrBase(k).split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'});})()}</div>
         <input id="wr-title" class="wr-title" placeholder="Title" value="${esc((J[k]&&J[k].title)||'')}" spellcheck="false" autocomplete="off">
         <div class="wr-rule"></div>
         <textarea id="wr-ta">${esc((J[k]&&J[k].text)||'')}</textarea>
@@ -3198,7 +3231,11 @@ function openWriter(k){
     if(currentView==='journal')renderJournal();
   };
   function wrEsc(e){if(e.key==='Escape')close();}
-  el.querySelector('#wr-done').onclick=close;
+  el.querySelector('#wr-done').onclick=()=>{
+    const e=J[k];
+    if(e&&(e.text||'').trim()){e.done=true;save();}
+    close();
+  };
   document.addEventListener('keydown',wrEsc);
   ta.focus();
   ta.setSelectionRange(ta.value.length,ta.value.length);
