@@ -763,17 +763,31 @@
   .note-card-body{font-size:12px;color:var(--faint);line-height:1.55;flex:1}
   .note-card .note-date{align-self:flex-end}
 
-  /* immersive writer */
-  #writer-modal{position:fixed;inset:0;z-index:6000;background:
-    radial-gradient(70% 45% at 50% -10%,rgba(255,122,71,.1),transparent 62%),#060607;
-    display:flex;flex-direction:column;animation:vmIn .35s ease both}
-  .wr-top{display:flex;align-items:center;gap:14px;padding:20px max(24px,calc(50vw - 340px)) 8px}
-  .wr-date{font-family:var(--display);font-size:17px;font-weight:700;color:var(--muted);animation:vmRise .7s ease both}
-  .wr-count{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
-  .wr-scroll{flex:1;overflow-y:auto;padding:14px max(24px,calc(50vw - 340px)) 80px}
-  #wr-ta{width:100%;background:none;border:none;color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.85;resize:none;overflow:hidden;caret-color:var(--accent);animation:vmRise .8s .1s ease both}
+  /* immersive writer: a page in a dark room */
+  #writer-modal{position:fixed;inset:0;z-index:6000;overflow-y:auto;
+    background:
+      radial-gradient(85% 60% at 50% 115%,rgba(255,122,71,.16),transparent 62%),
+      radial-gradient(120% 90% at 50% -30%,#131315,#050506 72%);
+    animation:vmIn .3s ease both}
+  .wr-chrome{position:fixed;top:18px;right:22px;z-index:2;display:flex;align-items:center;gap:14px}
+  .wr-count{font-family:var(--mono);font-size:11.5px;color:rgba(255,255,255,.4)}
+  .wr-page{width:min(740px,93vw);min-height:calc(100vh - 110px);margin:52px auto 90px;
+    background:linear-gradient(178deg,#f8f2e6,#f2eadb 60%,#eee5d3);
+    border-radius:3px;
+    box-shadow:0 1px 3px rgba(0,0,0,.6),0 24px 70px rgba(0,0,0,.75),0 60px 140px rgba(0,0,0,.5);
+    padding:58px 68px 72px;
+    animation:pageIn .55s cubic-bezier(.2,.8,.2,1) both}
+  @keyframes pageIn{from{opacity:0;transform:translateY(30px) scale(.965)}to{opacity:1;transform:none}}
+  .wr-page-date{font-family:Georgia,'Iowan Old Style',serif;font-style:italic;color:#93866f;font-size:15px;margin-bottom:10px}
+  .wr-rule{height:1px;background:rgba(80,60,30,.16);margin-bottom:8px}
+  #wr-ta{display:block;width:100%;background:
+      repeating-linear-gradient(transparent 0px,transparent 35px,rgba(80,60,30,.09) 35px,rgba(80,60,30,.09) 36px);
+    border:none;color:#262016;font-family:Georgia,'Iowan Old Style',serif;font-size:18px;line-height:36px;
+    resize:none;overflow:hidden;caret-color:#c2410c;padding:0}
   #wr-ta:focus{outline:none}
-  #wr-ta::placeholder{color:var(--faint)}
+  #wr-ta::placeholder{color:#b3a68c;font-style:italic}
+  #wr-ta::selection{background:rgba(255,122,71,.25)}
+  @media (max-width:640px){.wr-page{padding:40px 26px 56px;margin-top:38px}}
 
   /* ===== COACHING ===== */
   .co-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -2847,19 +2861,19 @@ function openWriter(k){
   const el=document.createElement('div');
   el.id='writer-modal';
   el.innerHTML=`
-    <div class="wr-top">
-      <div class="wr-date">${longDate(k)}</div>
-      <span style="flex:1"></span>
+    <div class="wr-chrome">
       <span class="wr-count" id="wr-count"></span>
       <button class="btn" id="wr-done">Done</button>
     </div>
-    <div class="wr-scroll">
+    <div class="wr-page">
+      <div class="wr-page-date">${longDate(k)}</div>
+      <div class="wr-rule"></div>
       <textarea id="wr-ta" placeholder="Be real.">${esc((J[k]&&J[k].text)||'')}</textarea>
     </div>`;
   document.body.appendChild(el);
   const ta=el.querySelector('#wr-ta');
   const count=el.querySelector('#wr-count');
-  const upd=()=>{const w=ta.value.trim()?ta.value.trim().split(/\s+/).length:0;count.textContent=w?w+' words':'';ta.style.height='auto';ta.style.height=Math.max(ta.scrollHeight,window.innerHeight*0.5)+'px';};
+  const upd=()=>{const w=ta.value.trim()?ta.value.trim().split(/\s+/).length:0;count.textContent=w?w+' words':'';ta.style.height='auto';ta.style.height=Math.max(ta.scrollHeight+8,window.innerHeight*0.45)+'px';};
   upd();
   ta.oninput=()=>{
     if(!J[k])J[k]={text:'',ts:Date.now()};
