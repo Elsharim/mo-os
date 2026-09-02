@@ -820,6 +820,30 @@
   .mp-name{font-size:12px;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .mp-x{background:none;border:none;color:var(--faint);font-size:17px;cursor:pointer;line-height:1;padding:0 2px}
   .mp-x:hover{color:var(--text)}
+  .music-panel{position:fixed;z-index:5600;width:250px;background:rgba(18,18,20,.96);border:1px solid var(--border-2);border-radius:14px;box-shadow:0 16px 50px rgba(0,0,0,.6);backdrop-filter:blur(14px);padding:12px;animation:vmRise .2s ease both}
+  .mpanel-head{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:2px 4px 10px}
+  .mpanel-tracks{display:flex;flex-direction:column;gap:3px}
+  .mpanel-track{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:1px solid transparent;color:var(--text);cursor:pointer;padding:9px 11px;border-radius:9px;font-size:13px;font-family:inherit;transition:.12s}
+  .mpanel-track:hover{background:rgba(255,255,255,.05)}
+  .mpanel-track.on{background:var(--accent-soft);border-color:rgba(255,122,71,.35);color:var(--accent)}
+  .mpt-eq{display:flex;align-items:flex-end;gap:2px;height:13px;width:13px;flex:0 0 13px;opacity:.35}
+  .mpanel-track.on .mpt-eq{opacity:1}
+  .mpt-eq i{width:3px;background:currentColor;border-radius:2px;height:5px}
+  .mpanel-track.on .mpt-eq i{animation:eq 1s ease-in-out infinite}
+  .mpanel-track.on .mpt-eq i:nth-child(2){animation-delay:.25s;height:13px}
+  .mpanel-track.on .mpt-eq i:nth-child(3){animation-delay:.5s;height:9px}
+  .mpanel-vol{display:flex;align-items:center;gap:8px;padding:12px 6px 4px;margin-top:8px;border-top:1px solid var(--border);font-size:12px}
+  .mpanel-vol input,.vm-vol input{flex:1;accent-color:var(--accent);cursor:pointer}
+  /* vision-mode music */
+  .vm-music{position:absolute;top:22px;left:26px;z-index:3}
+  .vm-music-btn{background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.8);width:42px;height:42px;border-radius:99px;font-size:18px;cursor:pointer;backdrop-filter:blur(8px);transition:.15s}
+  .vm-music-btn:hover,.vm-music-btn.on{color:#fff;border-color:var(--accent);background:var(--accent-soft)}
+  .vm-tracks{display:none;flex-direction:column;gap:4px;margin-top:10px;width:220px;background:rgba(10,10,12,.9);border:1px solid rgba(255,255,255,.14);border-radius:13px;padding:10px;backdrop-filter:blur(12px)}
+  .vm-music.open .vm-tracks{display:flex}
+  .vm-track{text-align:left;background:none;border:1px solid transparent;color:rgba(255,255,255,.85);cursor:pointer;padding:9px 11px;border-radius:9px;font-size:13px;font-family:inherit;transition:.12s}
+  .vm-track:hover{background:rgba(255,255,255,.08)}
+  .vm-track.on{background:var(--accent-soft);border-color:rgba(255,122,71,.4);color:var(--accent)}
+  .vm-vol{padding:8px 6px 2px;margin-top:4px;border-top:1px solid rgba(255,255,255,.12);display:flex}
   .wr-stage{position:relative;display:flex;flex-direction:column;align-items:center}
   .wr-label{margin-top:34px;font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:rgba(255,122,71,.9);font-weight:700;
     padding:7px 18px;border:1px solid rgba(255,122,71,.35);border-radius:99px;background:rgba(255,122,71,.07);
@@ -3510,6 +3534,12 @@ function openSlides(slides,i){
     <div class="vm-scrim"></div>
     <div class="vm-cap"></div>
     <div class="vm-goal"></div>
+    <div class="vm-music">
+      <button class="vm-music-btn ${musicOn?'on':''}" id="vm-music-btn" title="Music">♪</button>
+      <div class="vm-tracks">${MUSIC_TRACKS.map((t,i)=>`<button class="vm-track ${musicOn&&i===musicIdx?'on':''}" data-vm-track="${i}">${esc(t.name)}</button>`).join('')}
+        <div class="vm-vol"><input type="range" min="0" max="100" value="${musicVol}" id="vm-vol"></div>
+      </div>
+    </div>
     <button class="vm-x" title="Close">×</button>
     <button class="vm-nav vm-prev">‹</button>
     <button class="vm-nav vm-next">›</button>
@@ -3517,6 +3547,9 @@ function openSlides(slides,i){
   document.body.appendChild(el);
   try{if(el.requestFullscreen)el.requestFullscreen().catch(()=>{});}catch(e){}
   el.querySelector('.vm-x').onclick=closeVision;
+  el.querySelector('#vm-music-btn').onclick=e=>{e.stopPropagation();el.querySelector('.vm-music').classList.toggle('open');};
+  el.querySelectorAll('[data-vm-track]').forEach(b=>b.onclick=e=>{e.stopPropagation();const i=+b.dataset.vmTrack;if(musicOn&&i===musicIdx)stopMusic();else playTrack(i);});
+  el.querySelector('#vm-vol').oninput=e=>{e.stopPropagation();setMusicVol(e.target.value);};
   el.querySelector('.vm-prev').onclick=e=>{e.stopPropagation();slideGo(-1);};
   el.querySelector('.vm-next').onclick=e=>{e.stopPropagation();slideGo(1);};
   el.querySelector('.vm-stage').onclick=()=>slideGo(1);
@@ -3654,7 +3687,7 @@ function renderMorning(){
   const vplay=document.getElementById('mo-vision-play');
   if(vplay)vplay.onclick=()=>openSlides(visionSlides(),0);
   const mus=document.getElementById('mo-music');
-  if(mus)mus.onclick=()=>toggleMusic();
+  if(mus)mus.onclick=e=>{e.stopPropagation();openMusicPanel(mus);};
   const flow=document.getElementById('mo-flow');
   if(flow)flow.onclick=()=>openSlides(flowSlides(),0);
   main.querySelectorAll('[data-playlist]').forEach(b=>b.onclick=()=>openSlides(listSlides(b.dataset.playlist),0));
@@ -3827,9 +3860,16 @@ function showLock(mode,onUnlock){
 }
 
 /* BACKGROUND MUSIC */
-const MUSIC={id:'cml0QO7Pkos',title:'Manifest Your Desires'};
-let ytPlayer=null,ytReady=false,musicOn=false;
+const MUSIC_TRACKS=[
+  {id:'cml0QO7Pkos',name:'Manifest'},
+  {id:'5SPGG582F5w',name:'Quiet Side of Winning'},
+  {id:'0QXly1ZFerg',name:'Necessary Evil'},
+  {id:'Tukue-IbiYU',name:'The Punisher'}
+];
+let ytPlayer=null,ytReady=false,musicOn=false,musicIdx=0,musicVol=55;
+try{const sv=localStorage.getItem('os:vol');if(sv!=null)musicVol=+sv;const si=localStorage.getItem('os:track');if(si!=null)musicIdx=+si;}catch(e){}
 function musicPlaying(){return musicOn;}
+function curTrack(){return MUSIC_TRACKS[musicIdx]||MUSIC_TRACKS[0];}
 function ensureYT(cb){
   if(ytReady)return cb();
   if(!window.__ytLoading){
@@ -3840,35 +3880,74 @@ function ensureYT(cb){
     const iv=setInterval(()=>{if(ytReady){clearInterval(iv);cb();}},200);
   }
 }
+function musicRefresh(){
+  musicPill();
+  if(currentView==='morning'&&!moEdit)renderMorning();
+  document.querySelectorAll('[data-vm-track]').forEach(b=>b.classList.toggle('on',+b.dataset.vmTrack===musicIdx&&musicOn));
+  const vp=document.getElementById('vm-music-btn');if(vp)vp.classList.toggle('on',musicOn);
+}
 function musicPill(){
   let p=document.getElementById('music-pill');
   if(!musicOn){if(p)p.remove();return;}
   if(!p){
-    p=document.createElement('div');p.id='music-pill';
-    p.innerHTML=`<span class="mp-eq"><i></i><i></i><i></i></span><span class="mp-name">${esc(MUSIC.title)}</span><button class="mp-x" title="Stop">×</button>`;
-    document.body.appendChild(p);
-    p.querySelector('.mp-x').onclick=()=>toggleMusic();
+    p=document.createElement('div');p.id='music-pill';document.body.appendChild(p);
   }
+  p.innerHTML=`<span class="mp-eq"><i></i><i></i><i></i></span><span class="mp-name">${esc(curTrack().name)}</span><button class="mp-x" title="Stop">×</button>`;
+  p.querySelector('.mp-x').onclick=()=>stopMusic();
+}
+function startPlayer(cb){
+  ensureYT(()=>{
+    if(ytPlayer&&ytPlayer.loadVideoById)return cb();
+    const host=document.createElement('div');host.id='yt-host';host.style.cssText='position:fixed;width:1px;height:1px;left:-100px;bottom:-100px;opacity:0;pointer-events:none';
+    const div=document.createElement('div');div.id='yt-player';host.appendChild(div);document.body.appendChild(host);
+    ytPlayer=new YT.Player('yt-player',{
+      videoId:curTrack().id,
+      playerVars:{autoplay:0,loop:1,playlist:curTrack().id,controls:0,disablekb:1},
+      events:{
+        onReady:e=>{e.target.setVolume(musicVol);cb();},
+        onStateChange:e=>{if(e.data===YT.PlayerState.ENDED)e.target.playVideo();}
+      }
+    });
+  });
+}
+function playTrack(i){
+  musicIdx=i;try{localStorage.setItem('os:track',i);}catch(e){}
+  startPlayer(()=>{
+    ytPlayer.loadVideoById({videoId:curTrack().id});
+    ytPlayer.setVolume(musicVol);
+    musicOn=true;musicRefresh();
+  });
 }
 function toggleMusic(){
-  ensureYT(()=>{
-    if(!ytPlayer){
-      const host=document.createElement('div');host.id='yt-host';host.style.cssText='position:fixed;width:1px;height:1px;left:-100px;bottom:-100px;opacity:0;pointer-events:none';
-      const div=document.createElement('div');div.id='yt-player';host.appendChild(div);document.body.appendChild(host);
-      ytPlayer=new YT.Player('yt-player',{
-        videoId:MUSIC.id,
-        playerVars:{autoplay:1,loop:1,playlist:MUSIC.id,controls:0,disablekb:1},
-        events:{
-          onReady:e=>{e.target.setVolume(55);e.target.playVideo();musicOn=true;musicPill();if(currentView==='morning')renderMorning();},
-          onStateChange:e=>{if(e.data===YT.PlayerState.ENDED)e.target.playVideo();}
-        }
-      });
-      return;
-    }
-    if(musicOn){ytPlayer.pauseVideo();musicOn=false;}
-    else{ytPlayer.playVideo();musicOn=true;}
-    musicPill();if(currentView==='morning')renderMorning();
+  if(musicOn)stopMusic();
+  else startPlayer(()=>{ytPlayer.playVideo();ytPlayer.setVolume(musicVol);musicOn=true;musicRefresh();});
+}
+function stopMusic(){if(ytPlayer)ytPlayer.pauseVideo();musicOn=false;musicRefresh();}
+function setMusicVol(v){musicVol=Math.max(0,Math.min(100,+v));try{localStorage.setItem('os:vol',musicVol);}catch(e){}if(ytPlayer)ytPlayer.setVolume(musicVol);}
+function openMusicPanel(anchor){
+  const old=document.getElementById('music-panel');if(old){old.remove();return;}
+  const el=document.createElement('div');el.id='music-panel';el.className='music-panel';
+  el.innerHTML=`
+    <div class="mpanel-head">Music</div>
+    <div class="mpanel-tracks">${MUSIC_TRACKS.map((t,i)=>`
+      <button class="mpanel-track ${musicOn&&i===musicIdx?'on':''}" data-track="${i}">
+        <span class="mpt-eq"><i></i><i></i><i></i></span>
+        <span>${esc(t.name)}</span>
+      </button>`).join('')}</div>
+    <div class="mpanel-vol">
+      <span>🔉</span><input type="range" min="0" max="100" value="${musicVol}" id="mpanel-vol"><span>🔊</span>
+    </div>`;
+  document.body.appendChild(el);
+  const r=anchor.getBoundingClientRect();
+  el.style.top=(r.bottom+8)+'px';
+  el.style.left=Math.max(12,Math.min(r.left,window.innerWidth-el.offsetWidth-12))+'px';
+  el.querySelectorAll('[data-track]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.track;
+    if(musicOn&&i===musicIdx)stopMusic();else playTrack(i);
+    el.querySelectorAll('.mpanel-track').forEach(x=>x.classList.toggle('on',musicOn&&+x.dataset.track===musicIdx));
   });
+  el.querySelector('#mpanel-vol').oninput=e=>setMusicVol(e.target.value);
+  setTimeout(()=>document.addEventListener('click',function off(ev){if(!el.contains(ev.target)&&ev.target!==anchor){el.remove();document.removeEventListener('click',off);}}),0);
 }
 
 /* boot */
