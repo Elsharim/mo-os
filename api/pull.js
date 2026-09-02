@@ -48,32 +48,46 @@ export default async function handler(req, res) {
       const en = n => (n.aiTemplate && n.aiTemplate.name === 'Enhanced') ? 0 : 1;
       return en(x) - en(y) || (y.noteText || '').length - (x.noteText || '').length;
     });
-    const notes = ordered.map(n => {
+    let combined = ordered.map(n => {
       const name = (n.aiTemplate && n.aiTemplate.name) || '';
       const body = clean(n.noteText);
-      const titled = /^#/.test(body) ? body : ('## ' + name + '\n\n' + body);
-      return titled;
+      return /^#/.test(body) ? body : ('## ' + name + '\n\n' + body);
     }).join('\n\n\n').trim();
 
-    // takeaways come from whichever note has a Key Takeaways section
-    let takeaways = [];
-    for (const n of allNotes) {
-      const txt = clean(n.noteText);
-      const m = txt.match(/^#{1,4}\s*key\s*takeaways\s*$([\s\S]*?)(?=^#{1,4}\s|\n*$(?![\s\S]))/im);
-      if (m) {
-        takeaways = m[1].split(/\n/).map(l => l.trim().replace(/^[-•*]\s+/, '')).filter(l => l.length > 8);
-        if (takeaways.length) break;
-      }
-    }
+    // lift Key Takeaways and Next Steps sections out of the body — they get their own UI sections
+    const cutAll = (txt, titleRe) => {
+      const re = new RegExp('^#{1,4}\\s*(?:' + titleRe + ')[^\\n]*$\\n?([\\s\\S]*?)(?=^#{1,4}\\s|(?![\\s\\S]))', 'gim');
+      const items = [];
+      const body = txt.replace(re, (m, sec) => {
+        sec.split(/\n/).forEach(l => {
+          const t = l.trim().replace(/^[-•*]\s+/, '');
+          if (t.length > 3) items.push(t);
+        });
+        return '';
+      });
+      return { body: body.replace(/\n{3,}/g, '\n\n\n').trim(), items };
+    };
+    const dedup = arr => {
+      const seen = new Set();
+      return arr.filter(t => { const k = t.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+    };
+    const tk = cutAll(combined, 'key\\s*take\\s*aways?|key\\s*points');
+    combined = tk.body;
+    const ns = cutAll(combined, 'next\\s*steps?|action\\s*items?');
+    combined = ns.body;
+    const notes = combined;
+    const takeaways = dedup(tk.items);
+    const nextSteps = dedup(ns.items);
 
     const clips = (n.noteClips && n.noteClips.clips) || [];
-    const actions = clips
+    const clipActions = clips
       .filter(c => c.note && c.note.bookmark && c.note.bookmark.action_item && (c.note.text || '').trim())
       .map(c => {
         const t = c.note.text.trim();
         const who = (c.note.actionItemAssigneeName || '').trim();
         return who ? t + ' — ' + who : t;
       });
+    const actions = clipActions.length ? clipActions : nextSteps;
 
     res.status(200).json({ notes, actions, takeaways });
   } catch (e) {
