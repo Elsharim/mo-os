@@ -943,6 +943,13 @@
   .cnv-dot{width:5px;height:5px;border-radius:99px;background:var(--accent);flex:0 0 auto;margin-top:8px;opacity:.8}
   .cnv-num{font-family:var(--mono);font-size:12px;color:var(--accent);flex:0 0 auto;margin-top:1px}
   .cnv-pin{background:var(--accent-soft);border:1px solid rgba(255,122,71,.28);border-radius:11px;padding:11px 15px;margin:12px 0;color:var(--text);font-size:13px;line-height:1.6}
+  .cnv-hr{border:none;border-top:1px solid var(--border);margin:18px 0}
+  .cnv-chk{width:16px;height:16px;flex:0 0 16px;border-radius:5px;border:1.5px solid var(--border-2);display:grid;place-items:center;font-size:10px;font-weight:800;color:#08221a;margin-top:3px}
+  .cnv-chk.on{background:var(--good);border-color:var(--good)}
+  .cnv-done{text-decoration:line-through;opacity:.6}
+  .mdc{font-family:var(--mono);font-size:.9em;background:rgba(255,255,255,.07);border-radius:5px;padding:1px 6px}
+  .cnv-p b,.cnv-b b{color:var(--text)}
+  .note-body-view{flex:1;overflow-y:auto;border:none;border-radius:0;background:none;margin:0}
   .co-tk{display:flex;align-items:flex-start;gap:13px;padding:11px 14px;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:12px;transition:.13s}
   .co-tk:hover{border-color:var(--border);background:rgba(255,255,255,.035)}
   .co-tk-dot{width:7px;height:7px;border-radius:99px;background:var(--accent-2);box-shadow:0 0 8px rgba(255,176,46,.5);flex:0 0 auto;margin-top:7px}
@@ -1873,21 +1880,63 @@ async function fbInit(){
   _fbDb=firebase.firestore();
   return _fbDb;
 }
+/* end-to-end encryption: data is AES-encrypted before it leaves the browser */
+let cryptoKey=null,encAtRest=false;
+const ENC='enc1:';
+function b64e(buf){const u=new Uint8Array(buf);let s='';for(let i=0;i<u.length;i+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(i,i+0x8000));return btoa(s);}
+function b64d(str){const s=atob(str);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return u;}
+async function deriveKey(pin,pepper){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin+':'+pepper),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt:new TextEncoder().encode('mo-os-v1'),iterations:150000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+}
+async function restoreKey(){
+  try{
+    const raw=localStorage.getItem('os:key');
+    if(!raw)return null;
+    cryptoKey=await crypto.subtle.importKey('raw',b64d(raw),{name:'AES-GCM'},true,['encrypt','decrypt']);
+    return cryptoKey;
+  }catch(e){return null;}
+}
+async function stashKey(){try{localStorage.setItem('os:key',b64e(await crypto.subtle.exportKey('raw',cryptoKey)));}catch(e){}}
+async function encStr(str){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},cryptoKey,new TextEncoder().encode(str));
+  return ENC+b64e(iv)+':'+b64e(ct);
+}
+async function decStr(v){
+  const p=v.slice(ENC.length).split(':');
+  const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(p[0])},cryptoKey,b64d(p[1]));
+  return new TextDecoder().decode(pt);
+}
 const store={
   async get(k){
     try{
       const db=await fbInit();
       const doc=await db.collection(OS_DOC.collection).doc(OS_DOC.doc).get();
       setSyncStatus('live');
-      if(doc.exists){const v=doc.data()[OS_DOC.field];if(v!=null){_mem[k]=v;return v;}}
+      if(doc.exists){
+        const v=doc.data()[OS_DOC.field];
+        if(v!=null){
+          if(String(v).startsWith(ENC)){
+            encAtRest=true;
+            if(!cryptoKey)return '__LOCKED__';
+            try{const pt=await decStr(v);_mem[k]=pt;return pt;}
+            catch(e){return '__BADKEY__';}
+          }
+          _mem[k]=v;return v;
+        }
+      }
     }catch(e){console.warn('store.get failed',e);setSyncStatus('error');}
     return _mem[k]??null;
   },
   async set(k,v){
     _mem[k]=v;
     try{
+      let out=v;
+      if(cryptoKey)out=await encStr(v);
+      else if(encAtRest){console.warn('locked, write skipped');return;}
       const db=await fbInit();
-      await db.collection(OS_DOC.collection).doc(OS_DOC.doc).set({[OS_DOC.field]:v});
+      await db.collection(OS_DOC.collection).doc(OS_DOC.doc).set({[OS_DOC.field]:out});
       setSyncStatus('live');
     }catch(e){console.warn('store.set failed',e);setSyncStatus('error');}
   }
@@ -1979,6 +2028,8 @@ function dayRec(k){if(!S.days[k])S.days[k]={disc:{}};S.days[k].disc=S.days[k].di
 function save(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{await store.set(STORE_KEY,JSON.stringify(S));},250);}
 async function load(){
   const raw=await store.get(STORE_KEY);
+  if(raw==='__LOCKED__'||raw==='__BADKEY__'){S=null;window.__LOCKED=raw;return;}
+  window.__LOCKED=null;
   if(raw){try{S=Object.assign(structuredClone(DEFAULT),JSON.parse(raw));}catch(e){S=structuredClone(DEFAULT);}}
   else S=structuredClone(DEFAULT);
   for(const k in DEFAULT)if(!(k in S))S[k]=structuredClone(DEFAULT[k]);
@@ -2701,22 +2752,36 @@ function coDetailHTML(s){
     ${coDeepOpen?`<div class="co-notes-view">${coNotesViewHtml(s.deep)}</div>`:''}
   </div>`:''}`;
 }
+function mdInline(t){
+  let h=esc(t);
+  h=h.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  h=h.replace(/__([^_]+)__/g,'<b>$1</b>');
+  h=h.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;:!?]|$)/g,'$1<i>$2</i>');
+  h=h.replace(/`([^`]+)`/g,'<code class="mdc">$1</code>');
+  h=h.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+  return h;
+}
 function coNotesViewHtml(txt){
   return txt.split(/\n/).map(l=>{
     const t=l.trim();
     if(!t)return'';
-    if(/^📌/.test(t))return `<div class="cnv-pin">${esc(t.replace(/^📌\s*/,''))}</div>`;
-    if(/^#{1,4}\s/.test(t))return `<div class="cnv-h">${esc(t.replace(/^#+\s*/,''))}</div>`;
-    if(/^\d+\.\d+/.test(t))return `<div class="cnv-sub">${esc(t)}</div>`;
+    if(/^📌/.test(t))return `<div class="cnv-pin">${mdInline(t.replace(/^📌\s*/,''))}</div>`;
+    if(/^#{1,2}\s/.test(t))return `<div class="cnv-h">${mdInline(t.replace(/^#+\s*/,''))}</div>`;
+    if(/^#{3,5}\s/.test(t))return `<div class="cnv-sub">${mdInline(t.replace(/^#+\s*/,''))}</div>`;
+    const chk=t.match(/^[-*]\s+\[([ xX])\]\s+(.*)/);
+    if(chk)return `<div class="cnv-b"><span class="cnv-chk ${chk[1].trim()?'on':''}">${chk[1].trim()?'✓':''}</span><span class="${chk[1].trim()?'cnv-done':''}">${mdInline(chk[2])}</span></div>`;
+    if(/^\d+\.\d+/.test(t))return `<div class="cnv-sub">${mdInline(t)}</div>`;
     const mNum=t.match(/^(\d+)\.\s+(.*)/);
     if(mNum){
-      if(t.length<=60)return `<div class="cnv-h">${esc(t)}</div>`;
-      return `<div class="cnv-b"><span class="cnv-num">${mNum[1]}</span><span>${esc(mNum[2])}</span></div>`;
+      if(t.length<=60)return `<div class="cnv-h">${mdInline(t)}</div>`;
+      return `<div class="cnv-b"><span class="cnv-num">${mNum[1]}</span><span>${mdInline(mNum[2])}</span></div>`;
     }
-    if(/^[-•*]\s+/.test(t))return `<div class="cnv-b"><span class="cnv-dot"></span><span>${esc(t.replace(/^[-•*]\s+/,''))}</span></div>`;
-    if(!/^[a-zA-Z0-9"'(]/.test(t))return `<div class="cnv-h">${esc(t)}</div>`;
-    if(t.length<60&&/[:：]$/.test(t))return `<div class="cnv-sub">${esc(t)}</div>`;
-    return `<p class="cnv-p">${esc(t)}</p>`;
+    if(/^>\s+/.test(t))return `<div class="cnv-pin">${mdInline(t.replace(/^>\s+/,''))}</div>`;
+    if(/^[-—_]{3,}$/.test(t))return `<hr class="cnv-hr">`;
+    if(/^[-•*]\s+/.test(t))return `<div class="cnv-b"><span class="cnv-dot"></span><span>${mdInline(t.replace(/^[-•*]\s+/,''))}</span></div>`;
+    if(!/^[a-zA-Z0-9"'(<]/.test(t))return `<div class="cnv-h">${mdInline(t)}</div>`;
+    if(t.length<60&&/[:：]$/.test(t))return `<div class="cnv-sub">${mdInline(t)}</div>`;
+    return `<p class="cnv-p">${mdInline(t)}</p>`;
   }).join('');
 }
 function renderCoaching(){
@@ -3089,9 +3154,10 @@ function openWriter(k){
   ta.focus();
   ta.setSelectionRange(ta.value.length,ta.value.length);
 }
-function openNote(id){
+function openNote(id,editing){
   const n=notesData().find(x=>x.id===id);if(!n)return;
   const old=document.getElementById('note-edit-modal');if(old)old.remove();
+  const isEdit=editing!==undefined?editing:!(n.body||'').trim();
   const el=document.createElement('div');
   el.id='note-edit-modal';el.className='note-modal';
   el.innerHTML=`
@@ -3101,11 +3167,14 @@ function openNote(id){
         <input class="note-title-in" id="ne-title" placeholder="Untitled" value="${esc(n.title||'')}" autocomplete="off">
         <div class="nm-actions">
           <button class="btn note-pin-btn ${n.pinned?'solid':''}" id="ne-pin">${n.pinned?'★ Pinned':'☆ Pin'}</button>
-          <span class="saved" id="ne-saved">Saved</span>
-          <button class="btn nm-close">Done</button>
+          ${isEdit?'<span class="saved" id="ne-saved">Saved</span>':''}
+          <button class="btn" id="ne-mode">${isEdit?'Done writing':'Edit'}</button>
+          <button class="btn nm-close">Close</button>
         </div>
       </div>
-      <textarea class="write jr-write note-body" id="ne-body" placeholder="Write…">${esc(n.body||'')}</textarea>
+      ${isEdit
+        ?`<textarea class="write jr-write note-body" id="ne-body" placeholder="Write…">${esc(n.body||'')}</textarea>`
+        :`<div class="note-body-view co-notes-view">${coNotesViewHtml(n.body||'')}</div>`}
       <div class="note-foot">
         <span>Created ${noteTime(n.created)}</span>
         <button class="btn danger-ghost" id="ne-del">Delete note</button>
@@ -3115,16 +3184,19 @@ function openNote(id){
   const close=()=>{el.remove();if(currentView==='journal')renderJournal();};
   el.querySelector('.nm-close').onclick=close;
   el.querySelector('.nm-backdrop').onclick=close;
+  el.querySelector('#ne-mode').onclick=()=>openNote(id,!isEdit);
   const ti=el.querySelector('#ne-title'),bo=el.querySelector('#ne-body');
-  autosize(bo);
   ti.oninput=()=>{n.title=ti.value;n.updated=Date.now();save();flash('ne-saved');};
-  bo.oninput=()=>{n.body=bo.value;n.updated=Date.now();save();flash('ne-saved');autosize(bo);};
+  if(bo){
+    autosize(bo);
+    bo.oninput=()=>{n.body=bo.value;n.updated=Date.now();save();flash('ne-saved');autosize(bo);};
+  }
   el.querySelector('#ne-pin').onclick=()=>{n.pinned=!n.pinned;save();const b=el.querySelector('#ne-pin');b.textContent=n.pinned?'★ Pinned':'☆ Pin';b.classList.toggle('solid',n.pinned);};
   el.querySelector('#ne-del').onclick=()=>{
     if(!confirm('Delete this note for good?'))return;
     S.notes=notesData().filter(x=>x.id!==id);save();close();
   };
-  if(!n.title)ti.focus();else bo.focus();
+  if(isEdit){if(!n.title)ti.focus();else if(bo)bo.focus();}
   document.addEventListener('keydown',function esc(e){
     if(e.key==='Escape'){const m=document.getElementById('note-edit-modal');if(m){m.remove();if(currentView==='journal')renderJournal();}document.removeEventListener('keydown',esc);}
   });
@@ -3520,18 +3592,33 @@ function showLock(mode,onUnlock){
     w.classList.remove('shake');void w.offsetWidth;w.classList.add('shake');
     buf='';setTimeout(paint,250);
   };
+  const done=()=>{el.remove();document.removeEventListener('keydown',keys);onUnlock();};
   const submit=async()=>{
     const h=await pinHash(buf);
     if(stage==='enter'){
-      if(h===S.pinHash){try{localStorage.setItem('os:unlock',h);}catch(_){}el.remove();document.removeEventListener('keydown',keys);onUnlock();}
-      else shake();
+      const entered=buf;
+      title.textContent='Checking…';
+      try{
+        const r=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:entered})});
+        const d=await r.json().catch(()=>({}));
+        if(!r.ok){title.textContent=d.error==='Too many attempts. Wait 15 minutes.'?d.error:'Enter your code';shake();return;}
+        cryptoKey=await deriveKey(entered,d.pepper);
+        await stashKey();
+        try{localStorage.setItem('os:unlock',h);}catch(_){}
+        if(!S){await load();if(!S){title.textContent='Could not read your data';return;}}
+        done();
+      }catch(e){
+        // offline or local dev: fall back to local check while data is unencrypted
+        if(S&&S.pinHash&&h===S.pinHash){try{localStorage.setItem('os:unlock',h);}catch(_){}done();}
+        else{title.textContent='Cannot verify right now';shake();}
+      }
     }else if(stage==='set'){
       firstPin=buf;buf='';stage='confirm';setTitle();paint();
     }else{
       if(buf===firstPin){
         S.pinHash=h;save();
         try{localStorage.setItem('os:unlock',h);}catch(_){}
-        el.remove();document.removeEventListener('keydown',keys);onUnlock();
+        done();
       }else{stage='set';firstPin='';setTitle();shake();}
     }
   };
@@ -3551,17 +3638,27 @@ function showLock(mode,onUnlock){
 }
 
 /* boot */
-(async function(){
-  await load();
+function finishBoot(){
   const wn=document.getElementById('ws-name');wn.value=S.wsName||'OS';
   wn.oninput=()=>{S.wsName=wn.value;save();document.title=wn.value||'MO OS';document.getElementById('brandmark').textContent=(S.name||wn.value||'M').trim().charAt(0).toUpperCase()||'M';};
   document.title=S.wsName||'MO OS';
   document.getElementById('brandmark').textContent=(S.name||S.wsName||'M').trim().charAt(0).toUpperCase()||'M';
+  render();
+}
+(async function(){
   tick();setInterval(tick,20000);
+  await restoreKey();
+  await load();
+  if(!S){
+    // data is encrypted and this device has no (or a stale) key
+    if(window.__LOCKED==='__BADKEY__'){try{localStorage.removeItem('os:key');}catch(_){}cryptoKey=null;}
+    showLock('enter',finishBoot);
+    return;
+  }
   let stored=null;try{stored=localStorage.getItem('os:unlock');}catch(_){}
-  if(!S.pinHash)showLock('set',render);
-  else if(stored!==S.pinHash)showLock('enter',render);
-  else render();
+  if(!S.pinHash)showLock('set',finishBoot);
+  else if(stored!==S.pinHash&&!cryptoKey)showLock('enter',finishBoot);
+  else finishBoot();
 })();
 </script>
 </body>
