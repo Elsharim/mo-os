@@ -685,7 +685,7 @@
   .note-panel{padding:0}
   .note-title-in{flex:1;background:none;border:none;color:var(--text);font-size:17px;font-weight:700;padding:0;letter-spacing:-.01em}
   .note-title-in:focus{outline:none}
-  .note-body{flex:1;border:none;border-radius:0;background:none;padding:20px 22px;min-height:0;resize:none;overflow-y:auto!important}
+  .note-body{flex:1;border:none;border-radius:0;background:none;padding:22px 26px;min-height:0;resize:none;overflow-y:auto!important;font-size:15.5px;line-height:1.75;color:var(--text)}
   .note-body:focus{outline:none}
   .note-foot{display:flex;align-items:center;justify-content:space-between;padding:13px 22px;border-top:1px solid var(--border);font-size:11px;color:var(--faint)}
   .danger-ghost{border-color:rgba(248,113,113,.4);color:var(--bad);background:none}
@@ -1030,7 +1030,12 @@
   .cnv-done{text-decoration:line-through;opacity:.6}
   .mdc{font-family:var(--mono);font-size:.9em;background:rgba(255,255,255,.07);border-radius:5px;padding:1px 6px}
   .cnv-p b,.cnv-b b{color:var(--text)}
-  .note-body-view{flex:1;overflow-y:auto;border:none;border-radius:0;background:none;margin:0}
+  .note-body-view{flex:1;overflow-y:auto;border:none;border-radius:0;background:none;margin:0;padding:22px 26px 40px;font-size:15.5px;line-height:1.75;color:var(--text)}
+  .note-body-view .cnv-p{color:var(--text);margin:10px 0;font-size:15.5px}
+  .note-body-view .cnv-b{color:var(--text);margin:7px 0;font-size:15.5px}
+  .note-body-view .cnv-h{font-size:19px;margin:26px 0 10px}
+  .note-body-view .cnv-sub{font-size:13px;margin:20px 0 6px}
+  .note-title-in{flex:1;background:none;border:none;color:var(--text);font-family:var(--display);font-size:22px;font-weight:700;padding:0;letter-spacing:-.015em}
   .co-tk{display:flex;align-items:flex-start;gap:13px;padding:11px 14px;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:12px;transition:.13s}
   .co-tk:hover{border-color:var(--border);background:rgba(255,255,255,.035)}
   .co-tk-dot{width:7px;height:7px;border-radius:99px;background:var(--accent-2);box-shadow:0 0 8px rgba(255,176,46,.5);flex:0 0 auto;margin-top:7px}
@@ -3035,7 +3040,7 @@ ${(s.notes||'').trim()?`<h3>Full notes</h3>${coNotesDocHtml(s.notes)}`:''}`).joi
 }
 
 /* JOURNAL & NOTES */
-let jrExpanded=null,noteQuery='',noteSel=null,jrTab='daily';
+let jrExpanded=null,noteQuery='',noteSel=null,jrTab='daily',jrPastOpen=true;
 function goalLog(){if(!Array.isArray(S.goalLog))S.goalLog=[];return S.goalLog;}
 function jrData(){if(!S.journal||typeof S.journal!=='object')S.journal={};return S.journal;}
 function notesData(){if(!Array.isArray(S.notes))S.notes=[];return S.notes;}
@@ -3089,11 +3094,13 @@ function renderJournal(){
       <span class="jwc-hint">${activeK?(words?words+' words · keep going →':'start writing →'):'open the page →'}</span>
     </button>
     <div class="sect" style="margin-top:26px">
-      <div class="sect-head">Past entries <span>${past.length||''}</span>
+      <div class="sect-head">
+        <button class="sect-toggle" id="jr-past-toggle">${jrPastOpen?'▾':'▸'} Past entries</button>
+        <span>${past.length||''}</span>
         <span style="flex:1"></span>
-        <button class="btn btn-sm" id="jr-dl">↓ Download all</button>
+        ${past.length?'<button class="btn btn-sm" id="jr-dl">↓ Download all</button>':''}
       </div>
-      ${past.length?(()=>{
+      ${!jrPastOpen?'':past.length?(()=>{
         const groups=[];let cur=null;
         past.forEach(k=>{
           const [y,m]=jrBase(k).split('-');
@@ -3197,6 +3204,8 @@ function renderJournal(){
   main.querySelectorAll('[data-open-day]').forEach(b=>b.onclick=()=>openWriter(b.dataset.openDay));
   const jd=document.getElementById('jr-dl');
   if(jd)jd.onclick=exportJournals;
+  const jpt=document.getElementById('jr-past-toggle');
+  if(jpt)jpt.onclick=()=>{jrPastOpen=!jrPastOpen;renderJournal();};
   const nd=document.getElementById('notes-dl');
   if(nd)nd.onclick=exportNotes;
 
