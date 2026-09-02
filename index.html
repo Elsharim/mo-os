@@ -766,9 +766,10 @@
   /* immersive writer: a page in a dark room */
   #writer-modal{position:fixed;inset:0;z-index:6000;overflow-y:auto;
     background:
-      radial-gradient(85% 60% at 50% 115%,rgba(255,122,71,.17),transparent 62%),
-      radial-gradient(60% 45% at 15% 100%,rgba(255,176,46,.06),transparent 70%),
-      radial-gradient(120% 90% at 50% -30%,#131315,#050506 72%);
+      radial-gradient(85% 60% at 50% 115%,rgba(255,122,71,.22),transparent 64%),
+      radial-gradient(55% 45% at 12% 90%,rgba(255,176,46,.09),transparent 70%),
+      radial-gradient(50% 40% at 88% 15%,rgba(255,122,71,.07),transparent 70%),
+      radial-gradient(120% 90% at 50% -30%,#141416,#060608 72%);
     animation:vmIn .3s ease both}
   .wr-amb{position:fixed;inset:0;pointer-events:none;overflow:hidden}
   .wr-ember{position:absolute;bottom:-12px;width:5px;height:5px;border-radius:99px;background:rgba(255,140,80,.55);filter:blur(1.5px);opacity:0;animation:emberUp linear infinite}
@@ -896,6 +897,12 @@
   .co-link-in::placeholder{color:var(--faint)}
   .co-pull-status{font-size:12px;color:var(--muted)}
   .co-pull-status.ok{color:var(--good)}
+  .co-tk{display:flex;align-items:flex-start;gap:13px;padding:12px 15px;background:var(--card);border:1px solid var(--border);border-radius:12px;transition:.13s}
+  .co-tk:hover{border-color:var(--border-2)}
+  .co-tk-dot{width:7px;height:7px;border-radius:99px;background:var(--accent-2);box-shadow:0 0 8px rgba(255,176,46,.5);flex:0 0 auto;margin-top:7px}
+  .co-tk-text{flex:1;font-size:13.5px;line-height:1.6}
+  .co-tk-del{opacity:0}
+  .co-tk:hover .co-tk-del{opacity:1}
   .co-list-card{background:var(--card);border-radius:var(--r)}
 
   /* ===== VISION MODE ===== */
@@ -2521,7 +2528,10 @@ async function pullFromFathom(s){
         clearInterval(poll);
         const d=doc.data();
         if(d.notes)s.notes=s.notes?s.notes+'\n\n'+d.notes:d.notes;
+        if(!Array.isArray(s.steps))s.steps=[];
+        if(!Array.isArray(s.takeaways))s.takeaways=[];
         (d.actions||[]).forEach((t,i)=>{s.steps.push({id:'st'+Date.now()+i,text:String(t),done:false});});
+        (d.takeaways||[]).forEach((t,i)=>{s.takeaways.push({id:'tk'+Date.now()+i,text:String(t)});});
         save();coPull='Done. Notes added.';renderCoaching();
         db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
       }
@@ -2530,6 +2540,7 @@ async function pullFromFathom(s){
 }
 function coDetailHTML(s){
   if(!Array.isArray(s.steps))s.steps=[];
+  if(!Array.isArray(s.takeaways))s.takeaways=[];
   const openSteps=s.steps.filter(x=>!x.done).length;
   return `
   <div class="co-header">
@@ -2560,8 +2571,19 @@ function coDetailHTML(s){
   </div>
 
   <div class="sect">
+    <div class="sect-head">Key takeaways <span>${s.takeaways.length||''}</span></div>
+    ${s.takeaways.length?`<div class="jr-list">${s.takeaways.map(t=>`
+      <div class="co-tk" data-tkrow="${t.id}">
+        <span class="co-tk-dot"></span>
+        <span class="co-tk-text">${esc(t.text)}</span>
+        <button class="rm co-tk-del" data-tk-del="${t.id}">×</button>
+      </div>`).join('')}</div>`:''}
+    <div class="addrow ghost-add"><input id="co-tk-add" placeholder="+ Add a takeaway"></div>
+  </div>
+
+  <div class="sect">
     <div class="sect-head">
-      <button class="sect-toggle" id="co-notes-toggle">${coNotesOpen?'▾':'▸'} My notes</button>
+      <button class="sect-toggle" id="co-notes-toggle">${coNotesOpen?'▾':'▸'} Full notes</button>
       ${coNotesOpen?'<span class="saved" id="co-saved">Saved</span>':`<span>${(s.notes||'').trim()?clip(s.notes.trim().replace(/\s+/g,' '),48):''}</span>`}
     </div>
     ${coNotesOpen?`<textarea id="co-notes" class="jr-surface" placeholder="Write…">${esc(s.notes||'')}</textarea>`:''}
@@ -2637,6 +2659,17 @@ function renderCoaching(){
       const again=document.getElementById('co-step-add');if(again)again.focus();
     }
   };
+  const tka=document.getElementById('co-tk-add');
+  tka.onkeydown=e=>{
+    if(e.key==='Enter'){
+      const v=tka.value.trim();if(!v)return;
+      s.takeaways.push({id:'tk'+Date.now(),text:v});save();renderCoaching();
+      const again=document.getElementById('co-tk-add');if(again)again.focus();
+    }
+  };
+  main.querySelectorAll('[data-tk-del]').forEach(b=>b.onclick=()=>{
+    s.takeaways=s.takeaways.filter(x=>x.id!==b.dataset.tkDel);save();renderCoaching();
+  });
 
   document.getElementById('co-notes-toggle').onclick=()=>{coNotesOpen=!coNotesOpen;renderCoaching();};
   const no=document.getElementById('co-notes');
@@ -2687,7 +2720,8 @@ ${list.map((s,i)=>`${i?'<hr class="hr">':'<div style="margin-top:34px"></div>'}
 <h2>${esc(s.title||'Untitled session')}</h2>
 <div class="smeta"><b class="${coach.toLowerCase()==='jj'?'jj':''}">${esc(coach)}</b>${s.date?' &nbsp;·&nbsp; '+longDate(s.date):''}</div>
 ${(s.steps&&s.steps.length)?`<h3>Action steps</h3>${s.steps.map(st=>`<p class="step ${st.done?'done':''}"><span class="bx">${st.done?'☑':'☐'}</span>&nbsp; ${esc(st.text)}</p>`).join('')}`:''}
-${(s.notes||'').trim()?`<h3>Notes</h3>${coNotesDocHtml(s.notes)}`:''}`).join('')}
+${(s.takeaways&&s.takeaways.length)?`<h3>Key takeaways</h3>${s.takeaways.map(t=>`<p class="bl">•&nbsp;&nbsp;${esc(t.text)}</p>`).join('')}`:''}
+${(s.notes||'').trim()?`<h3>Full notes</h3>${coNotesDocHtml(s.notes)}`:''}`).join('')}
 </body></html>`;
   const blob=new Blob(['﻿'+html],{type:'application/msword'});
   const a=document.createElement('a');
@@ -2884,8 +2918,6 @@ function openWriter(k){
   const J=jrData();
   const el=document.createElement('div');
   el.id='writer-modal';
-  const fg=featuredGoal();
-  const gcd=goalDays(fg);
   el.innerHTML=`
     <div class="wr-amb">${[1,2,3,4,5,6].map(i=>`<span class="wr-ember e${i}"></span>`).join('')}</div>
     <div class="wr-halo"></div>
@@ -2900,8 +2932,7 @@ function openWriter(k){
         <div class="wr-rule"></div>
         <textarea id="wr-ta">${esc((J[k]&&J[k].text)||'')}</textarea>
       </div>
-    </div>
-    ${fg?`<div class="wr-goalline">${esc(fg.text)}${gcd!==null&&gcd>=0?' · '+gcd+' days':''}</div>`:''}`;
+    </div>`;
   document.body.appendChild(el);
   const ta=el.querySelector('#wr-ta');
   const count=el.querySelector('#wr-count');
