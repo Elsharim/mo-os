@@ -634,6 +634,10 @@
   .jr-row-snip{color:var(--faint);font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .jr-row-arrow{color:var(--faint);flex:0 0 auto}
   .jr-past-edit{min-height:100px}
+  .jr-row2{display:flex;align-items:baseline;justify-content:space-between;gap:16px;width:100%;text-align:left;background:none;border:1px solid transparent;color:var(--text);cursor:pointer;padding:12px 14px;border-radius:11px;font-family:inherit;transition:.13s}
+  .jr-row2:hover{background:rgba(255,255,255,.03);border-color:var(--border)}
+  .jr2-title{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .jr2-date{font-size:12px;color:var(--faint);flex:0 0 auto}
   .jr-notes .inp{width:100%;margin-top:2px}
   .note-list{display:flex;flex-direction:column;gap:4px;margin-top:12px}
   .note-row{display:flex;align-items:center;gap:11px;width:100%;text-align:left;background:none;border:1px solid transparent;color:var(--text);cursor:pointer;padding:10px 11px;border-radius:10px;transition:.13s}
@@ -804,7 +808,10 @@
     padding:58px 68px 72px;
     animation:pageIn .55s cubic-bezier(.2,.8,.2,1) both}
   @keyframes pageIn{from{opacity:0;transform:translateY(30px) scale(.965)}to{opacity:1;transform:none}}
-  .wr-page-date{font-family:var(--display);font-weight:700;color:var(--accent);font-size:14px;letter-spacing:.02em;margin-bottom:12px}
+  .wr-page-date{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:12px}
+  .wr-title{display:block;width:100%;background:none;border:none;color:var(--text);font-family:var(--display);font-size:27px;font-weight:700;letter-spacing:-.02em;padding:0 0 10px;line-height:1.2}
+  .wr-title:focus{outline:none}
+  .wr-title::placeholder{color:rgba(255,255,255,.18)}
   .wr-rule{height:1px;background:linear-gradient(90deg,rgba(255,122,71,.35),rgba(255,255,255,.07) 40%,transparent);margin-bottom:8px}
   #wr-ta{display:block;width:100%;background:
       repeating-linear-gradient(transparent 0px,transparent 35px,rgba(255,255,255,.045) 35px,rgba(255,255,255,.045) 36px);
@@ -2043,6 +2050,20 @@ async function load(){
   if(!S.journal||typeof S.journal!=='object')S.journal={};
   if(!Array.isArray(S.notes))S.notes=[];
   if(!Array.isArray(S.goalLog))S.goalLog=[];
+  if(!S.jrV2){
+    Object.keys(S.journal).forEach(k=>{
+      const e=S.journal[k];
+      if(!e||typeof e!=='object'||e.title!==undefined)return;
+      const blocks=String(e.text||'').split(/\n\n---\n\n(?=# )/);
+      const parsed=blocks.map(b=>{
+        const m=b.match(/^#\s+(.+)\n\n?([\s\S]*)$/);
+        return m?{title:m[1].trim(),body:m[2]}:{title:'',body:b};
+      });
+      e.title=parsed[0].title||'';
+      e.text=parsed.map((p,i)=>i===0?p.body:(p.title?p.title.toUpperCase()+'\n\n':'')+p.body).join('\n\n---\n\n').trim();
+    });
+    S.jrV2=true;save();
+  }
   if(!S.goals||typeof S.goals!=='object')S.goals={ninetyDay:"",targetDate:"",buyBox:"",big:[]};
   if(!S.goals.label)S.goals.label='90-day goal';
 }
@@ -2953,10 +2974,11 @@ function renderJournal(){
   const notes=sortedNotes();
   const g=S.goals||{};
 
+  const niceDate=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'});};
   const writePane=`
     <button class="jr-write-cta" id="jr-open-writer">
       <span class="jwc-cap">${words?'Continue today':'Today'}</span>
-      <span class="jwc-date">${longDate(tk)}</span>
+      <span class="jwc-date">${entry.title?esc(entry.title):longDate(tk)}</span>
       ${words?`<span class="jwc-preview">${esc(clip(entry.text,150))}</span>`:''}
       <span class="jwc-hint">${words?words+' words · keep going →':'start writing →'}</span>
     </button>
@@ -2964,10 +2986,9 @@ function renderJournal(){
       <div class="sect-head">Past entries <span>${past.length||''}</span></div>
       ${past.length?`<div class="jr-list">${past.map(k=>{
         const e=J[k];
-        return `<button class="jr-row-head" data-open-day="${k}">
-          <span class="jr-row-date">${longDate(k)}</span>
-          <span class="jr-row-snip">${esc(clip(e.text,72))}</span>
-          <span class="jr-row-arrow">→</span>
+        return `<button class="jr-row2" data-open-day="${k}">
+          <span class="jr2-title">${esc(e.title||clip((e.text||'').trim().split('\\n')[0],48)||'Untitled')}</span>
+          <span class="jr2-date">${niceDate(k)}</span>
         </button>`;
       }).join('')}</div>`:'<div class="empty sect-empty">No entries yet.</div>'}
     </div>`;
@@ -3123,24 +3144,29 @@ function openWriter(k){
     <div class="wr-halo"></div>
     <div class="wr-chrome">
       <span class="wr-count" id="wr-count"></span>
-      <button class="btn" id="wr-done">Done</button>
+      <button class="btn solid" id="wr-done">Finish</button>
     </div>
     <div class="wr-stage">
       <div class="wr-label">Journal</div>
       <div class="wr-page">
         <div class="wr-page-date">${longDate(k)}</div>
+        <input id="wr-title" class="wr-title" placeholder="Title" value="${esc((J[k]&&J[k].title)||'')}" spellcheck="false" autocomplete="off">
         <div class="wr-rule"></div>
         <textarea id="wr-ta">${esc((J[k]&&J[k].text)||'')}</textarea>
       </div>
     </div>`;
   document.body.appendChild(el);
   const ta=el.querySelector('#wr-ta');
+  const ti=el.querySelector('#wr-title');
   const count=el.querySelector('#wr-count');
+  const ensure=()=>{if(!J[k])J[k]={text:'',title:'',ts:Date.now()};return J[k];};
   const upd=()=>{const w=ta.value.trim()?ta.value.trim().split(/\s+/).length:0;count.textContent=w?w+' words':'';ta.style.height='auto';ta.style.height=Math.max(ta.scrollHeight+8,window.innerHeight*0.45)+'px';};
   upd();
+  ti.oninput=()=>{const e=ensure();e.title=ti.value;e.ts=Date.now();save();};
+  ti.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();ta.focus();}};
   ta.oninput=()=>{
-    if(!J[k])J[k]={text:'',ts:Date.now()};
-    J[k].text=ta.value;J[k].ts=Date.now();
+    const e=ensure();
+    e.text=ta.value;e.ts=Date.now();
     save();upd();
   };
   const close=()=>{
