@@ -722,6 +722,21 @@
   .hb-day-val{font-family:var(--mono);font-size:11px;color:var(--muted);min-height:14px}
   .hb-day-lbl{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
   .hb-day.today .hb-day-lbl{color:var(--accent);font-weight:700}
+  .hb-daylabel{display:flex;align-items:center;gap:10px;font-size:13.5px;font-weight:600;color:var(--accent)}
+  .hb-cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+  .hb-cal-dow span{text-align:center;font-size:10px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase}
+  .hb-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .hb-cal-cell{aspect-ratio:1.15;border-radius:9px;background:var(--card-2);border:1px solid transparent;color:var(--muted);font-family:var(--mono);font-size:11.5px;cursor:pointer;display:grid;place-items:center;transition:.13s;padding:0}
+  .hb-cal-cell.blank{background:none;cursor:default}
+  .hb-cal-cell.fut{opacity:.3;cursor:default}
+  .hb-cal-cell.zero:hover{border-color:var(--border-2)}
+  .hb-cal-cell.some{background:rgba(255,122,71,.15)}
+  .hb-cal-cell.good{background:rgba(255,122,71,.34);color:#fff}
+  .hb-cal-cell.perfect{background:rgba(52,211,153,.25);color:var(--good)}
+  .hb-cal-cell.now{border-color:var(--accent)}
+  .hb-cal-cell.sel{outline:2px solid var(--accent);outline-offset:1px;color:var(--text)}
+  .hb-cal-cell:not(.fut):not(.blank):hover{border-color:var(--border-2)}
+  .hb-stats{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
 
   /* ===== COACHING ===== */
   .co-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -2247,12 +2262,36 @@ function toggleHabit(k,id){
   if(now)r.times[id]=Date.now();else delete r.times[id];
   return now;
 }
+let hbDay=null,hbMonth=0;
 function renderHabits(){
   const tk=today();
-  const pts=Math.round(dayScore(tk));
+  const dk=hbDay||tk;
+  const pts=Math.round(dayScore(dk));
   const st=streak();
   const wk=weekDays(weekStartOf(tk));
-  const doneCount=dayDone(tk);
+  const doneCount=dayDone(dk);
+  const isToday=dk===tk;
+
+  const mD=new Date();mD.setDate(1);mD.setMonth(mD.getMonth()+hbMonth);
+  const y=mD.getFullYear(),mo=mD.getMonth();
+  const monthLabel=mD.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  const daysInMonth=new Date(y,mo+1,0).getDate();
+  const firstDow=(new Date(y,mo,1).getDay()+6)%7;
+  let cells='';
+  const past=[];
+  for(let i=0;i<firstDow;i++)cells+='<span class="hb-cal-cell blank"></span>';
+  for(let d=1;d<=daysInMonth;d++){
+    const k=y+'-'+pad(mo+1)+'-'+pad(d);
+    const fut=k>tk;
+    const sc=fut?0:dayScore(k);
+    if(!fut)past.push(sc);
+    const cls=fut?'fut':sc>=100?'perfect':sc>=60?'good':sc>0?'some':'zero';
+    cells+=`<button class="hb-cal-cell ${cls} ${k===dk?'sel':''} ${k===tk?'now':''}" data-day="${k}" ${fut?'disabled':''} title="${fut?'':Math.round(sc)+' / 100'}"><span>${d}</span></button>`;
+  }
+  const mAvg=past.length?Math.round(past.reduce((a,b)=>a+b,0)/past.length):0;
+  const mPerfect=past.filter(s=>s>=100).length;
+  const mSolid=past.filter(s=>s>=60).length;
+
   main.innerHTML=`<div class="view">
     <div class="head"><div><h2 class="sec">Habits</h2></div>
       <button class="btn ${habitsEdit?'solid':''}" id="hb-edit">${habitsEdit?'Done':'Edit'}</button>
@@ -2260,15 +2299,18 @@ function renderHabits(){
 
     <div class="card" style="margin-bottom:16px">
       <div class="hb-top">
-        <div class="hb-score"><b>${pts}</b><span>/ 100</span></div>
+        <div style="display:flex;align-items:center;gap:16px">
+          <div class="hb-score"><b>${pts}</b><span>/ 100</span></div>
+          ${!isToday?`<div class="hb-daylabel"><span>${longDate(dk)}</span><button class="btn btn-sm" id="hb-back">← Today</button></div>`:''}
+        </div>
         <div class="hb-chips">
           <span class="chip">🔥 <b>${st}</b> streak</span>
-          <span class="chip"><b>${doneCount}</b>/${S.disciplines.length} today</span>
+          <span class="chip"><b>${doneCount}</b>/${S.disciplines.length}${isToday?' today':''}</span>
         </div>
       </div>
       <div class="hb-list">
         ${S.disciplines.map((d,i)=>{
-          const on=!!(S.days[tk]&&S.days[tk].disc&&S.days[tk].disc[d.id]);
+          const on=!!(S.days[dk]&&S.days[dk].disc&&S.days[dk].disc[d.id]);
           if(habitsEdit)return `<div class="hb-row edit" data-h="${d.id}">
             <span class="hb-ico">${habitIcon(d,i)}</span>
             <input class="hb-name-in" data-h="${d.id}" value="${esc(d.label)}" spellcheck="false">
@@ -2286,7 +2328,7 @@ function renderHabits(){
       ${habitsEdit?`<div class="addrow" style="margin-top:12px"><input id="hb-add-in" placeholder="New habit"><button class="btn" id="hb-add-btn">Add</button></div>`:''}
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-bottom:16px">
       <h3>This week</h3>
       <div class="hb-week">
         ${wk.map(k=>{
@@ -2299,11 +2341,37 @@ function renderHabits(){
         }).join('')}
       </div>
     </div>
+
+    <div class="card">
+      <h3>
+        <span style="display:flex;align-items:center;gap:10px">
+          <button class="et-iconbtn" id="hb-mprev" title="Previous month">‹</button>
+          ${monthLabel}
+          <button class="et-iconbtn" id="hb-mnext" ${hbMonth>=0?'disabled':''} title="Next month">›</button>
+        </span>
+        <span class="h3sub">tap a day to view or edit it</span>
+      </h3>
+      <div class="hb-cal-dow">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
+      <div class="hb-cal">${cells}</div>
+      <div class="hb-stats">
+        <span class="chip"><b>${mAvg}</b> avg score</span>
+        <span class="chip"><b>${mPerfect}</b> perfect</span>
+        <span class="chip"><b>${mSolid}</b> days 60+</span>
+      </div>
+    </div>
   </div>`;
 
   document.getElementById('hb-edit').onclick=()=>{habitsEdit=!habitsEdit;renderHabits();};
+  const back=document.getElementById('hb-back');
+  if(back)back.onclick=()=>{hbDay=null;hbMonth=0;renderHabits();};
+  main.querySelectorAll('.hb-cal-cell[data-day]').forEach(c=>c.onclick=()=>{
+    hbDay=c.dataset.day===tk?null:c.dataset.day;renderHabits();
+  });
+  document.getElementById('hb-mprev').onclick=()=>{hbMonth--;renderHabits();};
+  const mn=document.getElementById('hb-mnext');
+  if(mn)mn.onclick=()=>{if(hbMonth<0){hbMonth++;renderHabits();}};
   if(!habitsEdit){
-    main.querySelectorAll('.hb-row[data-h]').forEach(r=>r.onclick=()=>{toggleHabit(tk,r.dataset.h);save();renderHabits();topbar();});
+    main.querySelectorAll('.hb-row[data-h]').forEach(r=>r.onclick=()=>{toggleHabit(dk,r.dataset.h);save();renderHabits();topbar();});
   }else{
     main.querySelectorAll('.hb-name-in').forEach(inp=>inp.oninput=()=>{const d=S.disciplines.find(x=>x.id===inp.dataset.h);if(d){d.label=inp.value;save();}});
     main.querySelectorAll('.hb-wt-in').forEach(inp=>inp.oninput=()=>{const d=S.disciplines.find(x=>x.id===inp.dataset.h);if(d){d.weight=Number(inp.value.replace(/\D/g,''))||0;save();}});
@@ -2313,7 +2381,6 @@ function renderHabits(){
     ab.onclick=add;ai.onkeydown=e=>{if(e.key==='Enter')add();};
   }
 }
-
 
 /* COACHING */
 let coSel=null,coNotesOpen=true,coPull='',coCoach='Seth';
