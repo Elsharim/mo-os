@@ -3549,16 +3549,14 @@ function openGoalTrance(){
   const old=document.getElementById('trance');if(old)old.remove();
   const cd=goalDays(g);
   const lines=[
-    'Take a slow breath.',
-    "Now picture it — it's done.",
-    'You hit it.',
-    'Look around. Where are you right now?',
-    'Who is with you. Who did you become.',
-    'Feel it land in your body.',
-    'The version of you that did this — that\'s who you already are.',
-    cd!==null&&cd>=0?`You have ${cd} days. That\'s all it takes.`:'The time is now.',
-    'Hold this feeling.',
-    'Now open your eyes and go make it real.'
+    'Breathe.',
+    "It's done. You hit it.",
+    'See exactly where you are when it happens.',
+    'The work paid off. Every call. Every rep.',
+    'This is who you were always going to become.',
+    cd!==null&&cd>=0?`${cd} days out. Nothing stops this.`:'The time is now.',
+    'Lock it in.',
+    'Now go take it.'
   ];
   const el=document.createElement('div');
   el.id='trance';
@@ -3976,7 +3974,9 @@ function ensureYT(cb){
 }
 function musicRefresh(){
   musicPill();
-  if(currentView==='morning'&&!moEdit)renderMorning();
+  const mb=document.getElementById('mo-music');
+  if(mb){mb.textContent=musicOn?'♪ Playing':'♪ Music';mb.classList.toggle('on',musicOn);}
+  document.querySelectorAll('#music-panel .mpanel-track').forEach(x=>x.classList.toggle('on',musicOn&&+x.dataset.track===musicIdx));
   document.querySelectorAll('[data-vm-track]').forEach(b=>b.classList.toggle('on',+b.dataset.vmTrack===musicIdx&&musicOn));
   const vp=document.getElementById('vm-music-btn');if(vp)vp.classList.toggle('on',musicOn);
 }
@@ -4016,7 +4016,7 @@ function toggleMusic(){
   if(musicOn)stopMusic();
   else startPlayer(()=>{ytPlayer.playVideo();ytPlayer.setVolume(musicVol);musicOn=true;musicRefresh();});
 }
-function stopMusic(){if(ytPlayer)ytPlayer.pauseVideo();musicOn=false;musicRefresh();}
+function stopMusic(){if(ytPlayer){try{ytPlayer.pauseVideo();ytPlayer.stopVideo();}catch(e){}}musicOn=false;musicRefresh();}
 function setMusicVol(v){musicVol=Math.max(0,Math.min(100,+v));try{localStorage.setItem('os:vol',musicVol);}catch(e){}if(ytPlayer)ytPlayer.setVolume(musicVol);}
 function openMusicPanel(anchor){
   const old=document.getElementById('music-panel');if(old){old.remove();return;}
@@ -4035,10 +4035,10 @@ function openMusicPanel(anchor){
   const r=anchor.getBoundingClientRect();
   el.style.top=(r.bottom+8)+'px';
   el.style.left=Math.max(12,Math.min(r.left,window.innerWidth-el.offsetWidth-12))+'px';
-  el.querySelectorAll('[data-track]').forEach(b=>b.onclick=()=>{
+  el.querySelectorAll('[data-track]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
     const i=+b.dataset.track;
     if(musicOn&&i===musicIdx)stopMusic();else playTrack(i);
-    el.querySelectorAll('.mpanel-track').forEach(x=>x.classList.toggle('on',musicOn&&+x.dataset.track===musicIdx));
   });
   el.querySelector('#mpanel-vol').oninput=e=>setMusicVol(e.target.value);
   setTimeout(()=>document.addEventListener('click',function off(ev){if(!el.contains(ev.target)&&ev.target!==anchor){el.remove();document.removeEventListener('click',off);}}),0);
