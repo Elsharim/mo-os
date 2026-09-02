@@ -640,7 +640,7 @@
   .jr2-date{font-size:12px;color:var(--faint);flex:0 0 auto}
   .jr-month{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:26px 0 10px;padding-left:2px}
   .jr-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
-  .jr-card{display:flex;flex-direction:column;gap:7px;text-align:left;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:13px;padding:14px 16px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s}
+  .jr-card{display:flex;flex-direction:column;gap:7px;text-align:left;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:13px;padding:15px 16px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s}
   .jr-card:hover{border-color:rgba(255,122,71,.35);background:rgba(255,255,255,.04);transform:translateY(-2px)}
   .jr-card-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;width:100%}
   .jr-card-title{font-size:14px;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3020,7 +3020,6 @@ function renderJournal(){
     <button class="jr-write-cta" id="jr-open-writer">
       <span class="jwc-cap">Today</span>
       <span class="jwc-date">${activeK?(entry.title?esc(entry.title):longDate(tk)):'Start a new entry'}</span>
-      ${words?`<span class="jwc-preview">${esc(clip(entry.text,150))}</span>`:''}
       <span class="jwc-hint">${activeK?(words?words+' words · keep going →':'start writing →'):'open the page →'}</span>
     </button>
     <div class="sect" style="margin-top:26px">
@@ -3039,11 +3038,9 @@ function renderJournal(){
             const e=J[k];
             const [y,m,d]=jrBase(k).split('-').map(Number);
             const day=new Date(y,m-1,d).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-            const title=e.title||clip((e.text||'').trim().split('\n')[0],42)||'Untitled';
-            const prev=clip((e.text||'').replace(/^#+\s*/gm,'').replace(/^---$/gm,'').trim().replace(/\s+/g,' '),100);
+            const title=e.title||clip((e.text||'').replace(/^#+\s*/gm,'').trim().split('\n')[0],42)||'Untitled';
             return `<button class="jr-card" data-open-day="${k}">
               <span class="jr-card-top"><span class="jr-card-title">${esc(title)}</span><span class="jr-card-day">${day}</span></span>
-              <span class="jr-card-prev">${esc(prev)}</span>
             </button>`;
           }).join('')}</div>`).join('');
       })():'<div class="empty sect-empty">No entries yet.</div>'}
