@@ -737,6 +737,40 @@
   .hb-cal-cell.sel{outline:2px solid var(--accent);outline-offset:1px;color:var(--text)}
   .hb-cal-cell:not(.fut):not(.blank):hover{border-color:var(--border-2)}
   .hb-stats{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .hb-viewing{display:flex;align-items:center;gap:10px;background:var(--accent-soft);border:1px solid rgba(255,122,71,.3);border-radius:12px;padding:10px 14px;margin-bottom:18px;font-size:13px;color:var(--text)}
+  .hb-viewing b{color:var(--accent)}
+  .hb-viewing-dot{width:7px;height:7px;border-radius:99px;background:var(--accent);box-shadow:0 0 8px rgba(255,122,71,.6);flex:0 0 auto}
+
+  /* write CTA + notes grid */
+  .jr-write-cta{display:flex;flex-direction:column;gap:6px;width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--text);
+    background:radial-gradient(120% 140% at 0 0,rgba(255,122,71,.12),transparent 58%),var(--card);
+    border:1px solid var(--border-2);border-radius:var(--r);padding:26px 28px;transition:.15s;box-shadow:var(--shadow)}
+  .jr-write-cta:hover{border-color:rgba(255,122,71,.45);transform:translateY(-2px)}
+  .jwc-cap{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .jwc-date{font-family:var(--display);font-size:clamp(20px,2.6vw,26px);font-weight:700;letter-spacing:-.02em}
+  .jwc-preview{color:var(--muted);font-size:14px;line-height:1.6;max-width:640px}
+  .jwc-hint{color:var(--faint);font-size:12px;margin-top:4px}
+  .note-search{width:100%;max-width:360px;border-radius:99px;margin-bottom:14px;background:rgba(255,255,255,.03);border-color:transparent;padding:10px 16px}
+  .note-search:focus{outline:none;background:var(--bg);border-color:var(--border)}
+  .note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+  .note-card{display:flex;flex-direction:column;gap:8px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:13px;padding:15px 16px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s;min-height:110px}
+  .note-card:hover{border-color:var(--border-2);transform:translateY(-2px)}
+  .note-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;width:100%}
+  .note-card .note-title{white-space:normal}
+  .note-card-body{font-size:12px;color:var(--faint);line-height:1.55;flex:1}
+  .note-card .note-date{align-self:flex-end}
+
+  /* immersive writer */
+  #writer-modal{position:fixed;inset:0;z-index:6000;background:
+    radial-gradient(70% 45% at 50% -10%,rgba(255,122,71,.1),transparent 62%),#060607;
+    display:flex;flex-direction:column;animation:vmIn .35s ease both}
+  .wr-top{display:flex;align-items:center;gap:14px;padding:20px max(24px,calc(50vw - 340px)) 8px}
+  .wr-date{font-family:var(--display);font-size:17px;font-weight:700;color:var(--muted);animation:vmRise .7s ease both}
+  .wr-count{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .wr-scroll{flex:1;overflow-y:auto;padding:14px max(24px,calc(50vw - 340px)) 80px}
+  #wr-ta{width:100%;background:none;border:none;color:var(--text);font-family:var(--sans);font-size:17px;line-height:1.85;resize:none;overflow:hidden;caret-color:var(--accent);animation:vmRise .8s .1s ease both}
+  #wr-ta:focus{outline:none}
+  #wr-ta::placeholder{color:var(--faint)}
 
   /* ===== COACHING ===== */
   .co-meta{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -2262,7 +2296,7 @@ function toggleHabit(k,id){
   if(now)r.times[id]=Date.now();else delete r.times[id];
   return now;
 }
-let hbDay=null,hbMonth=0;
+let hbDay=null,hbMonth=0,hbTab='board';
 function renderHabits(){
   const tk=today();
   const dk=hbDay||tk;
@@ -2292,17 +2326,31 @@ function renderHabits(){
   const mPerfect=past.filter(s=>s>=100).length;
   const mSolid=past.filter(s=>s>=60).length;
 
+  const boardOpen=hbTab==='board';
   main.innerHTML=`<div class="view">
-    <div class="head"><div><h2 class="sec">Habits</h2></div>
-      <button class="btn ${habitsEdit?'solid':''}" id="hb-edit">${habitsEdit?'Done':'Edit'}</button>
-    </div>
-
-    <div class="card" style="margin-bottom:16px">
-      <div class="hb-top">
-        <div style="display:flex;align-items:center;gap:16px">
-          <div class="hb-score"><b>${pts}</b><span>/ 100</span></div>
-          ${!isToday?`<div class="hb-daylabel"><span>${longDate(dk)}</span><button class="btn btn-sm" id="hb-back">← Today</button></div>`:''}
+    <div class="head">
+      <div style="display:flex;align-items:center;gap:16px">
+        <h2 class="sec">Habits</h2>
+        <div class="jr-tabs">
+          <button class="jr-tab ${boardOpen?'active':''}" data-hbtab="board">Board</button>
+          <button class="jr-tab ${!boardOpen?'active':''}" data-hbtab="month">Month</button>
         </div>
+      </div>
+      ${boardOpen?`<button class="btn ${habitsEdit?'solid':''}" id="hb-edit">${habitsEdit?'Done':'Edit'}</button>`:''}
+    </div>
+    ${boardOpen?boardPane():monthPane()}
+  </div>`;
+
+  function boardPane(){return `
+    <div class="card" style="margin-bottom:16px">
+      ${!isToday?`<div class="hb-viewing">
+        <span class="hb-viewing-dot"></span>
+        <span>Editing <b>${longDate(dk)}</b></span>
+        <span style="flex:1"></span>
+        <button class="btn btn-sm" id="hb-back">Back to today</button>
+      </div>`:''}
+      <div class="hb-top">
+        <div class="hb-score"><b>${pts}</b><span>/ 100</span></div>
         <div class="hb-chips">
           <span class="chip">🔥 <b>${st}</b> streak</span>
           <span class="chip"><b>${doneCount}</b>/${S.disciplines.length}${isToday?' today':''}</span>
@@ -2340,8 +2388,9 @@ function renderHabits(){
           </div>`;
         }).join('')}
       </div>
-    </div>
+    </div>`;}
 
+  function monthPane(){return `
     <div class="card">
       <h3>
         <span style="display:flex;align-items:center;gap:10px">
@@ -2349,7 +2398,7 @@ function renderHabits(){
           ${monthLabel}
           <button class="et-iconbtn" id="hb-mnext" ${hbMonth>=0?'disabled':''} title="Next month">›</button>
         </span>
-        <span class="h3sub">tap a day to view or edit it</span>
+        <span class="h3sub">tap a day to open it</span>
       </h3>
       <div class="hb-cal-dow">${['M','T','W','T','F','S','S'].map(x=>`<span>${x}</span>`).join('')}</div>
       <div class="hb-cal">${cells}</div>
@@ -2358,16 +2407,18 @@ function renderHabits(){
         <span class="chip"><b>${mPerfect}</b> perfect</span>
         <span class="chip"><b>${mSolid}</b> days 60+</span>
       </div>
-    </div>
-  </div>`;
+    </div>`;}
 
-  document.getElementById('hb-edit').onclick=()=>{habitsEdit=!habitsEdit;renderHabits();};
+  main.querySelectorAll('[data-hbtab]').forEach(b=>b.onclick=()=>{hbTab=b.dataset.hbtab;renderHabits();});
+  const hbEditBtn=document.getElementById('hb-edit');
+  if(hbEditBtn)hbEditBtn.onclick=()=>{habitsEdit=!habitsEdit;renderHabits();};
   const back=document.getElementById('hb-back');
   if(back)back.onclick=()=>{hbDay=null;hbMonth=0;renderHabits();};
   main.querySelectorAll('.hb-cal-cell[data-day]').forEach(c=>c.onclick=()=>{
-    hbDay=c.dataset.day===tk?null:c.dataset.day;renderHabits();
+    hbDay=c.dataset.day===tk?null:c.dataset.day;hbTab='board';renderHabits();
   });
-  document.getElementById('hb-mprev').onclick=()=>{hbMonth--;renderHabits();};
+  const mp=document.getElementById('hb-mprev');
+  if(mp)mp.onclick=()=>{hbMonth--;renderHabits();};
   const mn=document.getElementById('hb-mnext');
   if(mn)mn.onclick=()=>{if(hbMonth<0){hbMonth++;renderHabits();}};
   if(!habitsEdit){
@@ -2618,37 +2669,31 @@ function sortedNotes(){
 }
 function renderJournal(){
   const J=jrData(),tk=today();
-  const entry=J[tk]||{text:'',ts:null};
+  const entry=J[tk]||{text:''};
+  const words=(entry.text||'').trim()?entry.text.trim().split(/\s+/).length:0;
   const past=jrEntryKeys();
-  const words=(entry.text||'').trim()?(entry.text.trim().split(/\s+/).length):0;
   const notes=sortedNotes();
-  const g=S.goals||(S.goals={ninetyDay:"",targetDate:"",buyBox:"",big:[]});
-  const cd=g.targetDate?daysUntil(g.targetDate):null;
-  const log=goalLog().slice().sort((a,b)=>b.ts-a.ts);
-  const dailyPane=`
-        <div class="jr-hero">
-          <div class="jr-hero-head">
-            <div class="jr-hero-date">${longDate(tk)}</div>
-            <span class="saved" id="jr-saved">Saved</span>
-          </div>
-          <textarea id="jr-today" class="jr-surface" placeholder="Write…">${esc(entry.text||'')}</textarea>
-          <div class="jr-meta"><span id="jr-words">${words?words+' words':''}</span></div>
-        </div>
-        <div class="sect">
-          <div class="sect-head">Past entries <span>${past.length||''}</span></div>
-          ${past.length?`<div class="jr-list">${past.map(k=>{
-            const e=J[k];const open=jrExpanded===k;
-            return `<div class="jr-row ${open?'open':''}" data-k="${k}">
-              <button class="jr-row-head" data-k="${k}">
-                <span class="jr-row-date">${longDate(k)}</span>
-                <span class="jr-row-snip">${open?'':esc(clip(e.text,72))}</span>
-                <span class="jr-row-arrow">${open?'▾':'▸'}</span>
-              </button>
-              ${open?`<textarea class="jr-surface jr-past-edit" data-k="${k}">${esc(e.text||'')}</textarea>`:''}
-            </div>`;
-          }).join('')}</div>`
-          :'<div class="empty sect-empty">No entries yet.</div>'}
-        </div>`;
+  const g=S.goals||{};
+
+  const writePane=`
+    <button class="jr-write-cta" id="jr-open-writer">
+      <span class="jwc-cap">${words?'Continue today':'Today'}</span>
+      <span class="jwc-date">${longDate(tk)}</span>
+      <span class="jwc-preview">${words?esc(clip(entry.text,150)):'Open the page. Be real.'}</span>
+      <span class="jwc-hint">${words?words+' words · keep going →':'start writing →'}</span>
+    </button>
+    <div class="sect" style="margin-top:26px">
+      <div class="sect-head">Past entries <span>${past.length||''}</span></div>
+      ${past.length?`<div class="jr-list">${past.map(k=>{
+        const e=J[k];
+        return `<button class="jr-row-head" data-open-day="${k}">
+          <span class="jr-row-date">${longDate(k)}</span>
+          <span class="jr-row-snip">${esc(clip(e.text,72))}</span>
+          <span class="jr-row-arrow">→</span>
+        </button>`;
+      }).join('')}</div>`:'<div class="empty sect-empty">No entries yet.</div>'}
+    </div>`;
+
   const GL=goalsList();
   const feat=featuredGoal();
   const activeGoals=GL.filter(x=>!x.done),doneGoals=GL.filter(x=>x.done);
@@ -2672,74 +2717,62 @@ function renderJournal(){
       </div>
     </div>`;
   };
+  const log=goalLog().slice().sort((a,b)=>b.ts-a.ts);
   const goalsPane=`
-        <div class="sect">
-          <div class="sect-head">Goals <span>${activeGoals.length||''}</span></div>
-          ${activeGoals.map(goalCard).join('')||''}
-          <div class="addrow ghost-add"><input id="gl-new" placeholder="+ New goal"></div>
-          ${doneGoals.length?`<div class="sect-head" style="margin-top:20px">Done <span>${doneGoals.length}</span></div>${doneGoals.map(goalCard).join('')}`:''}
-        </div>
-        <div class="sect">
-          <div class="sect-head">Goal journal</div>
-          <div class="gl-compose">
-            <textarea id="gl-entry" class="jr-surface" style="min-height:64px" placeholder="Add an update"></textarea>
-            <button class="btn solid btn-sm" id="gl-entry-add">Log</button>
-          </div>
-          ${log.length?`<div class="gl-timeline">${log.map(e=>`
-            <div class="gl-log" data-id="${e.id}">
-              <div class="gl-log-head"><span class="gl-log-date">${longDate(keyOf(new Date(e.ts)))}</span><button class="rm gl-log-del" data-id="${e.id}">×</button></div>
-              <div class="gl-log-text">${esc(e.text)}</div>
-            </div>`).join('')}</div>`:''}
-        </div>`;
+    <div class="sect">
+      <div class="sect-head">Goals <span>${activeGoals.length||''}</span></div>
+      ${activeGoals.map(goalCard).join('')}
+      <div class="addrow ghost-add"><input id="gl-new" placeholder="+ New goal"></div>
+      ${doneGoals.length?`<div class="sect-head" style="margin-top:20px">Done <span>${doneGoals.length}</span></div>${doneGoals.map(goalCard).join('')}`:''}
+    </div>
+    <div class="sect">
+      <div class="sect-head">Goal journal</div>
+      <div class="gl-compose">
+        <textarea id="gl-entry" class="jr-surface" style="min-height:64px" placeholder="Add an update"></textarea>
+        <button class="btn solid btn-sm" id="gl-entry-add">Log</button>
+      </div>
+      ${log.length?`<div class="gl-timeline">${log.map(e=>`
+        <div class="gl-log" data-id="${e.id}">
+          <div class="gl-log-head"><span class="gl-log-date">${longDate(keyOf(new Date(e.ts)))}</span><button class="rm gl-log-del" data-id="${e.id}">×</button></div>
+          <div class="gl-log-text">${esc(e.text)}</div>
+        </div>`).join('')}</div>`:''}
+    </div>`;
+
+  const notesPane=`
+    <div class="sect">
+      <div class="sect-head">Notes <span>${notesData().length||''}</span>
+        <span style="flex:1"></span>
+        <button class="btn solid btn-sm" id="note-new">+ New</button>
+      </div>
+      <input id="note-search" class="inp note-search" placeholder="Search notes" value="${esc(noteQuery)}" autocomplete="off">
+      ${notes.length?`<div class="note-grid">${notes.map(n=>`
+        <button class="note-card" data-id="${n.id}">
+          <span class="note-card-top">
+            <span class="note-title">${esc(n.title||'Untitled')}</span>
+            <span class="note-pin ${n.pinned?'on':''}" data-pin="${n.id}">${n.pinned?'★':'☆'}</span>
+          </span>
+          <span class="note-card-body">${esc(clip((n.body||'').replace(/\s+/g,' '),130))}</span>
+          <span class="note-date">${noteTime(n.updated)}</span>
+        </button>`).join('')}</div>`
+      :`<div class="empty sect-empty" style="margin-top:12px">${noteQuery?'No matches.':'No notes yet.'}</div>`}
+    </div>`;
+
   main.innerHTML=`<div class="view">
     <div class="head">
       <div><h2 class="sec">Journal</h2></div>
       <div class="jr-tabs">
-        <button class="jr-tab ${jrTab==='daily'?'active':''}" data-t="daily">Daily</button>
-        <button class="jr-tab ${jrTab==='goals'?'active':''}" data-t="goals">Goals</button>
+        ${[['daily','Write'],['goals','Goals'],['notes','Notes']].map(([k,l])=>`<button class="jr-tab ${jrTab===k?'active':''}" data-t="${k}">${l}</button>`).join('')}
       </div>
     </div>
-    <div class="grid g23">
-      <div>${jrTab==='goals'?goalsPane:dailyPane}</div>
-      <div class="card jr-notes">
-        <h3>Notes <button class="btn solid btn-sm" id="note-new">+ New</button></h3>
-        <input id="note-search" class="inp" placeholder="Search notes…" value="${esc(noteQuery)}" autocomplete="off">
-        ${notes.length?`<div class="note-list">${notes.map(n=>`
-          <button class="note-row" data-id="${n.id}">
-            <span class="note-pin ${n.pinned?'on':''}" data-pin="${n.id}" title="${n.pinned?'Unpin':'Pin'}">${n.pinned?'★':'☆'}</span>
-            <span class="note-main">
-              <span class="note-title">${esc(n.title||'Untitled')}</span>
-              <span class="note-snip">${esc(noteSnippet(n))}</span>
-            </span>
-            <span class="note-date">${noteTime(n.updated)}</span>
-          </button>`).join('')}</div>`
-        :`<div class="empty" style="margin-top:14px">${noteQuery?'No matches.':'No notes yet.'}</div>`}
-      </div>
-    </div>
+    ${jrTab==='goals'?goalsPane:jrTab==='notes'?notesPane:writePane}
   </div>`;
 
   main.querySelectorAll('.jr-tab').forEach(b=>b.onclick=()=>{jrTab=b.dataset.t;renderJournal();});
 
-  const ta=document.getElementById('jr-today');
-  if(ta){
-    autosize(ta);
-    ta.oninput=()=>{
-      const J=jrData();
-      if(!J[tk])J[tk]={text:'',ts:Date.now()};
-      J[tk].text=ta.value;J[tk].ts=Date.now();
-      save();flash('jr-saved');autosize(ta);
-      const w=ta.value.trim()?ta.value.trim().split(/\s+/).length:0;
-      document.getElementById('jr-words').textContent=w?w+' words':'';
-    };
-  }
-
-  main.querySelectorAll('.jr-row-head').forEach(b=>b.onclick=()=>{
-    jrExpanded=jrExpanded===b.dataset.k?null:b.dataset.k;renderJournal();
-  });
-  main.querySelectorAll('.jr-past-edit').forEach(pa=>{
-    autosize(pa);
-    pa.oninput=()=>{const J=jrData();if(J[pa.dataset.k]){J[pa.dataset.k].text=pa.value;save();autosize(pa);}};
-  });
+  // write tab
+  const cta=document.getElementById('jr-open-writer');
+  if(cta)cta.onclick=()=>openWriter(tk);
+  main.querySelectorAll('[data-open-day]').forEach(b=>b.onclick=()=>openWriter(b.dataset.openDay));
 
   // goals tab
   const glNew=document.getElementById('gl-new');
@@ -2778,17 +2811,19 @@ function renderJournal(){
   }
   main.querySelectorAll('.gl-log-del').forEach(b=>b.onclick=()=>{S.goalLog=goalLog().filter(x=>x.id!==b.dataset.id);save();renderJournal();});
 
+  // notes tab
   const search=document.getElementById('note-search');
-  search.oninput=()=>{
+  if(search)search.oninput=()=>{
     noteQuery=search.value;
     const pos=search.selectionStart;renderJournal();
-    const s2=document.getElementById('note-search');s2.focus();s2.setSelectionRange(pos,pos);
+    const s2=document.getElementById('note-search');if(s2){s2.focus();s2.setSelectionRange(pos,pos);}
   };
-  document.getElementById('note-new').onclick=()=>{
+  const nn=document.getElementById('note-new');
+  if(nn)nn.onclick=()=>{
     const n={id:'n'+Date.now(),title:'',body:'',pinned:false,created:Date.now(),updated:Date.now()};
     notesData().unshift(n);save();openNote(n.id);
   };
-  main.querySelectorAll('.note-row').forEach(r=>r.onclick=e=>{
+  main.querySelectorAll('.note-card').forEach(r=>r.onclick=e=>{
     if(e.target.closest('[data-pin]'))return;
     openNote(r.dataset.id);
   });
@@ -2797,6 +2832,44 @@ function renderJournal(){
     const n=notesData().find(x=>x.id===p.dataset.pin);
     if(n){n.pinned=!n.pinned;save();renderJournal();}
   });
+}
+
+/* IMMERSIVE WRITER */
+function openWriter(k){
+  const old=document.getElementById('writer-modal');if(old)old.remove();
+  const J=jrData();
+  const el=document.createElement('div');
+  el.id='writer-modal';
+  el.innerHTML=`
+    <div class="wr-top">
+      <div class="wr-date">${longDate(k)}</div>
+      <span style="flex:1"></span>
+      <span class="wr-count" id="wr-count"></span>
+      <button class="btn" id="wr-done">Done</button>
+    </div>
+    <div class="wr-scroll">
+      <textarea id="wr-ta" placeholder="Be real.">${esc((J[k]&&J[k].text)||'')}</textarea>
+    </div>`;
+  document.body.appendChild(el);
+  const ta=el.querySelector('#wr-ta');
+  const count=el.querySelector('#wr-count');
+  const upd=()=>{const w=ta.value.trim()?ta.value.trim().split(/\s+/).length:0;count.textContent=w?w+' words':'';ta.style.height='auto';ta.style.height=Math.max(ta.scrollHeight,window.innerHeight*0.5)+'px';};
+  upd();
+  ta.oninput=()=>{
+    if(!J[k])J[k]={text:'',ts:Date.now()};
+    J[k].text=ta.value;J[k].ts=Date.now();
+    save();upd();
+  };
+  const close=()=>{
+    document.removeEventListener('keydown',wrEsc);
+    el.remove();
+    if(currentView==='journal')renderJournal();
+  };
+  function wrEsc(e){if(e.key==='Escape')close();}
+  el.querySelector('#wr-done').onclick=close;
+  document.addEventListener('keydown',wrEsc);
+  ta.focus();
+  ta.setSelectionRange(ta.value.length,ta.value.length);
 }
 function openNote(id){
   const n=notesData().find(x=>x.id===id);if(!n)return;
