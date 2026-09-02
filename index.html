@@ -806,6 +806,20 @@
   .wr-icon{background:rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.75);width:36px;height:36px;border-radius:99px;font-size:16px;cursor:pointer;transition:.14s;backdrop-filter:blur(8px);display:grid;place-items:center}
   .wr-icon:hover{color:#fff;border-color:rgba(255,255,255,.4)}
   .wr-x{font-size:22px}
+
+  /* background music */
+  .mo-music-btn.on{border-color:rgba(255,122,71,.45);color:var(--accent);background:var(--accent-soft)}
+  #music-pill{position:fixed;bottom:20px;right:20px;z-index:5500;display:flex;align-items:center;gap:11px;padding:9px 12px 9px 14px;border-radius:99px;
+    background:rgba(18,18,20,.85);border:1px solid var(--border-2);box-shadow:0 8px 30px rgba(0,0,0,.5);backdrop-filter:blur(12px);animation:vmRise .4s ease both}
+  .mp-eq{display:flex;align-items:flex-end;gap:2px;height:14px}
+  .mp-eq i{width:3px;background:var(--accent);border-radius:2px;animation:eq 1s ease-in-out infinite}
+  .mp-eq i:nth-child(1){height:6px;animation-delay:0s}
+  .mp-eq i:nth-child(2){height:13px;animation-delay:.25s}
+  .mp-eq i:nth-child(3){height:9px;animation-delay:.5s}
+  @keyframes eq{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
+  .mp-name{font-size:12px;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mp-x{background:none;border:none;color:var(--faint);font-size:17px;cursor:pointer;line-height:1;padding:0 2px}
+  .mp-x:hover{color:var(--text)}
   .wr-stage{position:relative;display:flex;flex-direction:column;align-items:center}
   .wr-label{margin-top:34px;font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:rgba(255,122,71,.9);font-weight:700;
     padding:7px 18px;border:1px solid rgba(255,122,71,.35);border-radius:99px;background:rgba(255,122,71,.07);
@@ -3562,6 +3576,7 @@ function renderMorning(){
       <div><h2 class="sec">Morning Formula</h2><p class="sec-sub">${greetWord}${name?', '+esc(name):''}. ${longDate(today())}.</p></div>
       <div style="display:flex;gap:8px">
         <button class="btn ${moEdit?'solid':''}" id="mo-edit">${moEdit?'Done editing':'Edit'}</button>
+        ${!moEdit?`<button class="btn mo-music-btn ${musicPlaying()?'on':''}" id="mo-music">${musicPlaying()?'♪ Playing':'♪ Music'}</button>`:''}
         ${!moEdit?'<button class="btn" id="mo-flow">▶ Morning flow</button>':''}
         <button class="btn solid" id="mo-start">Start the day →</button>
       </div>
@@ -3638,6 +3653,8 @@ function renderMorning(){
   });
   const vplay=document.getElementById('mo-vision-play');
   if(vplay)vplay.onclick=()=>openSlides(visionSlides(),0);
+  const mus=document.getElementById('mo-music');
+  if(mus)mus.onclick=()=>toggleMusic();
   const flow=document.getElementById('mo-flow');
   if(flow)flow.onclick=()=>openSlides(flowSlides(),0);
   main.querySelectorAll('[data-playlist]').forEach(b=>b.onclick=()=>openSlides(listSlides(b.dataset.playlist),0));
@@ -3807,6 +3824,51 @@ function showLock(mode,onUnlock){
   }
   document.addEventListener('keydown',keys);
   setTitle();paint();
+}
+
+/* BACKGROUND MUSIC */
+const MUSIC={id:'cml0QO7Pkos',title:'Manifest Your Desires'};
+let ytPlayer=null,ytReady=false,musicOn=false;
+function musicPlaying(){return musicOn;}
+function ensureYT(cb){
+  if(ytReady)return cb();
+  if(!window.__ytLoading){
+    window.__ytLoading=true;
+    const t=document.createElement('script');t.src='https://www.youtube.com/iframe_api';document.head.appendChild(t);
+    window.onYouTubeIframeAPIReady=()=>{ytReady=true;cb();};
+  }else{
+    const iv=setInterval(()=>{if(ytReady){clearInterval(iv);cb();}},200);
+  }
+}
+function musicPill(){
+  let p=document.getElementById('music-pill');
+  if(!musicOn){if(p)p.remove();return;}
+  if(!p){
+    p=document.createElement('div');p.id='music-pill';
+    p.innerHTML=`<span class="mp-eq"><i></i><i></i><i></i></span><span class="mp-name">${esc(MUSIC.title)}</span><button class="mp-x" title="Stop">×</button>`;
+    document.body.appendChild(p);
+    p.querySelector('.mp-x').onclick=()=>toggleMusic();
+  }
+}
+function toggleMusic(){
+  ensureYT(()=>{
+    if(!ytPlayer){
+      const host=document.createElement('div');host.id='yt-host';host.style.cssText='position:fixed;width:1px;height:1px;left:-100px;bottom:-100px;opacity:0;pointer-events:none';
+      const div=document.createElement('div');div.id='yt-player';host.appendChild(div);document.body.appendChild(host);
+      ytPlayer=new YT.Player('yt-player',{
+        videoId:MUSIC.id,
+        playerVars:{autoplay:1,loop:1,playlist:MUSIC.id,controls:0,disablekb:1},
+        events:{
+          onReady:e=>{e.target.setVolume(55);e.target.playVideo();musicOn=true;musicPill();if(currentView==='morning')renderMorning();},
+          onStateChange:e=>{if(e.data===YT.PlayerState.ENDED)e.target.playVideo();}
+        }
+      });
+      return;
+    }
+    if(musicOn){ytPlayer.pauseVideo();musicOn=false;}
+    else{ytPlayer.playVideo();musicOn=true;}
+    musicPill();if(currentView==='morning')renderMorning();
+  });
 }
 
 /* boot */
