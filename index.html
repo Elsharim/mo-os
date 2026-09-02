@@ -891,15 +891,23 @@
   .co-date-pill:hover{border-color:var(--border-2)}
   .co-ai-wrap{background:var(--card);border:1px solid rgba(255,122,71,.22);border-radius:var(--r);padding:20px;margin-bottom:26px;box-shadow:var(--shadow)}
   .co-ai-wrap .sect-head{margin-bottom:10px;padding:0}
-  .co-link-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding:0 2px;flex-wrap:wrap}
-  .co-link-in{flex:1;min-width:180px;max-width:420px;background:none;border:1px solid var(--border);border-radius:99px;color:var(--muted);font-size:12px;padding:7px 14px}
-  .co-link-in:focus{outline:none;border-color:var(--border-2);color:var(--text)}
-  .co-link-in::placeholder{color:var(--faint)}
+  .co-toolrow{display:flex;align-items:center;gap:12px;padding:2px 2px 0;flex-wrap:wrap;margin-top:4px}
+  .co-ghost-date{background:none;border:none;color:var(--muted);font-size:12.5px;font-family:inherit;color-scheme:dark;cursor:pointer;padding:4px 0;width:112px}
+  .co-ghost-date:hover{color:var(--text)}
+  .co-ghost-date:focus{outline:none;color:var(--text)}
+  .co-sep{color:var(--faint)}
+  .co-fathom{display:flex;align-items:center;gap:8px;color:var(--faint)}
+  .co-fathom svg{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;fill:none;stroke-width:2}
+  .co-fathom input{background:none;border:none;color:var(--muted);font-size:12.5px;width:150px;padding:4px 0;font-family:inherit}
+  .co-fathom input:hover{color:var(--text)}
+  .co-fathom input:focus{outline:none;color:var(--text)}
+  .co-fathom input::placeholder{color:var(--faint)}
+  .co-open{color:var(--accent);text-decoration:none;font-size:14px;line-height:1}
   .co-pull-status{font-size:12px;color:var(--muted)}
   .co-pull-status.ok{color:var(--good)}
-  .co-cardlist{display:flex;flex-direction:column;gap:8px}
-  .co-step{display:flex;align-items:flex-start;gap:13px;padding:12px 15px;background:var(--card);border:1px solid var(--border);border-radius:12px;transition:.13s}
-  .co-step:hover{border-color:var(--border-2)}
+  .co-cardlist{display:flex;flex-direction:column;gap:7px}
+  .co-step{display:flex;align-items:flex-start;gap:13px;padding:11px 14px;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:12px;transition:.13s}
+  .co-step:hover{border-color:var(--border);background:rgba(255,255,255,.035)}
   .co-step.done{opacity:.5}
   .co-step.done .co-step-text{text-decoration:line-through;color:var(--muted)}
   .co-step-check{width:21px;height:21px;flex:0 0 21px;border-radius:99px;border:1.5px solid var(--border-2);background:none;color:#08221a;font-size:12px;font-weight:800;display:grid;place-items:center;cursor:pointer;transition:.13s;padding:0;margin-top:1px}
@@ -908,7 +916,7 @@
   .co-step-text{flex:1;font-size:13.5px;line-height:1.6}
   .co-step .rm{opacity:0}
   .co-step:hover .rm{opacity:1}
-  .co-notes-view{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px 26px;font-size:13.5px;line-height:1.7}
+  .co-notes-view{background:rgba(255,255,255,.015);border:1px solid var(--border);border-radius:14px;padding:24px 26px;font-size:13.5px;line-height:1.7}
   .cnv-h{font-family:var(--display);font-size:15.5px;font-weight:700;margin:24px 0 8px;letter-spacing:-.01em}
   .cnv-h:first-child{margin-top:0}
   .cnv-sub{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-2);margin:16px 0 5px;opacity:.9}
@@ -917,13 +925,16 @@
   .cnv-dot{width:5px;height:5px;border-radius:99px;background:var(--accent);flex:0 0 auto;margin-top:8px;opacity:.8}
   .cnv-num{font-family:var(--mono);font-size:12px;color:var(--accent);flex:0 0 auto;margin-top:1px}
   .cnv-pin{background:var(--accent-soft);border:1px solid rgba(255,122,71,.28);border-radius:11px;padding:11px 15px;margin:12px 0;color:var(--text);font-size:13px;line-height:1.6}
-  .co-tk{display:flex;align-items:flex-start;gap:13px;padding:12px 15px;background:var(--card);border:1px solid var(--border);border-radius:12px;transition:.13s}
-  .co-tk:hover{border-color:var(--border-2)}
+  .co-tk{display:flex;align-items:flex-start;gap:13px;padding:11px 14px;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:12px;transition:.13s}
+  .co-tk:hover{border-color:var(--border);background:rgba(255,255,255,.035)}
   .co-tk-dot{width:7px;height:7px;border-radius:99px;background:var(--accent-2);box-shadow:0 0 8px rgba(255,176,46,.5);flex:0 0 auto;margin-top:7px}
   .co-tk-text{flex:1;font-size:13.5px;line-height:1.6}
   .co-tk-del{opacity:0}
   .co-tk:hover .co-tk-del{opacity:1}
-  .co-list-card{background:var(--card);border-radius:var(--r)}
+  .co-list-card{background:transparent;border:none;box-shadow:none;padding:8px 0 0}
+  .co-list-card h3{padding:0 2px}
+  .co-list-card .note-row{padding:11px 13px}
+  .co-list-card .note-row.co-active{background:rgba(255,255,255,.035);border-color:var(--border)}
 
   /* ===== VISION MODE ===== */
   #vision-modal{position:fixed;inset:0;z-index:6000;background:#000;overflow:hidden;user-select:none}
@@ -2590,13 +2601,13 @@ async function pullFromFathom(s){
       if(doc.exists&&doc.data().status==='ready'){
         clearInterval(poll);
         const d=doc.data();
-        if(d.notes)s.notes=s.notes?s.notes+'\n\n'+d.notes:d.notes;
-        if(!Array.isArray(s.steps))s.steps=[];
-        if(!Array.isArray(s.takeaways))s.takeaways=[];
-        (d.actions||[]).forEach((t,i)=>{s.steps.push({id:'st'+Date.now()+i,text:String(t),done:false});});
+        // a fresh pull replaces the previous pull
+        s.notes=d.notes||'';
+        s.steps=(d.actions||[]).map((t,i)=>({id:'st'+Date.now()+i,text:String(t),done:false}));
         const tks=(Array.isArray(d.takeaways)&&d.takeaways.length)?d.takeaways.map(String):coExtractTakeaways(d.notes||'');
-        tks.forEach((t,i)=>{if(!s.takeaways.some(x=>x.text.toLowerCase()===t.toLowerCase()))s.takeaways.push({id:'tk'+Date.now()+i,text:t});});
-        save();coPull='Done. Notes added.';renderCoaching();
+        const seen=new Set();
+        s.takeaways=tks.filter(t=>{const k=t.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map((t,i)=>({id:'tk'+Date.now()+i,text:t}));
+        save();coPull='Done. Notes updated.';renderCoaching();
         db.collection('coaching_results').doc(s.id).delete().catch(()=>{});
       }
     }catch(e){}
@@ -2609,16 +2620,18 @@ function coDetailHTML(s){
   return `
   <div class="co-header">
     <input id="co-title" class="co-title-big" placeholder="Untitled session" value="${esc(s.title||'')}" spellcheck="false">
-    <div class="co-header-meta">
-      <input type="date" id="co-date" class="co-date-pill" value="${esc(s.date||'')}">
+    <div class="co-toolrow">
+      <input type="date" id="co-date" class="co-ghost-date" value="${esc(s.date||'')}">
+      <span class="co-sep">·</span>
+      <div class="co-fathom">
+        <svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 007 0l3-3a5 5 0 00-7-7l-1 1"/><path d="M14 10a5 5 0 00-7 0l-3 3a5 5 0 007 7l1-1"/></svg>
+        <input id="co-link" placeholder="Fathom link" value="${esc(s.link||'')}" autocomplete="off">
+        ${s.link?`<a class="co-open" href="${esc(s.link)}" target="_blank" rel="noopener" title="Open recording">↗</a>`:''}
+      </div>
+      <button class="et-lblbtn act-focus" id="co-pull" ${coPull&&coPull.includes('…')?'disabled':''}>Pull notes</button>
+      ${coPull?`<span class="co-pull-status ${coPull.startsWith('Done')?'ok':''}">${esc(coPull)}</span>`:''}
       <span style="flex:1"></span>
       <button class="rm" id="co-del" title="Delete session">×</button>
-    </div>
-    <div class="co-link-row">
-      <input id="co-link" class="co-link-in" placeholder="Fathom link" value="${esc(s.link||'')}" autocomplete="off">
-      <button class="btn btn-sm" id="co-pull" ${coPull&&coPull.includes('…')?'disabled':''}>Pull notes</button>
-      ${s.link?`<a class="btn btn-sm" href="${esc(s.link)}" target="_blank" rel="noopener" title="Open recording">↗</a>`:''}
-      ${coPull?`<span class="co-pull-status ${coPull.startsWith('Done')?'ok':''}">${esc(coPull)}</span>`:''}
     </div>
   </div>
 
