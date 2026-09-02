@@ -2585,13 +2585,18 @@ function coExtractTakeaways(txt){
   const seen=new Set();
   return out.filter(t=>{const k=t.toLowerCase();if(seen.has(k)||t.length<8)return false;seen.add(k);return true;}).slice(0,8);
 }
-async function pullFromFathom(s){
+async function pullFromFathom(s,attempt){
+  attempt=attempt||0;
   if(!(s.link||'').trim()){coPull='Add the Fathom link first.';renderCoaching();return;}
-  coPull='Pulling from Fathom…';renderCoaching();
+  coPull=attempt?'Fathom is writing the notes… ('+attempt+')':'Pulling from Fathom…';renderCoaching();
   try{
     const r=await fetch('/api/pull?url='+encodeURIComponent(s.link.trim().split('?')[0]));
     let d={};try{d=await r.json();}catch(_){}
-    if(d.pending){coPull=d.error;renderCoaching();return;}
+    if(d.pending){
+      if(attempt<8){setTimeout(()=>{if(coSel===s.id)pullFromFathom(s,attempt+1);},12000);coPull='Fathom is writing the notes…';}
+      else coPull=d.error;
+      renderCoaching();return;
+    }
     if(!r.ok||d.error)throw new Error(d.error||('HTTP '+r.status));
     const notes=(d.notes||'').trim();
     const actions=Array.isArray(d.actions)?d.actions.filter(x=>String(x).trim()):[];

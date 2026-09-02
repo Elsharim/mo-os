@@ -1,4 +1,5 @@
 // Pulls call notes + action items straight from a Fathom share link.
+export const config = { maxDuration: 60 };
 export default async function handler(req, res) {
   const url = String(req.query.url || '').trim().split('?')[0];
   if (!/^https:\/\/fathom\.video\/share\/[\w-]+$/.test(url)) {
@@ -29,7 +30,33 @@ export default async function handler(req, res) {
       return (await r.json()).props || {};
     };
 
-    const [a, n] = await Promise.all([part('aiNotes'), part('noteClips')]);
+    let [a, n] = await Promise.all([part('aiNotes'), part('noteClips')]);
+
+    // ask Fathom to generate the deep templates if this call doesn't have them yet
+    const WANT = [49, 46]; // One-on-One, Q&A
+    const notesOf = x => (x.aiNotes && x.aiNotes.notes) || [];
+    const createPath = a.aiNotes && a.aiNotes.actions && a.aiNotes.actions.createUrl;
+    if (createPath) {
+      const createUrl = createPath.startsWith('http') ? createPath : 'https://fathom.video' + createPath;
+      const have = new Set(notesOf(a).map(x => x.aiTemplate && x.aiTemplate.id));
+      const missing = WANT.filter(id => !have.has(id));
+      if (missing.length) {
+        await Promise.all(missing.map(id => fetch(createUrl, {
+          method: 'POST',
+          headers: { ...UA, ...(cookie ? { Cookie: cookie } : {}), 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ template_id: id })
+        }).catch(() => {})));
+      }
+      // wait for generation to finish (usually 10-30s)
+      for (let i = 0; i < 11; i++) {
+        const l = notesOf(a);
+        const stillGen = l.some(x => x.isGenerating);
+        const stillMissing = WANT.some(id => !l.some(x => x.aiTemplate && x.aiTemplate.id === id));
+        if (!stillGen && !stillMissing) break;
+        await new Promise(r => setTimeout(r, 3000));
+        try { a = await part('aiNotes'); } catch (_) { break; }
+      }
+    }
 
     const clean = t => String(t || '')
       .replace(/<a [^>]*>/g, '')
@@ -37,17 +64,16 @@ export default async function handler(req, res) {
       .replace(/\*\*/g, '')
       .trim();
 
-    const allNotes = ((a.aiNotes && a.aiNotes.notes) || []).filter(n => n && n.noteText);
-    const generating = ((a.aiNotes && a.aiNotes.notes) || []).some(n => n && n.isGenerating);
-    if (!allNotes.length && generating) {
-      res.status(200).json({ pending: true, error: 'Fathom is still generating the summary. Try again in a minute.' });
+    const allNotes = ((a.aiNotes && a.aiNotes.notes) || []).filter(x => x && x.noteText && x.isReady);
+    const generating = ((a.aiNotes && a.aiNotes.notes) || []).some(x => x && x.isGenerating);
+    if (!allNotes.length) {
+      res.status(200).json({ pending: true, error: generating ? 'Fathom is writing the notes. Pull again in a minute.' : 'No notes on this call yet.' });
       return;
     }
-    // combine every generated note: Enhanced summary first, deeper templates after
-    const ordered = allNotes.slice().sort((x, y) => {
-      const en = n => (n.aiTemplate && n.aiTemplate.name === 'Enhanced') ? 0 : 1;
-      return en(x) - en(y) || (y.noteText || '').length - (x.noteText || '').length;
-    });
+    // combine every generated note: Enhanced first, then the coaching-relevant templates
+    const RANK = { 23: 0, 49: 1, 46: 2 };
+    const rank = x => (x.aiTemplate && RANK[x.aiTemplate.id] !== undefined) ? RANK[x.aiTemplate.id] : 3;
+    const ordered = allNotes.slice().sort((x, y) => rank(x) - rank(y) || (y.noteText || '').length - (x.noteText || '').length);
     let combined = ordered.map(n => {
       const name = (n.aiTemplate && n.aiTemplate.name) || '';
       const body = clean(n.noteText);
