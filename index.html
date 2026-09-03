@@ -792,13 +792,16 @@
   .jwc-hint{color:var(--faint);font-size:12px;margin-top:4px}
   .note-search{width:100%;max-width:360px;border-radius:99px;margin-bottom:14px;background:rgba(255,255,255,.03);border-color:transparent;padding:10px 16px}
   .note-search:focus{outline:none;background:var(--bg);border-color:var(--border)}
-  .note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
-  .note-card{display:flex;flex-direction:column;gap:7px;text-align:left;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:13px;padding:15px 16px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s}
-  .note-card:hover{border-color:rgba(255,122,71,.35);background:rgba(255,255,255,.04);transform:translateY(-2px)}
-  .note-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%}
-  .note-card-ico{font-size:22px;line-height:1}
-  .note-card .note-title{white-space:normal;font-size:14px;font-weight:650;line-height:1.35}
-  .note-card-date{font-size:11px;color:var(--faint)}
+  .note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:9px}
+  .note-card{display:flex;align-items:center;gap:13px;text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:13px;padding:14px 15px;cursor:pointer;font-family:inherit;color:var(--text);transition:.14s}
+  .note-card:hover{border-color:rgba(255,122,71,.35);background:rgba(255,255,255,.05);transform:translateY(-1px)}
+  .note-ico{font-size:24px;line-height:1;flex:0 0 auto;width:28px;text-align:center}
+  .note-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+  .note-card .note-title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14.5px;font-weight:600;line-height:1.3}
+  .note-card-date{font-size:11.5px;color:var(--faint)}
+  .note-card .note-pin{flex:0 0 auto;font-size:15px;line-height:1;color:var(--faint);opacity:.5}
+  .note-card:hover .note-pin,.note-card .note-pin.on{opacity:1}
+  .note-card .note-pin.on{color:var(--gold)}
 
   /* immersive writer: a page in a dark room */
   #writer-modal{position:fixed;inset:0;z-index:6000;overflow-y:auto;
@@ -3060,8 +3063,16 @@ function jrEntryKeys(){
   const active=jrActiveKey();
   return Object.keys(jrData()).filter(k=>k!==active&&((jrData()[k]||{}).text||'').trim()).sort((a,b)=>b.localeCompare(a));
 }
+function noteDisplay(n){
+  const raw=(n.title||'').trim();
+  try{
+    const m=raw.match(/^(\p{Extended_Pictographic}(?:‍\p{Extended_Pictographic})*[️]?)\s*(.*)$/u);
+    if(m&&m[2])return {icon:m[1],title:m[2]};
+  }catch(e){}
+  return {icon:noteIcon(n),title:raw||'Untitled'};
+}
 function noteIcon(n){
-  try{if(/^\p{Extended_Pictographic}/u.test((n.title||'').trim()))return '';}catch(e){}
+  try{if(/^\p{Extended_Pictographic}/u.test((n.title||'').trim()))return '🗒️';}catch(e){}
   const t=((n.title||'')+' '+(n.body||'').slice(0,80)).toLowerCase();
   const map=[[/money|sale|close|revenue|pay|cc\b/,'💰'],[/idea|insight/,'💡'],[/call|phone/,'📞'],[/gym|lift|workout|body|bulk/,'🏋️'],[/girl|date|love/,'❤️'],[/plan|goal|vision/,'🎯'],[/script|write|copy/,'📝'],[/book|read/,'📚'],[/ai|gpt|claude|poppy/,'🤖'],[/food|eat|meal/,'🍽️'],[/trip|travel|flight|spain|dubai/,'✈️']];
   for(const [re,ic] of map)if(re.test(t))return ic;
@@ -3174,15 +3185,16 @@ function renderJournal(){
         <button class="btn solid btn-sm" id="note-new">+ New</button>
       </div>
       <input id="note-search" class="inp note-search" placeholder="Search notes" value="${esc(noteQuery)}" autocomplete="off">
-      ${notes.length?`<div class="note-grid">${notes.map(n=>`
-        <button class="note-card" data-id="${n.id}">
-          <span class="note-card-top">
-            <span class="note-card-ico">${noteIcon(n)}</span>
-            <span class="note-pin ${n.pinned?'on':''}" data-pin="${n.id}">${n.pinned?'★':'☆'}</span>
+      ${notes.length?`<div class="note-grid">${notes.map(n=>{
+        const d=noteDisplay(n);
+        return `<button class="note-card" data-id="${n.id}">
+          <span class="note-ico">${d.icon}</span>
+          <span class="note-main">
+            <span class="note-title">${esc(d.title)}</span>
+            <span class="note-card-date">${new Date(n.updated||n.created||Date.now()).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>
           </span>
-          <span class="note-title">${esc(n.title||'Untitled')}</span>
-          <span class="note-card-date">${new Date(n.updated||n.created||Date.now()).toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'})}</span>
-        </button>`).join('')}</div>`
+          <span class="note-pin ${n.pinned?'on':''}" data-pin="${n.id}">${n.pinned?'★':'☆'}</span>
+        </button>`;}).join('')}</div>`
       :`<div class="empty sect-empty" style="margin-top:12px">${noteQuery?'No matches.':'No notes yet.'}</div>`}
     </div>`;
 
