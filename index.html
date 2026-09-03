@@ -791,6 +791,10 @@
   .lens-ico.on{color:var(--accent)}
   .lens-cap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:5px}
   .lens-cap.spaced{margin-top:14px}
+  .lens-cap-h{display:flex;align-items:center;gap:4px}
+  .lens-horizon{background:none;border:1px solid transparent;border-radius:5px;color:var(--faint);font-size:10px;letter-spacing:.05em;text-transform:uppercase;font-weight:700;font-family:inherit;padding:1px 3px;min-width:3ch}
+  .lens-horizon:hover{background:rgba(255,255,255,.04);color:var(--muted)}
+  .lens-horizon:focus{outline:none;border-color:var(--lc);color:var(--text);background:var(--bg)}
   textarea.lens-goal{width:100%;border:1px solid transparent;background:none;padding:3px 5px;border-radius:7px;resize:none;overflow:hidden;font-family:var(--display);font-size:16px;font-weight:700;line-height:1.32;color:var(--text)}
   textarea.lens-goal::placeholder{color:var(--faint);font-weight:400;font-family:var(--sans)}
   textarea.lens-goal:hover{background:rgba(255,255,255,.02)}
@@ -3275,7 +3279,7 @@ function renderJournal(){
           <button class="lens-ico" data-gdel="${gl.id}" title="Delete lens">×</button>
         </div>
       </div>
-      <div class="lens-cap">6-month goal</div>
+      <div class="lens-cap lens-cap-h"><input class="lens-horizon" data-ghorizon="${gl.id}" value="${esc(gl.horizon||'6-month')}" style="width:${((gl.horizon||'6-month').length+2.5)}ch" spellcheck="false" title="Change the timeframe">goal</div>
       <textarea class="lens-goal" data-gtext="${gl.id}" rows="1" placeholder="Specific and quantified">${esc(gl.text||'')}</textarea>
       <div class="lens-target">
         <input type="date" data-gdate="${gl.id}" value="${esc(gl.targetDate||'')}">
@@ -3404,6 +3408,7 @@ function renderJournal(){
   main.querySelectorAll('[data-msnew]').forEach(inp=>inp.onkeydown=e=>{
     if(e.key==='Enter'){const v=inp.value.trim();if(!v)return;const gl=glFind(inp.dataset.msnew);if(gl){glMilestones(gl).push({id:'m'+Date.now(),text:v,done:false});save();renderJournal();topbar();}}
   });
+  main.querySelectorAll('[data-ghorizon]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.ghorizon);if(gl){gl.horizon=inp.value;inp.style.width=(inp.value.length+2.5)+'ch';save();}});
   main.querySelectorAll('[data-gfirst]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.gfirst);if(gl){gl.firstStep=inp.value;save();topbar();}});
   main.querySelectorAll('[data-gwhen]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.gwhen);if(gl){gl.firstWhen=inp.value;save();topbar();}});
   main.querySelectorAll('[data-bn]').forEach(b=>b.onclick=()=>openBottleneck(b.dataset.bn));
