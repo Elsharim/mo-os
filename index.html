@@ -775,6 +775,46 @@
   .bn-result input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:14px;color:var(--text);margin-bottom:8px}
   .bn-result input:focus{outline:none;border-color:var(--accent)}
   .bn-acts{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+  /* Lens columns (telescope) */
+  .gl-lenses{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:6px}
+  @media(min-width:860px){.gl-lenses{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .lens{background:var(--card);border:1px solid var(--border);border-top:3px solid var(--lc);border-radius:14px;padding:15px 16px 16px;display:flex;flex-direction:column}
+  .lens.done{opacity:.5}
+  .lens-head{display:flex;align-items:center;gap:6px;margin-bottom:12px;min-height:22px}
+  .lens-name{flex:1;min-width:0;background:none;border:none;color:var(--lc);font-size:12px;letter-spacing:.13em;text-transform:uppercase;font-weight:700;font-family:inherit;padding:0}
+  .lens-name::placeholder{color:var(--faint)}
+  .lens-name:focus{outline:none}
+  .lens-acts{display:flex;gap:3px;opacity:0;transition:.13s;flex:0 0 auto}
+  .lens:hover .lens-acts{opacity:1}
+  .lens-ico{background:none;border:none;color:var(--faint);font-size:14px;cursor:pointer;padding:2px 5px;border-radius:6px;line-height:1;transition:.12s}
+  .lens-ico:hover{color:var(--text);background:rgba(255,255,255,.06)}
+  .lens-ico.on{color:var(--accent)}
+  .lens-cap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:5px}
+  .lens-cap.spaced{margin-top:14px}
+  textarea.lens-goal{width:100%;border:1px solid transparent;background:none;padding:3px 5px;border-radius:7px;resize:none;overflow:hidden;font-family:var(--display);font-size:16px;font-weight:700;line-height:1.32;color:var(--text)}
+  textarea.lens-goal::placeholder{color:var(--faint);font-weight:400;font-family:var(--sans)}
+  textarea.lens-goal:hover{background:rgba(255,255,255,.02)}
+  textarea.lens-goal:focus{outline:none;background:rgba(255,255,255,.03)}
+  .lens-target{display:flex;align-items:center;gap:10px;margin-top:9px;font-size:11.5px;color:var(--muted)}
+  .lens-target input{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:5px 9px;color:var(--text);font-size:12px;color-scheme:dark}
+  .lens-cd b{font-family:var(--mono);color:var(--lc)}
+  .lens-foot{margin-top:15px;padding-top:13px;border-top:1px solid var(--border)}
+  .lens-first-in,.lens-when-in{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 11px;font-size:13.5px;color:var(--text);margin-bottom:7px}
+  .lens-first-in:focus,.lens-when-in:focus{outline:none;border-color:var(--lc)}
+  .lens-bn{width:100%;margin-top:3px;background:none;border:1px dashed var(--border-2);color:var(--muted);border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer;transition:.13s}
+  .lens-bn:hover{border-color:var(--lc);color:var(--lc)}
+  .gl-add-lens{display:flex;align-items:center;justify-content:center;min-height:120px;border:1.5px dashed var(--border-2);border-radius:14px;background:none;color:var(--muted);font-size:13.5px;font-weight:600;cursor:pointer;transition:.13s}
+  .gl-add-lens:hover{border-color:var(--accent);color:var(--accent);background:rgba(255,122,71,.03)}
+  /* Morning: this week's moves, one per lens */
+  .mo-moves{margin-top:18px;padding-top:15px;border-top:1px solid rgba(255,255,255,.07)}
+  .mo-moves-cap{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:6px}
+  .mo-move{display:flex;align-items:center;gap:13px;padding:9px 4px}
+  .mo-move+.mo-move{border-top:1px solid rgba(255,255,255,.05)}
+  .mo-move-dot{width:8px;height:8px;border-radius:50%;background:var(--lc);flex:0 0 auto}
+  .mo-move-lens{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:700;flex:0 0 auto;min-width:74px}
+  .mo-move-step{flex:1;min-width:0;font-size:14.5px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mo-move-step.empty{color:var(--faint);font-size:13px}
+  .mo-move-when{flex:0 0 auto;font-size:11px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:4px 11px;white-space:nowrap}
 
   /* ===== TASKS POLISH ===== */
   .et-addbar{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:10px;box-shadow:var(--shadow)}
@@ -2123,6 +2163,13 @@ function goalPct(gl){
 }
 function northStar(){return typeof S.northStar==='string'?S.northStar:(S.northStar='');}
 function glMilestones(gl){if(!Array.isArray(gl.milestones))gl.milestones=[];return gl.milestones;}
+const LENS_COLORS=['var(--accent)','var(--teal)','var(--gold)','#7f77dd','#e24b4a'];
+function ensureLenses(){
+  if(S.lensSeeded)return;
+  const L=goalsList();let n=L.filter(x=>!x.done).length;
+  while(n<3){L.push({id:'g'+Date.now()+'x'+n,label:'',text:'',targetDate:'',setAt:'',done:false,milestones:[],firstStep:'',firstWhen:''});n++;}
+  S.lensSeeded=true;save();
+}
 function fmt(n){return Number(n||0).toLocaleString();}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function clip(s,n){s=(s||'').trim();return s.length>n?s.slice(0,n)+'…':s;}
@@ -3199,44 +3246,42 @@ function renderJournal(){
       })():'<div class="empty sect-empty">No entries yet.</div>'}
     </div>`;
 
+  ensureLenses();
   const GL=goalsList();
   const feat=featuredGoal();
   const activeGoals=GL.filter(x=>!x.done),doneGoals=GL.filter(x=>x.done);
-  const goalCard=gl=>{
-    const gcd=goalDays(gl),gpct=goalPct(gl);
+  const goalCard=(gl,idx)=>{
+    const gcd=goalDays(gl);
     const ms=glMilestones(gl);
-    return `<div class="card gl-card ${gl.done?'done':''}" data-gid="${gl.id}">
-      <div class="gl-card-top">
-        <input class="gl-label-in" data-glabel="${gl.id}" value="${esc(gl.label||'')}" placeholder="Lens name (Closing, Fitness, Family...)" spellcheck="false">
-        <div class="gl-card-acts">
-          ${!gl.done&&feat&&gl.id!==feat.id?`<button class="et-lblbtn" data-gfeat="${gl.id}" title="Show this one in Morning">★ Feature</button>`:''}
-          ${feat&&gl.id===feat.id?'<span class="et-status-tag focus">featured</span>':''}
-          <button class="et-lblbtn ${gl.done?'on':''}" data-gdone="${gl.id}">${gl.done?'Reopen':'Done'}</button>
-          <button class="rm" data-gdel="${gl.id}">×</button>
+    const col=LENS_COLORS[idx%LENS_COLORS.length];
+    return `<div class="lens ${gl.done?'done':''}" data-gid="${gl.id}" style="--lc:${col}">
+      <div class="lens-head">
+        <input class="lens-name" data-glabel="${gl.id}" value="${esc(gl.label||'')}" placeholder="Lens" spellcheck="false">
+        <div class="lens-acts">
+          ${!gl.done?`<button class="lens-ico ${feat&&gl.id===feat.id?'on':''}" data-gfeat="${gl.id}" title="Feature in Morning">★</button>`:''}
+          <button class="lens-ico" data-gdone="${gl.id}" title="${gl.done?'Reopen':'Mark done'}">${gl.done?'↺':'✓'}</button>
+          <button class="lens-ico" data-gdel="${gl.id}" title="Delete lens">×</button>
         </div>
       </div>
-      <div class="gl-sixcap">6-month goal</div>
-      <textarea class="write gl-text-in" data-gtext="${gl.id}" rows="1" placeholder="Specific and quantified. What exactly are you jumping into?">${esc(gl.text||'')}</textarea>
-      <div class="gl-meta-row">
-        <label class="mo-goal-date">Target <input type="date" data-gdate="${gl.id}" value="${esc(gl.targetDate||'')}"></label>
-        ${gcd!==null?`<span class="gl-countdown">${gcd>=0?`<b>${gcd}</b> days left`:`<b>${-gcd}</b> days past`}</span>`:''}
-        ${gpct!==null?`<div class="mo-goal-track" style="flex:1;max-width:160px"><div class="mo-goal-fill" style="width:${gpct}%"></div></div>`:''}
+      <div class="lens-cap">6-month goal</div>
+      <textarea class="lens-goal" data-gtext="${gl.id}" rows="1" placeholder="Specific and quantified">${esc(gl.text||'')}</textarea>
+      <div class="lens-target">
+        <input type="date" data-gdate="${gl.id}" value="${esc(gl.targetDate||'')}">
+        ${gcd!==null?`<span class="lens-cd">${gcd>=0?`<b>${gcd}</b> days left`:`<b>${-gcd}</b> days past`}</span>`:''}
       </div>
-      ${gl.done?'':`<div class="gl-ms">
-        <div class="gl-ms-cap">Milestones · first step at the bottom</div>
-        ${ms.map(m=>`<div class="gl-ms-row ${m.done?'done':''}">
-          <button class="gl-ms-check ${m.done?'on':''}" data-mscheck="${gl.id}:${m.id}">${m.done?'✓':''}</button>
-          <input class="gl-ms-in" data-mstext="${gl.id}:${m.id}" value="${esc(m.text||'')}" placeholder="Milestone" spellcheck="false">
-          <button class="rm gl-ms-del" data-msdel="${gl.id}:${m.id}">×</button>
-        </div>`).join('')}
-        <div class="gl-ms-add"><input data-msnew="${gl.id}" placeholder="+ Add milestone"></div>
-      </div>
-      <div class="gl-first">
-        <div class="gl-first-cap">First step this week<button class="gl-bottleneck" data-bn="${gl.id}">Find the real first step</button></div>
-        <div class="gl-first-row">
-          <input class="gl-first-in" data-gfirst="${gl.id}" value="${esc(gl.firstStep||'')}" placeholder="The one physical action" spellcheck="false">
-          <input class="gl-when-in" data-gwhen="${gl.id}" value="${esc(gl.firstWhen||'')}" placeholder="When?" spellcheck="false">
-        </div>
+      ${gl.done?'':`
+      <div class="lens-cap spaced">Milestones</div>
+      ${ms.map(m=>`<div class="gl-ms-row ${m.done?'done':''}">
+        <button class="gl-ms-check ${m.done?'on':''}" data-mscheck="${gl.id}:${m.id}">${m.done?'✓':''}</button>
+        <input class="gl-ms-in" data-mstext="${gl.id}:${m.id}" value="${esc(m.text||'')}" placeholder="Milestone" spellcheck="false">
+        <button class="rm gl-ms-del" data-msdel="${gl.id}:${m.id}">×</button>
+      </div>`).join('')}
+      <div class="gl-ms-add"><input data-msnew="${gl.id}" placeholder="+ Milestone"></div>
+      <div class="lens-foot">
+        <div class="lens-cap">First step this week</div>
+        <input class="lens-first-in" data-gfirst="${gl.id}" value="${esc(gl.firstStep||'')}" placeholder="One physical action" spellcheck="false">
+        <input class="lens-when-in" data-gwhen="${gl.id}" value="${esc(gl.firstWhen||'')}" placeholder="When?" spellcheck="false">
+        <button class="lens-bn" data-bn="${gl.id}">Find the real first step</button>
       </div>`}
     </div>`;
   };
@@ -3248,9 +3293,11 @@ function renderJournal(){
     </div>
     <div class="sect">
       <div class="sect-head">Lenses <span>${activeGoals.length||''}</span></div>
-      ${activeGoals.map(goalCard).join('')}
-      <div class="addrow ghost-add"><input id="gl-new" placeholder="+ New lens"></div>
-      ${doneGoals.length?`<div class="sect-head" style="margin-top:20px">Done <span>${doneGoals.length}</span></div>${doneGoals.map(goalCard).join('')}`:''}
+      <div class="gl-lenses">
+        ${activeGoals.map((gl,i)=>goalCard(gl,i)).join('')}
+        <button class="gl-add-lens" id="gl-add-lens">+ Add lens</button>
+      </div>
+      ${doneGoals.length?`<div class="sect-head" style="margin-top:22px">Done <span>${doneGoals.length}</span></div><div class="gl-lenses">${doneGoals.map((gl,i)=>goalCard(gl,i)).join('')}</div>`:''}
     </div>
     <div class="sect">
       <div class="sect-head">Goal journal</div>
@@ -3310,14 +3357,11 @@ function renderJournal(){
   if(nd)nd.onclick=exportNotes;
 
   // goals tab
-  const glNew=document.getElementById('gl-new');
-  if(glNew)glNew.onkeydown=e=>{
-    if(e.key==='Enter'){
-      const v=glNew.value.trim();if(!v)return;
-      goalsList().push({id:'g'+Date.now(),label:'Goal',text:v,targetDate:'',setAt:'',done:false});
-      save();renderJournal();topbar();
-      const again=document.getElementById('gl-new');if(again)again.focus();
-    }
+  const glAddLens=document.getElementById('gl-add-lens');
+  if(glAddLens)glAddLens.onclick=()=>{
+    goalsList().push({id:'g'+Date.now(),label:'',text:'',targetDate:'',setAt:'',done:false,milestones:[],firstStep:'',firstWhen:''});
+    save();renderJournal();topbar();
+    const names=main.querySelectorAll('.lens-name');const last=names[names.length-1];if(last)last.focus();
   };
   const glFind=id=>goalsList().find(x=>x.id===id);
   main.querySelectorAll('[data-glabel]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.glabel);if(gl){gl.label=inp.value;save();topbar();}});
@@ -3991,10 +4035,10 @@ function renderMorning(){
       const feat=featuredGoal();
       if(!feat)return `<div class="card mo-goal" style="margin-bottom:16px"><h3>Goals</h3><div class="empty">Set them in Journal → Goals.</div></div>`;
       const fcd=goalDays(feat),fpct=goalPct(feat);
-      const others=goalsList().filter(x=>!x.done&&x.id!==feat.id);
       const ns=northStar().trim();
-      const nextMs=glMilestones(feat).find(m=>!m.done);
-      const nextText=(feat.firstStep||'').trim()||(nextMs?nextMs.text:'');
+      const moves=goalsList().filter(x=>!x.done)
+        .map((o,i)=>({o,col:LENS_COLORS[i%LENS_COLORS.length]}))
+        .filter(x=>(x.o.text||'').trim()||(x.o.firstStep||'').trim());
       return `<div class="card mo-goal mo-goal-live" id="mo-goal-card" style="margin-bottom:16px">
         ${ns?`<div class="mo-ns">${esc(ns)}</div>`:''}
         <div class="mo-goal-row">
@@ -4004,10 +4048,10 @@ function renderMorning(){
             ${fpct!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${fpct}%"></div></div>`:''}
           </div>`:''}
         </div>
-        ${nextText?`<div class="mo-next" id="mo-next"><span class="mo-next-arrow">→</span><div class="mo-next-body"><div class="mo-next-cap">Next step</div><div class="mo-next-text">${esc(nextText)}</div></div>${(feat.firstWhen||'').trim()?`<span class="mo-next-when">${esc(feat.firstWhen.trim())}</span>`:''}</div>`:''}
-        ${others.length?`<div class="mo-goal-minis">${others.map(o=>{
-          const ocd=goalDays(o);
-          return `<div class="mo-goal-mini"><span class="mgm-label">${esc(o.label||'Goal')}</span><span class="mgm-text">${esc(clip(o.text,52))}</span>${ocd!==null&&ocd>=0?`<span class="mgm-days">${ocd}d</span>`:''}</div>`;
+        ${moves.length?`<div class="mo-moves"><div class="mo-moves-cap">This week</div>${moves.map(({o,col})=>{
+          const step=(o.firstStep||'').trim()||((glMilestones(o).find(m=>!m.done)||{}).text||'');
+          const when=(o.firstWhen||'').trim();
+          return `<div class="mo-move" style="--lc:${col}"><span class="mo-move-dot"></span><span class="mo-move-lens">${esc(o.label||'Lens')}</span><span class="mo-move-step ${step?'':'empty'}">${step?esc(step):'Set a first step in Goals'}</span>${step&&when?`<span class="mo-move-when">${esc(when)}</span>`:''}</div>`;
         }).join('')}</div>`:''}
       </div>`;
     })()}
