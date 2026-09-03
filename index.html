@@ -400,6 +400,11 @@
   .mo-line textarea.mo-edit-line{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;padding:8px 11px;resize:none;overflow:hidden}
   .mo-line textarea.mo-edit-line:focus{outline:none;border-color:var(--accent)}
   .mo-line .mo-del{margin-top:4px}
+  .mo-line .mo-del-quick{opacity:0;flex:0 0 auto;align-self:center;transition:opacity .12s}
+  .mo-line:hover .mo-del-quick{opacity:.55}
+  .mo-line .mo-del-quick:hover{opacity:1}
+  .mo-line .mo-text{flex:1}
+  @media (hover:none){.mo-line .mo-del-quick{opacity:.4}}
 
   /* DAILY SCORE */
   .ring-wrap .pct b{font-size:34px}
@@ -3831,7 +3836,7 @@ function moListBody(title,key,sub,accent){
         return `<div class="mo-line" data-id="${esc(String(id))}" style="--dot:${accent}">
           <span class="drag-grip">⠿</span>
           <span class="mo-dot"></span>
-          ${moEdit?`<textarea class="mo-edit-line" rows="1">${esc(text)}</textarea><button class="rm mo-del">×</button>`:`<span class="mo-text">${esc(text)}</span>`}
+          ${moEdit?`<textarea class="mo-edit-line" rows="1">${esc(text)}</textarea><button class="rm mo-del">×</button>`:`<span class="mo-text">${esc(text)}</span><button class="rm mo-del-quick" title="Delete">×</button>`}
         </div>`;
       }).join(''):`<div class="empty">${moEdit?'Add your first one below.':'Nothing here yet.'}</div>`}
     </div>
@@ -3845,8 +3850,8 @@ function moWireList(key){
       const id=line.dataset.id;const item=m[key].find(x=>String(x.id)===id);
       const ta=line.querySelector('.mo-edit-line');
       if(ta){autosize(ta);ta.oninput=()=>{if(item){item.text=ta.value;save();}autosize(ta);};}
-      const del=line.querySelector('.mo-del');
-      if(del)del.onclick=()=>{m[key]=m[key].filter(x=>String(x.id)!==id);save();renderMorning();};
+      const del=line.querySelector('.mo-del')||line.querySelector('.mo-del-quick');
+      if(del)del.onclick=e=>{e.stopPropagation();m[key]=m[key].filter(x=>String(x.id)!==id);save();renderMorning();};
     });
   }
   if(wrap)makeSortable(wrap,'.mo-line',ids=>{
