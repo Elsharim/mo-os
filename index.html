@@ -4052,12 +4052,7 @@ function renderMorning(){
       const feat=featuredGoal();
       if(!feat)return `<div class="card mo-goal" style="margin-bottom:16px"><h3>Goals</h3><div class="empty">Set them in Journal → Goals.</div></div>`;
       const fcd=goalDays(feat),fpct=goalPct(feat);
-      const ns=northStar().trim();
-      const moves=goalsList().filter(x=>!x.done)
-        .map((o,i)=>({o,col:LENS_COLORS[i%LENS_COLORS.length]}))
-        .filter(x=>(x.o.text||'').trim()||(x.o.firstStep||'').trim());
       return `<div class="card mo-goal mo-goal-live" id="mo-goal-card" style="margin-bottom:16px">
-        ${ns?`<div class="mo-ns">${esc(ns)}</div>`:''}
         <div class="mo-goal-row">
           <div class="mo-goal-text"><span class="mo-goal-cap">${esc(feat.label||'Goal')} <span class="mo-goal-tap">tap to manifest</span></span><div class="mo-goal-big">${esc(feat.text)}</div></div>
           ${fcd!==null?`<div class="mo-goal-cd">
@@ -4065,11 +4060,6 @@ function renderMorning(){
             ${fpct!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${fpct}%"></div></div>`:''}
           </div>`:''}
         </div>
-        ${moves.length?`<div class="mo-moves"><div class="mo-moves-cap">This week</div>${moves.map(({o,col})=>{
-          const step=(o.firstStep||'').trim()||((glMilestones(o).find(m=>!m.done)||{}).text||'');
-          const when=(o.firstWhen||'').trim();
-          return `<div class="mo-move" style="--lc:${col}"><span class="mo-move-dot"></span><span class="mo-move-lens">${esc(o.label||'Lens')}</span><span class="mo-move-step ${step?'':'empty'}">${step?esc(step):'Set a first step in Goals'}</span>${step&&when?`<span class="mo-move-when">${esc(when)}</span>`:''}</div>`;
-        }).join('')}</div>`:''}
       </div>`;
     })()}
 
