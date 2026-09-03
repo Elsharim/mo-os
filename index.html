@@ -716,6 +716,65 @@
   .gl-log-del{opacity:0}
   .gl-log:hover .gl-log-del{opacity:1}
   .gl-log-text{font-size:13.5px;line-height:1.6;white-space:pre-wrap}
+  /* North Star + telescope goals */
+  .ns-card{margin-bottom:18px;padding:18px 20px;border:1px solid rgba(255,122,71,.28);background:linear-gradient(180deg,rgba(255,122,71,.05),rgba(255,122,71,.015))}
+  .ns-cap{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px}
+  textarea.ns-in{width:100%;border:1px solid transparent;background:none;padding:2px 4px;border-radius:6px;resize:none;overflow:hidden;font-family:var(--display);font-size:19px;font-weight:600;line-height:1.4;color:var(--text)}
+  textarea.ns-in::placeholder{color:var(--faint)}
+  textarea.ns-in:hover{background:rgba(255,255,255,.02)}
+  textarea.ns-in:focus{outline:none;background:rgba(255,255,255,.03)}
+  .gl-sixcap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:12px 0 4px}
+  .gl-ms{margin-top:14px}
+  .gl-ms-cap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700;margin-bottom:8px}
+  .gl-ms-row{display:flex;align-items:center;gap:10px;padding:4px 0}
+  .gl-ms-check{width:18px;height:18px;flex:0 0 18px;border-radius:50%;border:1.5px solid var(--border-2);background:none;color:var(--accent);font-size:11px;cursor:pointer;display:grid;place-items:center;padding:0;transition:.13s}
+  .gl-ms-check:hover{border-color:var(--accent)}
+  .gl-ms-check.on{background:var(--accent-soft);border-color:var(--accent)}
+  .gl-ms-in{flex:1;background:none;border:1px solid transparent;border-radius:6px;padding:5px 7px;font-size:13.5px;color:var(--text);font-family:inherit}
+  .gl-ms-in:hover{background:rgba(255,255,255,.02)}
+  .gl-ms-in:focus{outline:none;background:rgba(255,255,255,.03)}
+  .gl-ms-row.done .gl-ms-in{color:var(--faint);text-decoration:line-through}
+  .gl-ms-del{opacity:0;transition:.13s}
+  .gl-ms-row:hover .gl-ms-del{opacity:.5}
+  .gl-ms-del:hover{opacity:1}
+  .gl-ms-add input{background:none;border:1px dashed transparent;font-size:13px;padding:6px 8px;border-radius:8px;color:var(--text);width:100%}
+  .gl-ms-add input::placeholder{color:var(--faint)}
+  .gl-ms-add input:hover{background:rgba(255,255,255,.02)}
+  .gl-ms-add input:focus{outline:none;background:rgba(255,255,255,.03)}
+  .gl-first{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+  .gl-first-cap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+  .gl-first-cap .gl-bottleneck{margin-left:auto;font-size:10px;letter-spacing:.04em;text-transform:none;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer;font-weight:600;transition:.13s}
+  .gl-first-cap .gl-bottleneck:hover{border-color:var(--accent);color:var(--accent)}
+  .gl-first-row{display:flex;gap:10px;align-items:center}
+  .gl-first-in{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-size:14px;color:var(--text)}
+  .gl-first-in:focus{outline:none;border-color:var(--accent)}
+  .gl-when-in{flex:0 0 120px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:9px 12px;font-size:13px;color:var(--text)}
+  .gl-when-in:focus{outline:none;border-color:var(--accent)}
+  /* Morning next-step strip */
+  .mo-next{margin-top:16px;padding:12px 16px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);display:flex;align-items:center;gap:14px}
+  .mo-next-arrow{color:var(--accent);font-size:18px;flex:0 0 auto}
+  .mo-next-body{flex:1;min-width:0}
+  .mo-next-cap{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .mo-next-text{font-size:14.5px;color:var(--text);margin-top:2px;line-height:1.35}
+  .mo-next-when{flex:0 0 auto;font-size:12px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:99px;padding:5px 12px;white-space:nowrap}
+  .mo-ns{font-size:12.5px;color:var(--muted);line-height:1.45;margin-bottom:12px;max-width:640px}
+  /* Bottleneck modal */
+  #bn-modal{position:fixed;inset:0;z-index:120;background:rgba(6,6,8,.86);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px}
+  .bn-box{width:min(560px,100%);background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 28px 24px;max-height:88vh;overflow:auto}
+  .bn-title{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:-.01em;margin:0 0 4px}
+  .bn-sub{font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:20px}
+  .bn-step{margin-bottom:16px}
+  .bn-q{font-size:12px;letter-spacing:.02em;color:var(--accent);font-weight:600;margin-bottom:7px;display:flex;gap:8px;align-items:baseline}
+  .bn-q b{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .bn-ta{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:11px;padding:11px 13px;font-size:14px;color:var(--text);line-height:1.5;resize:none;overflow:hidden;min-height:44px;font-family:inherit}
+  .bn-ta:focus{outline:none;border-color:var(--accent)}
+  .bn-deeper{background:none;border:1px dashed var(--border-2);color:var(--muted);border-radius:9px;padding:8px 12px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.13s;width:100%}
+  .bn-deeper:hover{border-color:var(--accent);color:var(--accent)}
+  .bn-result{margin-top:18px;padding:14px 16px;border-radius:13px;background:var(--accent-soft);border:1px solid rgba(255,122,71,.3)}
+  .bn-result-cap{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px}
+  .bn-result input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:10px 12px;font-size:14px;color:var(--text);margin-bottom:8px}
+  .bn-result input:focus{outline:none;border-color:var(--accent)}
+  .bn-acts{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
 
   /* ===== TASKS POLISH ===== */
   .et-addbar{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:10px;box-shadow:var(--shadow)}
@@ -2062,6 +2121,8 @@ function goalPct(gl){
   if(total<=0)return null;
   return Math.max(0,Math.min(100,Math.round(-daysUntil(gl.setAt)/total*100)));
 }
+function northStar(){return typeof S.northStar==='string'?S.northStar:(S.northStar='');}
+function glMilestones(gl){if(!Array.isArray(gl.milestones))gl.milestones=[];return gl.milestones;}
 function fmt(n){return Number(n||0).toLocaleString();}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function clip(s,n){s=(s||'').trim();return s.length>n?s.slice(0,n)+'…':s;}
@@ -3143,9 +3204,10 @@ function renderJournal(){
   const activeGoals=GL.filter(x=>!x.done),doneGoals=GL.filter(x=>x.done);
   const goalCard=gl=>{
     const gcd=goalDays(gl),gpct=goalPct(gl);
+    const ms=glMilestones(gl);
     return `<div class="card gl-card ${gl.done?'done':''}" data-gid="${gl.id}">
       <div class="gl-card-top">
-        <input class="gl-label-in" data-glabel="${gl.id}" value="${esc(gl.label||'')}" placeholder="Goal name" spellcheck="false">
+        <input class="gl-label-in" data-glabel="${gl.id}" value="${esc(gl.label||'')}" placeholder="Lens name (Closing, Fitness, Family...)" spellcheck="false">
         <div class="gl-card-acts">
           ${!gl.done&&feat&&gl.id!==feat.id?`<button class="et-lblbtn" data-gfeat="${gl.id}" title="Show this one in Morning">★ Feature</button>`:''}
           ${feat&&gl.id===feat.id?'<span class="et-status-tag focus">featured</span>':''}
@@ -3153,20 +3215,41 @@ function renderJournal(){
           <button class="rm" data-gdel="${gl.id}">×</button>
         </div>
       </div>
-      <textarea class="write gl-text-in" data-gtext="${gl.id}" rows="1" placeholder="What's the goal?">${esc(gl.text||'')}</textarea>
+      <div class="gl-sixcap">6-month goal</div>
+      <textarea class="write gl-text-in" data-gtext="${gl.id}" rows="1" placeholder="Specific and quantified. What exactly are you jumping into?">${esc(gl.text||'')}</textarea>
       <div class="gl-meta-row">
         <label class="mo-goal-date">Target <input type="date" data-gdate="${gl.id}" value="${esc(gl.targetDate||'')}"></label>
         ${gcd!==null?`<span class="gl-countdown">${gcd>=0?`<b>${gcd}</b> days left`:`<b>${-gcd}</b> days past`}</span>`:''}
         ${gpct!==null?`<div class="mo-goal-track" style="flex:1;max-width:160px"><div class="mo-goal-fill" style="width:${gpct}%"></div></div>`:''}
       </div>
+      ${gl.done?'':`<div class="gl-ms">
+        <div class="gl-ms-cap">Milestones · first step at the bottom</div>
+        ${ms.map(m=>`<div class="gl-ms-row ${m.done?'done':''}">
+          <button class="gl-ms-check ${m.done?'on':''}" data-mscheck="${gl.id}:${m.id}">${m.done?'✓':''}</button>
+          <input class="gl-ms-in" data-mstext="${gl.id}:${m.id}" value="${esc(m.text||'')}" placeholder="Milestone" spellcheck="false">
+          <button class="rm gl-ms-del" data-msdel="${gl.id}:${m.id}">×</button>
+        </div>`).join('')}
+        <div class="gl-ms-add"><input data-msnew="${gl.id}" placeholder="+ Add milestone"></div>
+      </div>
+      <div class="gl-first">
+        <div class="gl-first-cap">First step this week<button class="gl-bottleneck" data-bn="${gl.id}">Find the real first step</button></div>
+        <div class="gl-first-row">
+          <input class="gl-first-in" data-gfirst="${gl.id}" value="${esc(gl.firstStep||'')}" placeholder="The one physical action" spellcheck="false">
+          <input class="gl-when-in" data-gwhen="${gl.id}" value="${esc(gl.firstWhen||'')}" placeholder="When?" spellcheck="false">
+        </div>
+      </div>`}
     </div>`;
   };
   const log=goalLog().slice().sort((a,b)=>b.ts-a.ts);
   const goalsPane=`
+    <div class="card ns-card">
+      <div class="ns-cap">★ North Star</div>
+      <textarea class="ns-in" id="ns-in" rows="1" placeholder="What do you want your life to look like and feel like? Not a number, a direction.">${esc(northStar())}</textarea>
+    </div>
     <div class="sect">
-      <div class="sect-head">Goals <span>${activeGoals.length||''}</span></div>
+      <div class="sect-head">Lenses <span>${activeGoals.length||''}</span></div>
       ${activeGoals.map(goalCard).join('')}
-      <div class="addrow ghost-add"><input id="gl-new" placeholder="+ New goal"></div>
+      <div class="addrow ghost-add"><input id="gl-new" placeholder="+ New lens"></div>
       ${doneGoals.length?`<div class="sect-head" style="margin-top:20px">Done <span>${doneGoals.length}</span></div>${doneGoals.map(goalCard).join('')}`:''}
     </div>
     <div class="sect">
@@ -3253,9 +3336,21 @@ function renderJournal(){
     const gl=glFind(b.dataset.gdone);if(gl){gl.done=!gl.done;save();renderJournal();topbar();}
   });
   main.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=()=>{
-    if(!confirm('Delete this goal?'))return;
+    if(!confirm('Delete this lens?'))return;
     S.goalsList=goalsList().filter(x=>x.id!==b.dataset.gdel);save();renderJournal();topbar();
   });
+  const nsIn=document.getElementById('ns-in');
+  if(nsIn){autosize(nsIn);nsIn.oninput=()=>{S.northStar=nsIn.value;autosize(nsIn);save();topbar();};}
+  const msFind=key=>{const [gid,mid]=key.split(':');const gl=glFind(gid);return gl?{gl,m:glMilestones(gl).find(x=>x.id===mid)}:{};};
+  main.querySelectorAll('[data-mscheck]').forEach(b=>b.onclick=()=>{const {m}=msFind(b.dataset.mscheck);if(m){m.done=!m.done;save();renderJournal();topbar();}});
+  main.querySelectorAll('[data-mstext]').forEach(inp=>inp.oninput=()=>{const {m}=msFind(inp.dataset.mstext);if(m){m.text=inp.value;save();}});
+  main.querySelectorAll('[data-msdel]').forEach(b=>b.onclick=()=>{const [gid,mid]=b.dataset.msdel.split(':');const gl=glFind(gid);if(gl){gl.milestones=glMilestones(gl).filter(x=>x.id!==mid);save();renderJournal();}});
+  main.querySelectorAll('[data-msnew]').forEach(inp=>inp.onkeydown=e=>{
+    if(e.key==='Enter'){const v=inp.value.trim();if(!v)return;const gl=glFind(inp.dataset.msnew);if(gl){glMilestones(gl).push({id:'m'+Date.now(),text:v,done:false});save();renderJournal();topbar();}}
+  });
+  main.querySelectorAll('[data-gfirst]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.gfirst);if(gl){gl.firstStep=inp.value;save();topbar();}});
+  main.querySelectorAll('[data-gwhen]').forEach(inp=>inp.oninput=()=>{const gl=glFind(inp.dataset.gwhen);if(gl){gl.firstWhen=inp.value;save();topbar();}});
+  main.querySelectorAll('[data-bn]').forEach(b=>b.onclick=()=>openBottleneck(b.dataset.bn));
   const glEntry=document.getElementById('gl-entry'),glAdd=document.getElementById('gl-entry-add');
   if(glEntry&&glAdd){
     autosize(glEntry);glEntry.oninput=()=>autosize(glEntry);
@@ -3559,6 +3654,76 @@ function moData(){if(!S.morning)S.morning=structuredClone(DEFAULT.morning);const
   });
   return m;}
 
+/* BOTTLENECK DRILL — why → why → why until the real first step */
+function openBottleneck(gid){
+  const gl=goalsList().find(x=>x.id===gid);if(!gl)return;
+  const old=document.getElementById('bn-modal');if(old)old.remove();
+  const ms=glMilestones(gl).filter(m=>!m.done);
+  const start=(ms.length?ms[ms.length-1].text:'')||gl.text||gl.label||'this goal';
+  const QS=[
+    `What's stopping you from: ${clip(start,80)}?`,
+    'And why is that a bottleneck?',
+    'Go one deeper. Why is that?',
+    'Last one. What is actually the root here?'
+  ];
+  const el=document.createElement('div');
+  el.id='bn-modal';
+  el.innerHTML=`<div class="bn-box">
+    <div class="bn-title">Find the real first step</div>
+    <div class="bn-sub">Keep asking why until you hit the one small action you can actually do. That becomes your first step.</div>
+    <div id="bn-steps">
+      <div class="bn-step" data-i="0">
+        <div class="bn-q"><b>1</b>${esc(QS[0])}</div>
+        <textarea class="bn-ta" data-i="0" placeholder="Type it out"></textarea>
+      </div>
+    </div>
+    <button class="bn-deeper" id="bn-deeper">Go deeper ↓</button>
+    <div class="bn-result" id="bn-result" style="display:none">
+      <div class="bn-result-cap">Your real first step</div>
+      <input id="bn-first" placeholder="The one physical action">
+      <input id="bn-when" placeholder="When? (e.g. Thu AM)">
+    </div>
+    <div class="bn-acts">
+      <button class="btn" id="bn-cancel">Cancel</button>
+      <button class="btn solid" id="bn-save" style="display:none">Set as first step</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  let shown=1;
+  const steps=el.querySelector('#bn-steps');
+  const deeper=el.querySelector('#bn-deeper');
+  const result=el.querySelector('#bn-result');
+  const firstIn=el.querySelector('#bn-first');
+  const saveBtn=el.querySelector('#bn-save');
+  const lastAnswer=()=>{const tas=[...el.querySelectorAll('.bn-ta')];for(let i=tas.length-1;i>=0;i--){if(tas[i].value.trim())return tas[i].value.trim();}return '';};
+  const wire=ta=>{ta.oninput=()=>{autosize(ta);};autosize(ta);};
+  wire(el.querySelector('.bn-ta'));
+  const reveal=()=>{
+    result.style.display='';saveBtn.style.display='';
+    if(!firstIn.value.trim())firstIn.value=lastAnswer();
+    result.scrollIntoView({behavior:'smooth',block:'nearest'});
+  };
+  deeper.onclick=()=>{
+    if(shown<QS.length){
+      const d=document.createElement('div');
+      d.className='bn-step';d.dataset.i=shown;
+      d.innerHTML=`<div class="bn-q"><b>${shown+1}</b>${esc(QS[shown])}</div><textarea class="bn-ta" data-i="${shown}" placeholder="Type it out"></textarea>`;
+      steps.appendChild(d);wire(d.querySelector('.bn-ta'));
+      shown++;
+      if(shown>=QS.length)deeper.textContent='That\'s the root';
+      reveal();
+    }else{reveal();}
+  };
+  el.querySelector('.bn-ta').addEventListener('input',()=>{if(result.style.display==='none')reveal();},{once:true});
+  saveBtn.onclick=()=>{
+    const g=goalsList().find(x=>x.id===gid);if(g){g.firstStep=firstIn.value.trim();g.firstWhen=el.querySelector('#bn-when').value.trim();save();}
+    el.remove();renderJournal();topbar();
+  };
+  el.querySelector('#bn-cancel').onclick=()=>el.remove();
+  el.onclick=e=>{if(e.target===el)el.remove();};
+  setTimeout(()=>el.querySelector('.bn-ta').focus(),50);
+}
+
 /* GOAL TRANCE — manifest visualization */
 const MANIFEST_QUOTES=[
   "You can only have what you already have.",
@@ -3827,7 +3992,11 @@ function renderMorning(){
       if(!feat)return `<div class="card mo-goal" style="margin-bottom:16px"><h3>Goals</h3><div class="empty">Set them in Journal → Goals.</div></div>`;
       const fcd=goalDays(feat),fpct=goalPct(feat);
       const others=goalsList().filter(x=>!x.done&&x.id!==feat.id);
+      const ns=northStar().trim();
+      const nextMs=glMilestones(feat).find(m=>!m.done);
+      const nextText=(feat.firstStep||'').trim()||(nextMs?nextMs.text:'');
       return `<div class="card mo-goal mo-goal-live" id="mo-goal-card" style="margin-bottom:16px">
+        ${ns?`<div class="mo-ns">${esc(ns)}</div>`:''}
         <div class="mo-goal-row">
           <div class="mo-goal-text"><span class="mo-goal-cap">${esc(feat.label||'Goal')} <span class="mo-goal-tap">tap to manifest</span></span><div class="mo-goal-big">${esc(feat.text)}</div></div>
           ${fcd!==null?`<div class="mo-goal-cd">
@@ -3835,6 +4004,7 @@ function renderMorning(){
             ${fpct!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${fpct}%"></div></div>`:''}
           </div>`:''}
         </div>
+        ${nextText?`<div class="mo-next" id="mo-next"><span class="mo-next-arrow">→</span><div class="mo-next-body"><div class="mo-next-cap">Next step</div><div class="mo-next-text">${esc(nextText)}</div></div>${(feat.firstWhen||'').trim()?`<span class="mo-next-when">${esc(feat.firstWhen.trim())}</span>`:''}</div>`:''}
         ${others.length?`<div class="mo-goal-minis">${others.map(o=>{
           const ocd=goalDays(o);
           return `<div class="mo-goal-mini"><span class="mgm-label">${esc(o.label||'Goal')}</span><span class="mgm-text">${esc(clip(o.text,52))}</span>${ocd!==null&&ocd>=0?`<span class="mgm-days">${ocd}d</span>`:''}</div>`;
