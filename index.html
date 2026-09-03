@@ -2164,11 +2164,23 @@ function goalPct(gl){
 function northStar(){return typeof S.northStar==='string'?S.northStar:(S.northStar='');}
 function glMilestones(gl){if(!Array.isArray(gl.milestones))gl.milestones=[];return gl.milestones;}
 const LENS_COLORS=['var(--accent)','var(--teal)','var(--gold)','#7f77dd','#e24b4a'];
+function deriveLensName(t){
+  t=(t||'').trim();if(!t)return '';
+  const i=t.toLowerCase().lastIndexOf(' for ');
+  let s=i>=0?t.slice(i+5):t.split(/\s+/).slice(-2).join(' ');
+  return clip(s.replace(/[^\w\s&]/g,'').trim(),18);
+}
 function ensureLenses(){
-  if(S.lensSeeded)return;
-  const L=goalsList();let n=L.filter(x=>!x.done).length;
-  while(n<3){L.push({id:'g'+Date.now()+'x'+n,label:'',text:'',targetDate:'',setAt:'',done:false,milestones:[],firstStep:'',firstWhen:''});n++;}
-  S.lensSeeded=true;save();
+  const L=goalsList();
+  if(!S.lensLabelsFixed){
+    L.forEach(gl=>{if(/^\s*(\d+\s*-?\s*day\s*|\d+\s*-?\s*month\s*|big\s*)?goal\s*$/i.test(gl.label||''))gl.label=deriveLensName(gl.text);});
+    S.lensLabelsFixed=true;save();
+  }
+  if(!S.lensSeeded){
+    let n=L.filter(x=>!x.done).length;
+    while(n<3){L.push({id:'g'+Date.now()+'x'+n,label:'',text:'',targetDate:'',setAt:'',done:false,milestones:[],firstStep:'',firstWhen:''});n++;}
+    S.lensSeeded=true;save();
+  }
 }
 function fmt(n){return Number(n||0).toLocaleString();}
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
