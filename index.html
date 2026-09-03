@@ -19,8 +19,8 @@
     --border:rgba(255,255,255,.07);
     --border-2:rgba(255,255,255,.13);
     --text:#f4f4f5;
-    --muted:#9c9ca4;
-    --faint:#63636b;
+    --muted:#adadb5;
+    --faint:#7c7c86;
     --accent:#ff7a47;
     --accent-2:#ffb02e;
     --accent-soft:rgba(255,122,71,.13);
@@ -738,7 +738,7 @@
   .hb-score span{font-size:13px;color:var(--faint);margin-left:4px}
   .hb-chips{display:flex;gap:8px}
   .hb-list{display:flex;flex-direction:column;gap:6px}
-  .hb-row{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:var(--card-2);border:1px solid var(--border);color:var(--text);cursor:pointer;padding:13px 15px;border-radius:12px;font-size:14.5px;font-weight:500;transition:.13s;font-family:inherit}
+  .hb-row{display:flex;align-items:center;gap:13px;width:100%;text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--border);color:var(--text);cursor:pointer;padding:14px 16px;border-radius:12px;font-size:14.5px;font-weight:550;transition:.13s;font-family:inherit}
   .hb-row:hover{border-color:var(--border-2)}
   .hb-row.done{background:var(--good-soft);border-color:rgba(52,211,153,.3)}
   .hb-row.done .hb-name{color:var(--muted);text-decoration:line-through}
@@ -746,7 +746,7 @@
   .hb-row.done .hb-check{background:var(--good);color:#08221a;border-color:var(--good)}
   .hb-ico{font-size:18px;flex:0 0 auto}
   .hb-name{flex:1}
-  .hb-pts{font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+  .hb-pts{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
   .hb-row.done .hb-pts{color:var(--good)}
   .hb-row.edit{cursor:default}
   .hb-name-in{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:13.5px}
@@ -1012,7 +1012,7 @@
   .co-step-check{width:21px;height:21px;flex:0 0 21px;border-radius:99px;border:1.5px solid var(--border-2);background:none;color:#08221a;font-size:12px;font-weight:800;display:grid;place-items:center;cursor:pointer;transition:.13s;padding:0;margin-top:1px}
   .co-step.done .co-step-check{background:var(--good);border-color:var(--good)}
   .co-step-check:hover{border-color:var(--good)}
-  .co-step-text{flex:1;font-size:13.5px;line-height:1.6}
+  .co-step-text{flex:1;font-size:14.5px;line-height:1.6;color:var(--text)}
   .co-step .rm{opacity:0}
   .co-step:hover .rm{opacity:1}
   .co-notes-view{background:rgba(255,255,255,.015);border:1px solid var(--border);border-radius:14px;padding:24px 26px;font-size:13.5px;line-height:1.7}
@@ -1039,7 +1039,7 @@
   .co-tk{display:flex;align-items:flex-start;gap:13px;padding:11px 14px;background:rgba(255,255,255,.025);border:1px solid transparent;border-radius:12px;transition:.13s}
   .co-tk:hover{border-color:var(--border);background:rgba(255,255,255,.035)}
   .co-tk-dot{width:7px;height:7px;border-radius:99px;background:var(--accent-2);box-shadow:0 0 8px rgba(255,176,46,.5);flex:0 0 auto;margin-top:7px}
-  .co-tk-text{flex:1;font-size:13.5px;line-height:1.6}
+  .co-tk-text{flex:1;font-size:14.5px;line-height:1.6;color:var(--text)}
   .co-tk-del{opacity:0}
   .co-tk:hover .co-tk-del{opacity:1}
   .co-list-card{background:transparent;border:none;box-shadow:none;padding:8px 0 0}
