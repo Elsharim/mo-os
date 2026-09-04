@@ -549,9 +549,16 @@
   #ht-modal{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(4,4,6,.82);backdrop-filter:blur(12px);animation:htFade .3s ease}
   @keyframes htFade{from{opacity:0}to{opacity:1}}
   .ht-book{width:min(650px,100%);max-height:90vh;display:flex;flex-direction:column;background:radial-gradient(130% 70% at 50% -8%,rgba(226,75,74,.09),transparent 58%),#0d0c0e;border:1px solid var(--border);border-radius:22px;overflow:hidden;box-shadow:0 40px 130px rgba(0,0,0,.66)}
-  .ht-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:22px 24px 14px}
-  .ht-title{font-family:var(--display);font-size:23px;font-weight:700;letter-spacing:-.01em}
-  .ht-sub{font-size:12.5px;color:var(--muted);margin-top:5px;line-height:1.45;max-width:88%}
+  .ht-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:22px 24px 16px}
+  .ht-head-l{display:flex;align-items:center;gap:14px;min-width:0}
+  .ht-badge{width:44px;height:44px;flex:0 0 44px;border-radius:13px;background:linear-gradient(135deg,rgba(226,75,74,.22),rgba(255,122,71,.12));display:grid;place-items:center}
+  .ht-badge svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .ht-title{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:-.01em;line-height:1.1}
+  .ht-sub{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.4}
+  .ht-sect{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:700;margin:8px 2px 11px;display:flex;align-items:center;gap:11px}
+  .ht-sect::after{content:"";flex:1;height:1px;background:var(--border)}
+  .ht-sect.reframed{color:var(--accent);margin-top:20px}
+  .ht-sect.reframed::after{background:linear-gradient(90deg,rgba(255,122,71,.3),transparent)}
   .ht-x{background:none;border:1px solid var(--border);color:var(--muted);width:34px;height:34px;border-radius:50%;font-size:18px;cursor:pointer;flex:0 0 auto;transition:.13s}
   .ht-x:hover{color:var(--text);border-color:var(--border-2)}
   .ht-compose{padding:2px 24px 18px}
@@ -3665,7 +3672,7 @@ function openHeadTrash(){
   let justFlipped=null; // id to play the invert animation on
   const render=()=>{
     const items=S.headTrash.slice().reverse();
-    const list=items.length?items.map(h=>{
+    const cardHtml=h=>{
       if(h.id===invertingId){
         return `<div class="htc"><div class="htc-edit">
           <div class="htc-edit-orig">${esc(h.text)}</div>
@@ -3698,11 +3705,19 @@ function openHeadTrash(){
           <button class="rm htc-del" data-del="${h.id}">×</button>
         </div>
       </div></div>`;
-    }).join(''):`<div class="ht-empty">Nothing here yet.<br>Dump the noise the moment it hits.</div>`;
+    };
+    let rawB='',doneB='';
+    items.forEach(h=>{ if((h.inverted||'').trim())doneB+=cardHtml(h); else rawB+=cardHtml(h); });
+    const list=(rawB||doneB)
+      ? `${rawB?`<div class="ht-sect">To reframe</div>${rawB}`:''}${doneB?`<div class="ht-sect reframed">Reframed</div>${doneB}`:''}`
+      : `<div class="ht-empty">No thoughts yet.</div>`;
     modal.innerHTML=`
       <div class="ht-book">
         <div class="ht-head">
-          <div><div class="ht-title">Head trash</div><div class="ht-sub">Capture a thought, then reframe it.</div></div>
+          <div class="ht-head-l">
+            <div class="ht-badge"><svg viewBox="0 0 24 24"><path d="M3 7h18M9 7V4.5a1 1 0 011-1h4a1 1 0 011 1V7M5.5 7l1 12.5a1 1 0 001 .9h9a1 1 0 001-.9L18.5 7"/></svg></div>
+            <div><div class="ht-title">Head trash</div><div class="ht-sub">Turn a negative thought into its opposite.</div></div>
+          </div>
           <button class="ht-x" title="Close">×</button>
         </div>
         <div class="ht-compose">
@@ -3742,20 +3757,65 @@ function openHeadTrash(){
   document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){const m=document.getElementById('ht-modal');if(m){m.remove();if(currentView==='morning')renderMorning();}document.removeEventListener('keydown',esc);}});
 }
 // Smart-ish starter for an inversion: strips common negative openers and gives a present-tense scaffold
+// Rewrites a self-limiting thought into its fuller, present-tense opposite.
 function invertSuggest(text){
-  let t=(text||'').trim().replace(/\.$/,'');
-  const low=t.toLowerCase();
-  const map=[
-    [/^i (can'?t|cannot|could ?n'?t)\b/i,'I can'],
-    [/^i'?m not\b/i,'I am'],
-    [/^i am not\b/i,'I am'],
-    [/^i don'?t\b/i,'I do'],
-    [/^i'?m (afraid|scared|nervous|worried) (of|about|to)\b/i,'I am confident about'],
-    [/^i (hate|dread)\b/i,'I love']
+  let t=(text||'').trim().replace(/\s+/g,' ').replace(/[.!?]+$/,'');
+  if(!t) return '';
+  let s=' '+t+' ';
+  const rules=[
+    [/ i'?m not good enough /gi,' I am more than good enough '],
+    [/ (i'?m|i am) never good enough /gi,' I am more than good enough '],
+    [/ not good enough /gi,' more than enough '],
+    [/ i'?m a failure /gi,' I am capable, and I grow with every rep '],
+    [/ i'?m a fraud /gi,' I have earned my place, and I keep earning it '],
+    [/ i'?m a loser /gi,' I am building what most people never will '],
+    [/ i'?m worthless /gi,' I am worth more than I give myself credit for '],
+    [/ i'?m (so |such )?(stupid|dumb) /gi,' I am sharp, and I learn fast '],
+    [/ i'?m not smart enough /gi,' I am sharp enough, and I get sharper every day '],
+    [/ i'?ll never /gi,' I will '],
+    [/ i can'?t ever /gi,' I can '],
+    [/ i never /gi,' I consistently '],
+    [/ i always (fail|mess up|screw up|lose|choke|fall short) /gi,' I learn and get sharper every time '],
+    [/ (no one|nobody) (likes|respects|believes in|wants|values) me /gi,' the right people respect and back me '],
+    [/ everyone (is|seems|feels) better than me /gi,' I run my own race, and I am enough '],
+    [/ i'?m falling behind /gi,' I am on my own timeline and moving fast '],
+    [/ i'?m behind /gi,' I am exactly where I need to be, and moving fast '],
+    [/ i'?m too (slow|weak|old|young|late|far behind) /gi,' I am right on time '],
+    [/ i'?m afraid to /gi,' I am ready to '],
+    [/ i'?m scared to /gi,' I am ready to '],
+    [/ i'?m (afraid|scared|terrified) of /gi,' I am at peace with '],
+    [/ i'?m (nervous|worried|anxious) about /gi,' I am calm and prepared for '],
+    [/ i'?m (afraid|scared|terrified|nervous|worried|anxious|panicking) /gi,' I am calm and in control '],
+    [/ i can'?t /gi,' I can '],
+    [/ i cannot /gi,' I can '],
+    [/ i could ?n'?t /gi,' I can '],
+    [/ i won'?t /gi,' I will '],
+    [/ i'?m not /gi,' I am '],
+    [/ i am not /gi,' I am '],
+    [/ i'?m /gi,' I am '],
+    [/ i don'?t /gi,' I do '],
+    [/ i do not /gi,' I do '],
+    [/ i (hate|dread|can'?t stand) /gi,' I embrace '],
+    [/ i suck at /gi,' I am getting better at '],
+    [/ i'?m bad at /gi,' I am improving at '],
+    [/ i keep failing /gi,' I keep learning and closing the gap '],
+    [/ i give up /gi,' I keep going '],
+    [/ i'?m done /gi,' I am just getting started '],
+    [/ what if i fail /gi,' I am built to figure this out '],
+    [/ i'?ll fail /gi,' I will figure it out '],
+    [/ too hard /gi,' within reach '],
+    [/ (it'?s |is )?impossible /gi,'$1 possible '],
+    [/ not possible /gi,' possible '],
+    [/ i have no (money|time|energy|discipline|clue) /gi,' I create the $1 I need '],
   ];
-  for(const [re,rep] of map){ if(re.test(t)){ return t.replace(re,rep); } }
-  // fallback: leave blank so he writes it fresh, but nudge with the frame
-  return '';
+  let changed=false;
+  for(const [re,rep] of rules){ if(re.test(s)){ s=s.replace(re,rep); changed=true; } }
+  if(!changed) return '';
+  s=s.replace(/\s+/g,' ').trim();
+  s=s.replace(/\bi\b/g,'I');
+  s=s.charAt(0).toUpperCase()+s.slice(1);
+  if(!/[.!?]$/.test(s)) s+='.';
+  return s;
 }
 function moData(){if(!S.morning)S.morning=structuredClone(DEFAULT.morning);const m=S.morning;
   m.vision=m.vision||[];
