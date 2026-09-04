@@ -3672,7 +3672,7 @@ function openHeadTrash(){
           <div class="htc-edit-lbl">The opposite, present tense</div>
           <textarea class="htc-edit-ta" id="hti-input" rows="2" placeholder="Write the opposite…">${esc((h.inverted||'').trim()||invertSuggest(h.text)||'')}</textarea>
           <div class="htc-edit-acts">
-            <button class="htc-flipbtn" data-id="${h.id}">✦ Flip it</button>
+            <button class="htc-flipbtn" data-id="${h.id}">✦ Reframe</button>
             <button class="htc-cancel">Cancel</button>
           </div>
         </div></div>`;
@@ -3694,7 +3694,7 @@ function openHeadTrash(){
       return `<div class="htc"><div class="htc-dirty">
         <div class="htc-body"><div class="htc-txt">${esc(h.text)}</div><div class="htc-time">${htTime(h.ts)}</div></div>
         <div class="htc-acts">
-          <button class="htc-invert" data-id="${h.id}">Invert →</button>
+          <button class="htc-invert" data-id="${h.id}">Reframe →</button>
           <button class="rm htc-del" data-del="${h.id}">×</button>
         </div>
       </div></div>`;
@@ -3702,12 +3702,12 @@ function openHeadTrash(){
     modal.innerHTML=`
       <div class="ht-book">
         <div class="ht-head">
-          <div><div class="ht-title">Head trash</div><div class="ht-sub">Dump it, then flip it.</div></div>
+          <div><div class="ht-title">Head trash</div><div class="ht-sub">Capture a thought, then reframe it.</div></div>
           <button class="ht-x" title="Close">×</button>
         </div>
         <div class="ht-compose">
           <div class="ht-compose-inner"><textarea id="ht-input" rows="1" placeholder="What's the thought?"></textarea></div>
-          <div class="ht-compose-foot"><button class="ht-dump" id="ht-add-btn" disabled>Dump it</button></div>
+          <div class="ht-compose-foot"><button class="ht-dump" id="ht-add-btn" disabled>Add</button></div>
         </div>
         <div class="ht-scroll">${list}</div>
       </div>`;
@@ -4131,7 +4131,7 @@ function renderMorning(){
       const ht=S.headTrash||[];
       const raw=ht.filter(h=>!(h.inverted||'').trim()).length;
       const flip=ht.filter(h=>(h.inverted||'').trim()).length;
-      const sub=(raw||flip)?`${raw} to flip · ${flip} flipped`:"Dump a thought, flip it";
+      const sub=(raw||flip)?`${raw} to reframe · ${flip} reframed`:"Capture a thought, reframe it";
       return `<div class="card headtrash-launch" id="ht-open">
         <div class="htl-left">
           <div class="htl-icon"><svg viewBox="0 0 24 24"><path d="M5 8h14M9.5 8V5.5a1 1 0 011-1h3a1 1 0 011 1V8M7 8l.8 11a1 1 0 001 .9h6.4a1 1 0 001-.9L18 8"/><path d="M14.5 12l-4 4M10.5 12l4 4" stroke-opacity=".55"/></svg></div>
@@ -4140,7 +4140,7 @@ function renderMorning(){
             <div class="htl-sub">${sub}</div>
           </div>
         </div>
-        <span class="htl-cta">Dump &amp; flip →</span>
+        <span class="htl-cta">Open →</span>
       </div>`;
     })()}
   </div>`;
