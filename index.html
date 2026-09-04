@@ -584,7 +584,13 @@
   .htc-del{align-self:center;opacity:.4;transition:.13s}.htc-dirty:hover .htc-del{opacity:.75}.htc-del:hover{opacity:1}
   .htc-edit{background:#111013;border:1px solid rgba(255,122,71,.32);border-radius:16px;padding:16px 18px}
   .htc-edit-orig{font-size:13px;color:var(--faint);text-decoration:line-through;text-decoration-color:rgba(226,75,74,.5);margin-bottom:12px;line-height:1.5}
-  .htc-edit-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px}
+  .htc-edit-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .htc-ai-status{display:inline-flex;align-items:center;gap:6px;color:var(--muted);letter-spacing:.06em}
+  .htc-ai-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:htcAiPulse 1s ease-in-out infinite}
+  @keyframes htcAiPulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+  .htc-ai-btn{background:none;border:1px solid rgba(255,122,71,.3);color:var(--accent);font-size:13px;font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer;transition:.13s}
+  .htc-ai-btn:hover{background:var(--accent-soft)}
+  .htc-ai-btn:disabled{opacity:.5;cursor:default}
   .htc-edit textarea{width:100%;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.55;padding:12px 14px;resize:none;overflow:hidden;min-height:56px}
   .htc-edit textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .htc-edit-acts{display:flex;gap:9px;margin-top:12px}
@@ -3676,10 +3682,11 @@ function openHeadTrash(){
       if(h.id===invertingId){
         return `<div class="htc"><div class="htc-edit">
           <div class="htc-edit-orig">${esc(h.text)}</div>
-          <div class="htc-edit-lbl">The opposite, present tense</div>
+          <div class="htc-edit-lbl">The opposite, present tense <span class="htc-ai-status" id="htc-ai-status" hidden><span class="htc-ai-dot"></span>thinking</span></div>
           <textarea class="htc-edit-ta" id="hti-input" rows="2" placeholder="Write the opposite…">${esc((h.inverted||'').trim()||invertSuggest(h.text)||'')}</textarea>
           <div class="htc-edit-acts">
             <button class="htc-flipbtn" data-id="${h.id}">✦ Reframe</button>
+            <button class="htc-ai-btn" data-ai="${h.id}" title="Rewrite with AI">✨ AI</button>
             <button class="htc-cancel">Cancel</button>
           </div>
         </div></div>`;
@@ -3736,8 +3743,9 @@ function openHeadTrash(){
     htBtn.onclick=add;
     htInput.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();add();}};
     modal.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.headTrash=S.headTrash.filter(x=>x.id!==b.dataset.del);save();render();});
-    modal.querySelectorAll('.htc-invert').forEach(b=>b.onclick=()=>{invertingId=b.dataset.id;render();const ta=modal.querySelector('#hti-input');if(ta){autosize(ta);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}});
-    modal.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{invertingId=b.dataset.edit;render();const ta=modal.querySelector('#hti-input');if(ta){autosize(ta);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);}});
+    modal.querySelectorAll('.htc-invert').forEach(b=>b.onclick=()=>{invertingId=b.dataset.id;render();afterEditorOpen(b.dataset.id,true);});
+    modal.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{invertingId=b.dataset.edit;render();afterEditorOpen(b.dataset.edit,false);});
+    modal.querySelectorAll('[data-ai]').forEach(b=>b.onclick=()=>runAI(b.dataset.ai));
     const cancel=modal.querySelector('.htc-cancel');if(cancel)cancel.onclick=()=>{invertingId=null;render();};
     const flip=modal.querySelector('.htc-flipbtn');
     if(flip)flip.onclick=()=>{
@@ -3751,13 +3759,39 @@ function openHeadTrash(){
     modal.querySelector('.ht-x').onclick=close;
     modal.onclick=e=>{if(e.target===modal)close();};
   };
+  const runAI=id=>{
+    const it=S.headTrash.find(x=>x.id===id);if(!it)return;
+    const ta=modal.querySelector('#hti-input');const status=modal.querySelector('#htc-ai-status');const btn=modal.querySelector('[data-ai]');
+    const before=ta?ta.value:'';
+    if(status)status.hidden=false;if(btn)btn.disabled=true;
+    aiReframe(it.text).then(r=>{
+      const ta2=modal.querySelector('#hti-input');const st2=modal.querySelector('#htc-ai-status');const bt2=modal.querySelector('[data-ai]');
+      if(r&&ta2){ta2.value=r;autosize(ta2);ta2.focus();ta2.setSelectionRange(ta2.value.length,ta2.value.length);}
+      if(st2)st2.hidden=true;if(bt2)bt2.disabled=false;
+    });
+  };
+  function afterEditorOpen(id,auto){
+    const ta=modal.querySelector('#hti-input');if(!ta)return;
+    autosize(ta);ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length);
+    if(auto)runAI(id); // first-time reframe: fetch a smart AI version, replacing the local starter
+  }
   document.body.appendChild(modal);
   render();
   const first=modal.querySelector('#ht-input');if(first)first.focus();
   document.addEventListener('keydown',function esc(e){if(e.key==='Escape'){const m=document.getElementById('ht-modal');if(m){m.remove();if(currentView==='morning')renderMorning();}document.removeEventListener('keydown',esc);}});
 }
 // Smart-ish starter for an inversion: strips common negative openers and gives a present-tense scaffold
-// Rewrites a self-limiting thought into its fuller, present-tense opposite.
+// AI reframe via the serverless function; returns a string or null (falls back to invertSuggest).
+async function aiReframe(text){
+  try{
+    const r=await fetch('/api/reframe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:String(text||'')})});
+    if(!r.ok)return null;
+    const j=await r.json();
+    const out=(j&&j.reframe&&String(j.reframe).trim())||'';
+    return out||null;
+  }catch(e){return null;}
+}
+// Rewrites a self-limiting thought into its fuller, present-tense opposite (offline fallback).
 function invertSuggest(text){
   let t=(text||'').trim().replace(/\s+/g,' ').replace(/[.!?]+$/,'');
   if(!t) return '';
