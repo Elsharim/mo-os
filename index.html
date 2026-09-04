@@ -3669,7 +3669,7 @@ function openHeadTrash(){
       if(h.id===invertingId){
         return `<div class="htc"><div class="htc-edit">
           <div class="htc-edit-orig">${esc(h.text)}</div>
-          <div class="htc-edit-lbl">Flip it — present tense, who you're becoming</div>
+          <div class="htc-edit-lbl">The opposite, present tense</div>
           <textarea class="htc-edit-ta" id="hti-input" rows="2" placeholder="Write the opposite…">${esc((h.inverted||'').trim()||invertSuggest(h.text)||'')}</textarea>
           <div class="htc-edit-acts">
             <button class="htc-flipbtn" data-id="${h.id}">✦ Flip it</button>
@@ -3702,11 +3702,11 @@ function openHeadTrash(){
     modal.innerHTML=`
       <div class="ht-book">
         <div class="ht-head">
-          <div><div class="ht-title">Head trash</div><div class="ht-sub">Dump the noise, then flip it into who you're becoming. Both sides stay here — nothing leaks into your affirmations.</div></div>
+          <div><div class="ht-title">Head trash</div><div class="ht-sub">Dump it, then flip it.</div></div>
           <button class="ht-x" title="Close">×</button>
         </div>
         <div class="ht-compose">
-          <div class="ht-compose-inner"><textarea id="ht-input" rows="1" placeholder="What's the thought? Write it raw, the moment it hits…"></textarea></div>
+          <div class="ht-compose-inner"><textarea id="ht-input" rows="1" placeholder="What's the thought?"></textarea></div>
           <div class="ht-compose-foot"><button class="ht-dump" id="ht-add-btn" disabled>Dump it</button></div>
         </div>
         <div class="ht-scroll">${list}</div>
@@ -4131,7 +4131,7 @@ function renderMorning(){
       const ht=S.headTrash||[];
       const raw=ht.filter(h=>!(h.inverted||'').trim()).length;
       const flip=ht.filter(h=>(h.inverted||'').trim()).length;
-      const sub=(raw||flip)?`${raw} to flip · ${flip} flipped`:"Dump a negative thought, flip it into who you're becoming";
+      const sub=(raw||flip)?`${raw} to flip · ${flip} flipped`:"Dump a thought, flip it";
       return `<div class="card headtrash-launch" id="ht-open">
         <div class="htl-left">
           <div class="htl-icon"><svg viewBox="0 0 24 24"><path d="M5 8h14M9.5 8V5.5a1 1 0 011-1h3a1 1 0 011 1V8M7 8l.8 11a1 1 0 001 .9h6.4a1 1 0 001-.9L18 8"/><path d="M14.5 12l-4 4M10.5 12l4 4" stroke-opacity=".55"/></svg></div>
