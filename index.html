@@ -4425,7 +4425,73 @@ function openMusicPanel(anchor){
 }
 
 /* boot */
+/* INBOX: Grok Bot (via /api/mcp) drops tasks here, sealed to this app's public key.
+   Only this app holds the private key (inside the encrypted state), so nothing else can read them. */
+const INBOX_DOC='osinbox:Mo';
+async function ensureInboxKey(){
+  if(!cryptoKey||!S)return;
+  try{
+    if(!S.inboxPriv){
+      const kp=await crypto.subtle.generateKey({name:'ECDH',namedCurve:'P-256'},true,['deriveKey']);
+      S.inboxPriv=await crypto.subtle.exportKey('jwk',kp.privateKey);
+      clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));
+    }
+    const p=S.inboxPriv;
+    const db=await fbInit();
+    await db.collection('poppy').doc(INBOX_DOC).set({pub:JSON.stringify({kty:p.kty,crv:p.crv,x:p.x,y:p.y})},{merge:true});
+  }catch(e){console.warn('inbox key',e);}
+}
+let _draining=false;
+async function drainInbox(){
+  if(_draining||!cryptoKey||!S||!S.inboxPriv)return;
+  _draining=true;
+  try{
+    const db=await fbInit();
+    const snap=await db.collection('poppy').doc(INBOX_DOC).get();
+    if(!snap.exists)return;
+    const data=snap.data()||{};
+    const ids=Object.keys(data).filter(k=>/^i\d/.test(k));
+    if(!ids.length)return;
+    const priv=await crypto.subtle.importKey('jwk',S.inboxPriv,{name:'ECDH',namedCurve:'P-256'},false,['deriveKey']);
+    const items=[];
+    for(const id of ids){
+      try{
+        const env=JSON.parse(data[id]);
+        const epk=await crypto.subtle.importKey('jwk',{...env.e,ext:true},{name:'ECDH',namedCurve:'P-256'},false,[]);
+        const k=await crypto.subtle.deriveKey({name:'ECDH',public:epk},priv,{name:'AES-GCM',length:256},false,['decrypt']);
+        const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},k,b64d(env.ct));
+        items.push(JSON.parse(new TextDecoder().decode(pt)));
+      }catch(_){/* unreadable or junk: dropped below */}
+    }
+    items.sort((a,b)=>(a.ts||0)-(b.ts||0));
+    const E=execData();
+    let added=0;
+    for(const it of items){
+      const text=String(it.text||'').trim();if(!text)continue;
+      const area=String(it.area||'').trim().toLowerCase();
+      const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
+      const t=addTask(text,{projectId:p?p.id:null});
+      if(it.today&&top3Ids().length<3)toggleTop3(t.id);
+      added++;
+    }
+    // persist the merged tasks before clearing the inbox so nothing can get lost
+    if(added){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
+    const del={};ids.forEach(id=>{del[id]=firebase.firestore.FieldValue.delete();});
+    await db.collection('poppy').doc(INBOX_DOC).update(del);
+    if(added){
+      const typing=['INPUT','TEXTAREA'].includes(document.activeElement&&document.activeElement.tagName);
+      if(!typing&&(currentView==='tasks'||currentView==='morning'))render();
+      etToast(added+' task'+(added>1?'s':'')+' added from '+((items[0]&&items[0].src)||'your inbox'));
+    }
+  }catch(e){console.warn('inbox drain',e);}
+  finally{_draining=false;}
+}
 function finishBoot(){
+  ensureInboxKey().then(drainInbox);
+  if(!window.__inboxTimer){
+    window.__inboxTimer=setInterval(drainInbox,45000);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)drainInbox();});
+  }
   const wn=document.getElementById('ws-name');wn.value=S.wsName||'OS';
   wn.oninput=()=>{S.wsName=wn.value;save();document.title=wn.value||'MO OS';document.getElementById('brandmark').textContent=(S.name||wn.value||'M').trim().charAt(0).toUpperCase()||'M';};
   document.title=S.wsName||'MO OS';
