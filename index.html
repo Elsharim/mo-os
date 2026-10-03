@@ -943,6 +943,37 @@
   .tk-stale .tk-drop{color:var(--muted)}
   .tk-stale button:hover{text-decoration:underline}
   .tk-row.stale .et-name{color:var(--muted)}
+  /* task hub v2 — calmer */
+  .tk-today{margin-bottom:24px}
+  .tk-today-h{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:11px;display:flex;align-items:baseline;gap:10px}
+  .tk-today-h span{font-size:11px;letter-spacing:.02em;text-transform:none;color:var(--faint);font-weight:400}
+  .tk-filter{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+  .tk-fchip{display:inline-flex;align-items:center;gap:7px;background:none;border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:6px 13px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.13s;font-family:inherit}
+  .tk-fchip:hover{border-color:var(--border-2);color:var(--text)}
+  .tk-fchip.on{background:rgba(255,255,255,.05);border-color:var(--border-2);color:var(--text)}
+  .tk-fchip i{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .tk-fdot{width:8px;height:8px;border-radius:50%;background:var(--dc,var(--border-2))}
+  .tk-fadd{color:var(--faint);font-size:15px;padding:6px 12px}
+  .tk-dot{width:12px;height:12px;border-radius:50%;background:none;border:2px solid var(--dc,var(--border-2));cursor:pointer;padding:0;flex:0 0 auto;transition:.13s}
+  .tk-dot:hover{transform:scale(1.2)}
+  .tk-quiet{margin-top:18px}
+  .tk-quiet-h{background:none;border:none;color:var(--faint);font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:6px 2px;display:flex;align-items:center;gap:8px}
+  .tk-quiet-h:hover{color:var(--muted)}
+  .tk-quiet-h span{font-weight:400;font-size:11px;color:var(--faint);opacity:.8}
+  .tk-quiet-list{opacity:.7}
+  .area-pop{position:fixed;z-index:9500;width:220px;max-height:min(70vh,360px);overflow:auto;background:var(--card);border:1px solid var(--border-2);border-radius:13px;box-shadow:0 18px 50px rgba(0,0,0,.6);padding:7px}
+  .ap-head{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700;padding:6px 9px 4px}
+  .ap-row{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--text);font-family:inherit;font-size:14px;text-align:left;padding:9px;border-radius:9px;cursor:pointer;transition:.1s}
+  .ap-row:hover{background:rgba(255,255,255,.05)}
+  .ap-row.on{color:var(--accent)}
+  .ap-dot{width:11px;height:11px;border-radius:50%;border:2px solid var(--dc,var(--border-2));flex:0 0 auto}
+  .ap-row.on .ap-dot{background:var(--dc)}
+  .ap-edit{margin-left:auto;display:flex;gap:4px;opacity:0;transition:.12s}
+  .ap-row:hover .ap-edit{opacity:1}
+  .ap-ren,.ap-del{color:var(--faint);font-size:13px;padding:2px 5px;border-radius:5px}
+  .ap-ren:hover{color:var(--text);background:rgba(255,255,255,.08)}
+  .ap-del:hover{color:var(--bad);background:rgba(255,255,255,.08)}
+  .ap-new{color:var(--muted);font-size:13px;margin-top:2px;border-top:1px solid var(--border)}
   /* Morning Top 3 picker */
   .mo-top3 .mt3-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
   @media(max-width:620px){.mo-top3 .mt3-slots{grid-template-columns:1fr}}
@@ -2527,8 +2558,9 @@ function ring(pct,size,stroke,idSuffix){
 let taskCollapsed={};
 let taskShowDone={};
 let taskDoneOpen=false;
-let taskArea='all';     // 'all' | project id | 'inbox'
+let taskArea='all';     // 'all' | project id (filter only)
 let areaEdit=false;
+let taskQuietOpen=false;
 let _toastT=null;
 
 function execData(){
@@ -2729,27 +2761,15 @@ function hubTaskRow(t){
   const done=t.status==='completed';
   const proj=taskProject(t);
   const inTop=top3Ids().includes(t.id);
-  const stale=isStale(t);
-  const showChip=taskArea==='all'; // chip only useful in the mixed view
-  return `<div class="et-row tk-row ${done?'completed':''} ${stale?'stale':''}" data-id="${t.id}">
+  const dc=proj?execProjColor(proj.id):'var(--border-2)';
+  return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}">
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-    <div class="et-main">
-      <div class="et-name" data-n="${t.id}">${esc(t.name)}</div>
-      ${proj&&showChip?`<span class="tk-areachip" style="color:${execProjColor(proj.id)}">${proj.icon} ${esc(proj.name)}</span>`:''}
-      ${stale?`<span class="tk-stale">still care? <button class="tk-keep" data-keep="${t.id}">keep</button> <button class="tk-drop" data-del="${t.id}">drop</button></span>`:''}
-    </div>
+    <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}</div></div>
     <div class="et-actions tk-acts">
-      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Remove from Top 3':'Add to Top 3 today'}">${inTop?'★':'☆'}</button>
+      <button class="tk-dot" data-dot="${t.id}" style="--dc:${dc}" title="${proj?esc(proj.name):'Set area'}"></button>
+      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of today':'Focus today'}">${inTop?'★':'☆'}</button>
       <button class="rm" data-del="${t.id}">×</button>
     </div>
-  </div>`;
-}
-function areaSection(p){
-  const open=areaOpenTasks(p.id);
-  if(!open.length)return '';
-  return `<div class="tk-area">
-    <div class="tk-area-h"><span class="tk-area-ic" style="color:${execProjColor(p.id)}">${p.icon}</span>${esc(p.name)} <span class="tk-area-n">${open.length}</span></div>
-    <div class="et-list">${open.map(hubTaskRow).join('')}</div>
   </div>`;
 }
 function renderTasks(){
@@ -2758,41 +2778,22 @@ function renderTasks(){
   const t3=top3Tasks();
   const dToday=doneToday();
   const areas=E.projects;
-  const activeArea=areas.find(p=>p.id===taskArea)||null;
-  const capLabel=activeArea?`Add to ${activeArea.name}`:(taskArea==='inbox'?'Add to Inbox':'Capture anything');
-  // body
-  let body='';
-  if(taskArea==='all'){
-    const sections=areas.map(areaSection).join('');
-    const inbox=areaOpenTasks(null);
-    const inboxHtml=inbox.length?`<div class="tk-area"><div class="tk-area-h"><span class="tk-area-ic">📥</span>Inbox <span class="tk-area-n">${inbox.length}</span></div><div class="et-list">${inbox.map(hubTaskRow).join('')}</div></div>`:'';
-    body=(sections+inboxHtml)||'<div class="empty sect-empty">Nothing yet. Capture your first task above.</div>';
-  }else{
-    const list=taskArea==='inbox'?areaOpenTasks(null):areaOpenTasks(taskArea);
-    body=`${activeArea?`<div class="tk-area-edit">
-        <button type="button" class="icon-btn tk-area-iconbtn" data-picon="${activeArea.id}" title="Change icon">${activeArea.icon}</button>
-        <input class="tk-area-rename" data-pname="${activeArea.id}" value="${esc(activeArea.name)}" spellcheck="false">
-        <button class="et-lblbtn tk-area-delete" data-delproj="${activeArea.id}">Delete area</button>
-      </div>`:''}
-      ${list.length?`<div class="et-list">${list.map(hubTaskRow).join('')}</div>`:'<div class="empty sect-empty">Nothing here. Add one above.</div>'}`;
-  }
+  const open=openTasks();
+  const filtered=taskArea==='all'?open:open.filter(t=>(t.projectId||null)===taskArea);
+  const fresh=filtered.filter(t=>!isStale(t)).sort((a,b)=>b.ts-a.ts);
+  const quiet=filtered.filter(t=>isStale(t)).sort((a,b)=>a.ts-b.ts);
+  const cnt=pid=>open.filter(t=>(t.projectId||null)===pid).length;
+
   main.innerHTML=`<div class="view">
     <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
 
     <div class="tk-capture">
-      <input id="tk-add" placeholder="${esc(capLabel)}…" autocomplete="off" autofocus>
+      <input id="tk-add" placeholder="What needs doing?" autocomplete="off" autofocus>
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
 
-    <div class="tk-chips">
-      <button class="tk-chip ${taskArea==='all'?'on':''}" data-area="all">All</button>
-      ${areas.map(p=>`<button class="tk-chip ${taskArea===p.id?'on':''}" data-area="${p.id}"><span class="tk-chip-ic">${p.icon}</span>${esc(p.name)}</button>`).join('')}
-      <button class="tk-chip ${taskArea==='inbox'?'on':''}" data-area="inbox"><span class="tk-chip-ic">📥</span>Inbox</button>
-      <button class="tk-chip tk-chip-add" id="tk-area-add" title="Add a life area">+</button>
-    </div>
-
-    <div class="tk-top3">
-      <div class="tk-top3-h">Top 3 today ${t3.length?`<span>${t3.length}/3</span>`:''}</div>
+    <div class="tk-today">
+      <div class="tk-today-h">Today <span>your 3 to focus on</span></div>
       <div class="tk-top3-grid">
         ${[0,1,2].map(i=>{const t=t3[i];
           return t?`<div class="tk-top3-card" data-id="${t.id}">
@@ -2800,14 +2801,30 @@ function renderTasks(){
             <span class="tk-top3-name" data-n="${t.id}">${esc(t.name)}</span>
             <button class="tk-top3-x" data-star="${t.id}" title="Remove">×</button>
           </div>`
-          :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star a task</span></div>`;
+          :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star one below</span></div>`;
         }).join('')}
       </div>
     </div>
 
-    <div class="tk-body">${body}</div>
+    <div class="tk-filter">
+      <button class="tk-fchip ${taskArea==='all'?'on':''}" data-area="all">All${open.length?` <i>${open.length}</i>`:''}</button>
+      ${areas.map(p=>`<button class="tk-fchip ${taskArea===p.id?'on':''}" data-area="${p.id}" style="--dc:${execProjColor(p.id)}"><span class="tk-fdot"></span>${esc(p.name)}${cnt(p.id)?` <i>${cnt(p.id)}</i>`:''}</button>`).join('')}
+      <button class="tk-fchip tk-fadd" id="tk-area-add" title="Add a life area">+</button>
+    </div>
 
-    ${dToday.length?`<div class="sect" style="margin-top:20px">
+    ${fresh.length?`<div class="et-list">${fresh.map(hubTaskRow).join('')}</div>`
+      :`<div class="empty sect-empty">${open.length?'Nothing in this area.':'All clear. Capture something above.'}</div>`}
+
+    ${quiet.length?`<div class="tk-quiet">
+      <button class="tk-quiet-h" id="tk-quiet-toggle">${taskQuietOpen?'▾':'▸'} ${quiet.length} gone quiet <span>untouched 2+ weeks</span></button>
+      ${taskQuietOpen?`<div class="et-list tk-quiet-list">${quiet.map(t=>`<div class="et-row tk-row" data-id="${t.id}">
+        <span class="box et-complete" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
+        <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}</div></div>
+        <div class="et-actions tk-acts" style="opacity:1"><button class="et-lblbtn" data-keep="${t.id}">Keep</button><button class="rm" data-del="${t.id}">×</button></div>
+      </div>`).join('')}</div>`:''}
+    </div>`:''}
+
+    ${dToday.length?`<div class="sect" style="margin-top:22px">
       <button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
       ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>`<div class="et-row completed" data-id="${t.id}"><span class="box et-complete done" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span><div class="et-main"><div class="et-name">${esc(t.name)}</div></div><div class="et-actions"><button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button></div></div>`).join('')}</div>`:''}
     </div>`:''}
@@ -2819,8 +2836,7 @@ function wireTasks(){
   const inp=document.getElementById('tk-add');
   const add=()=>{
     const v=inp.value.trim();if(!v)return;
-    const pid=(taskArea==='all'||taskArea==='inbox')?null:taskArea;
-    addTask(v,{projectId:pid});save();renderTasks();
+    addTask(v,{projectId:taskArea==='all'?null:taskArea});save();renderTasks();
     const i=document.getElementById('tk-add');if(i){i.focus();i.value='';}
   };
   document.getElementById('tk-add-btn').onclick=add;
@@ -2845,36 +2861,47 @@ function wireTasks(){
   main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{deleteTask(b.dataset.del);save();renderTasks();});
   main.querySelectorAll('[data-keep]').forEach(b=>b.onclick=()=>{touchTask(b.dataset.keep);save();renderTasks();});
   main.querySelectorAll('[data-star]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.star);save();renderTasks();});
+  main.querySelectorAll('[data-dot]').forEach(b=>b.onclick=e=>{e.stopPropagation();openAreaPicker(b.dataset.dot,b);});
 
-  main.querySelectorAll('.et-name[data-n]').forEach(nm=>nm.onclick=()=>{
-    const id=nm.dataset.n;const t=E.tasks[id];if(!t)return;
-    const input=document.createElement('input');
-    input.className='et-rename';input.value=t.name;
+  const renameRow=(nm,dn)=>{
+    const id=nm.dataset[dn];const t=E.tasks[id];if(!t)return;
+    const input=document.createElement('input');input.className='et-rename';input.value=t.name;
     nm.replaceWith(input);input.focus();input.select();
     input.onblur=()=>{if(input.value.trim()&&input.value.trim()!==t.name){t.name=input.value.trim();touchTask(id);}save();renderTasks();};
     input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
-  });
-  main.querySelectorAll('.tk-top3-name[data-n]').forEach(nm=>nm.onclick=()=>{
-    const id=nm.dataset.n;const t=E.tasks[id];if(!t)return;
-    const input=document.createElement('input');input.className='et-rename';input.value=t.name;
-    nm.replaceWith(input);input.focus();input.select();
-    input.onblur=()=>{if(input.value.trim()){t.name=input.value.trim();touchTask(id);}save();renderTasks();};
-    input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
-  });
+  };
+  main.querySelectorAll('.et-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
+  main.querySelectorAll('.tk-top3-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
 
   const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
-
-  // per-area edit (when an area is filtered)
-  main.querySelectorAll('[data-delproj]').forEach(b=>b.onclick=()=>{
-    const p=E.projects.find(x=>x.id===b.dataset.delproj);
-    if(!confirm('Delete '+(p?p.name:'this area')+'? Its tasks move to Inbox.'))return;
-    execDeleteProject(b.dataset.delproj);taskArea='all';save();renderTasks();
+  const qt=document.getElementById('tk-quiet-toggle');if(qt)qt.onclick=()=>{taskQuietOpen=!taskQuietOpen;renderTasks();};
+}
+let _areaPopFor=null;
+function closeAreaPicker(){const p=document.getElementById('area-pop');if(p)p.remove();_areaPopFor=null;document.removeEventListener('keydown',apEsc);}
+function apEsc(e){if(e.key==='Escape')closeAreaPicker();}
+function openAreaPicker(taskId,anchorEl){
+  closeAreaPicker();_areaPopFor=taskId;
+  const E=execData();const t=E.tasks[taskId];if(!t)return;
+  const pop=document.createElement('div');pop.className='area-pop';pop.id='area-pop';
+  pop.innerHTML=`
+    <div class="ap-head">Area</div>
+    <button class="ap-row ${!t.projectId?'on':''}" data-set=""><span class="ap-dot" style="--dc:var(--border-2)"></span>None</button>
+    ${E.projects.map(p=>`<button class="ap-row ${t.projectId===p.id?'on':''}" data-set="${p.id}"><span class="ap-dot" style="--dc:${execProjColor(p.id)}"></span>${esc(p.name)}<span class="ap-edit"><span class="ap-ren" data-ren="${p.id}" title="Rename">✎</span><span class="ap-del" data-adel="${p.id}" title="Delete area">×</span></span></button>`).join('')}
+    <button class="ap-row ap-new" id="ap-new">+ New area</button>`;
+  document.body.appendChild(pop);
+  const r=anchorEl.getBoundingClientRect();const w=220,h=Math.min(pop.offsetHeight||300,window.innerHeight-24);
+  let left=r.right-w, top=r.bottom+6;
+  if(left<12)left=12; if(top+h>window.innerHeight-12)top=Math.max(12,r.top-h-6);
+  pop.style.left=left+'px';pop.style.top=top+'px';
+  pop.querySelectorAll('[data-set]').forEach(b=>b.onclick=e=>{
+    if(e.target.closest('.ap-edit'))return;
+    t.projectId=b.dataset.set||null;touchTask(taskId);save();closeAreaPicker();renderTasks();
   });
-  main.querySelectorAll('[data-pname]').forEach(pi=>{
-    pi.oninput=()=>{const p=E.projects.find(x=>x.id===pi.dataset.pname);if(p){p.name=pi.value;save();}};
-    pi.onkeydown=e=>{if(e.key==='Enter')pi.blur();};
-  });
-  main.querySelectorAll('[data-picon]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEmojiPicker(b.dataset.picon,b);});
+  pop.querySelectorAll('[data-ren]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=E.projects.find(x=>x.id===b.dataset.ren);if(!p)return;const n=prompt('Rename area',p.name);if(n&&n.trim()){p.name=n.trim();save();}closeAreaPicker();renderTasks();});
+  pop.querySelectorAll('[data-adel]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=E.projects.find(x=>x.id===b.dataset.adel);if(!p)return;if(!confirm('Delete '+p.name+'? Its tasks lose their area.'))return;execDeleteProject(b.dataset.adel);if(taskArea===b.dataset.adel)taskArea='all';save();closeAreaPicker();renderTasks();});
+  const nw=pop.querySelector('#ap-new');if(nw)nw.onclick=()=>{const name=prompt('New life area name');if(name&&name.trim()){const id=execAddProject(name.trim(),'⭐');if(_areaPopFor&&E.tasks[_areaPopFor]){E.tasks[_areaPopFor].projectId=id;touchTask(_areaPopFor);}save();}closeAreaPicker();renderTasks();};
+  pop.onclick=e=>e.stopPropagation();
+  setTimeout(()=>{document.addEventListener('click',closeAreaPicker,{once:true});document.addEventListener('keydown',apEsc);},0);
 }
 function etToast(msg,kind,undoFn){
   const old=document.getElementById('et-toast');if(old)old.remove();
