@@ -2280,6 +2280,12 @@
   /* goals lenses */
   .lens{background:var(--surface);border-color:var(--hair);border-top:2px solid var(--lc)}
 
+  /* vision videos */
+  .vcard .vimg-wrap video{width:100%;height:100%;object-fit:cover;display:block;background:#0c0c0e}
+  .vcard .vvideo{position:absolute;top:9px;right:73px;z-index:2;background:rgba(10,11,15,.75);border:none;border-radius:7px;width:26px;height:26px;color:#fff;font-size:12px;cursor:pointer;backdrop-filter:blur(4px)}
+  .vcard .vvideo:hover{background:rgba(10,11,15,.9)}
+  .vm-vid{background:#000}
+
   /* lock screen mark: match the white M icon */
   .lk-mark{background:#18181c;border:1px solid var(--hair-2);color:#f5f5f7;box-shadow:0 10px 40px rgba(0,0,0,.5);font-family:var(--display);font-weight:700}
 
@@ -2308,7 +2314,7 @@
   </nav>
   <div class="stage">
     <header class="topbar">
-      <div class="hi" id="greet">Hey</div>
+      <div class="hi" id="greet"></div>
       <div><div class="clock" id="clock">--:--</div><div class="date" id="date">—</div></div>
     </header>
     <main id="main"></main>
@@ -2461,6 +2467,97 @@ function fixImgUrl(u){
   return u;
 }
 function visionImg(v){return v.imgRef?(_imgCache[v.imgRef]||null):(v.img?fixImgUrl(v.img):null);}
+
+/* vision videos: encrypted in the browser, stored in Vercel Blob (api/media.js), cached per device */
+const VIDEO_MAX=75*1024*1024;
+const _vidCache={},_vidPending={};
+const isVideoLink=u=>/\.(mp4|webm|m4v|mov)(\?|#|$)/i.test(u||'');
+async function stashMediaSecret(pepper){
+  try{
+    const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pepper),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+    const sig=new Uint8Array(await crypto.subtle.sign('HMAC',k,new TextEncoder().encode('mo-os-media-v1')));
+    localStorage.setItem('os:media',[...sig].map(b=>b.toString(16).padStart(2,'0')).join(''));
+  }catch(_){}
+}
+function mediaSecret(){try{return localStorage.getItem('os:media');}catch(_){return null;}}
+async function ensureMediaSecret(){
+  if(mediaSecret())return mediaSecret();
+  await new Promise(res=>showLock('enter',res)); // confirm once per device, then it's remembered
+  return mediaSecret();
+}
+function pickVideo(){
+  return new Promise(res=>{
+    const f=document.createElement('input');f.type='file';f.accept='video/*';
+    f.onchange=()=>res(f.files&&f.files[0]||null);f.click();
+  });
+}
+async function encBytes(buf){
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},cryptoKey,buf));
+  const out=new Uint8Array(12+ct.length);out.set(iv,0);out.set(ct,12);return out;
+}
+let _blobMod=null;
+async function blobUpload(){if(!_blobMod)_blobMod=await import('https://esm.sh/@vercel/blob@2.8.0/client');return _blobMod.upload;}
+function videoURL(v){
+  const vid=v&&v.vid;if(!vid)return Promise.resolve(null);
+  if(vid.link)return Promise.resolve(fixImgUrl(vid.link));
+  if(_vidCache[vid.url])return Promise.resolve(_vidCache[vid.url]);
+  if(_vidPending[vid.url])return _vidPending[vid.url];
+  return _vidPending[vid.url]=(async()=>{
+    try{
+      let buf=null,cache=null;
+      try{if('caches' in window){cache=await caches.open('mo-vid');const hit=await cache.match(vid.url);if(hit)buf=await hit.arrayBuffer();}}catch(_){}
+      if(!buf){
+        const r=await fetch(vid.url);if(!r.ok)throw new Error('fetch '+r.status);
+        if(cache){try{await cache.put(vid.url,r.clone());}catch(_){}}
+        buf=await r.arrayBuffer();
+      }
+      const u8=new Uint8Array(buf);
+      const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:u8.subarray(0,12)},cryptoKey,u8.subarray(12));
+      return _vidCache[vid.url]=URL.createObjectURL(new Blob([pt],{type:vid.type||'video/mp4'}));
+    }finally{delete _vidPending[vid.url];}
+  })();
+}
+async function delVideo(vid){
+  if(!vid||!vid.url)return;
+  delete _vidCache[vid.url];
+  try{if('caches' in window){const c=await caches.open('mo-vid');await c.delete(vid.url);}}catch(_){}
+  const sec=mediaSecret();if(!sec)return;
+  try{await fetch('/api/media',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',url:vid.url,secret:sec})});}catch(_){}
+}
+async function uploadVisionVideo(item,btn){
+  if(!cryptoKey){etToast('Unlock MO OS first');return;}
+  const file=await pickVideo();if(!file)return;
+  if(file.size>VIDEO_MAX){etToast('That video is '+Math.round(file.size/1048576)+' MB. Trim it under 75 MB first.');return;}
+  const label=btn.textContent;btn.disabled=true;
+  try{
+    const secret=await ensureMediaSecret();
+    if(!secret)throw new Error('could not verify this device, try again online');
+    btn.textContent='Encrypting…';
+    const sealed=await encBytes(await file.arrayBuffer());
+    const upload=await blobUpload();
+    const name='vision/v'+Date.now()+Math.random().toString(36).slice(2,6)+'.bin';
+    const r=await upload(name,new Blob([sealed],{type:'application/octet-stream'}),{
+      access:'public',handleUploadUrl:'/api/media',clientPayload:secret,contentType:'application/octet-stream',
+      multipart:sealed.length>8*1024*1024,onUploadProgress:p=>{btn.textContent=Math.round(p.percentage)+'%';}
+    });
+    const vid={url:r.url,type:file.type||'video/mp4',size:file.size};
+    _vidCache[r.url]=URL.createObjectURL(file);
+    const m=moData();
+    if(item){
+      if(item.vid)delVideo(item.vid);
+      if(item.imgRef){delImage(item.imgRef);item.imgRef='';}
+      item.img='';item.vid=vid;
+    }else{
+      const capEl=document.getElementById('mo-vtext');
+      m.vision.push({id:'v'+Date.now(),text:capEl?capEl.value.trim():'',img:'',vid});
+    }
+    save();renderMorning();etToast('Video added');
+  }catch(e){
+    btn.disabled=false;btn.textContent=label;
+    etToast('Video upload failed: '+((e&&e.message)||'try again'));
+  }
+}
 
 const pad=n=>String(n).padStart(2,'0');
 const keyOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
@@ -3965,7 +4062,7 @@ const MO_LIST_META={
   kickstarters:{label:'Kickstarter',color:'45,212,191'},
   reminders:{label:'Reminder',color:'251,191,36'}
 };
-function visionSlides(){return moData().vision.map(v=>({img:visionImg(v),text:v.text||'',label:'Vision',color:'255,122,71'}));}
+function visionSlides(){return moData().vision.map(v=>({img:v.vid?null:visionImg(v),vidItem:v.vid?v:null,text:v.text||'',label:'Vision',color:'255,122,71'}));}
 function listSlides(key){
   const meta=MO_LIST_META[key];
   return moData()[key].map(it=>({img:null,text:it.text||'',label:meta.label,color:meta.color}));
@@ -4018,7 +4115,18 @@ function slideShow(){
   const stage=el.querySelector('.vm-stage');
   const cap=el.querySelector('.vm-cap');
   let dwell=8000;
-  if(s.img){
+  if(s.vidItem){
+    const myIdx=slideIdx;
+    stage.innerHTML=`<video class="vm-img vm-vid kb${slideIdx%2}" muted playsinline autoplay loop></video>`;
+    cap.style.animation='none';void cap.offsetWidth;cap.style.animation='';
+    cap.textContent=s.text||'';
+    videoURL(s.vidItem).then(u=>{
+      if(slideIdx!==myIdx||!u)return;
+      const ve=stage.querySelector('video');if(!ve)return;
+      ve.onloadedmetadata=()=>{if(slideIdx!==myIdx)return;clearTimeout(slideTimer);slideTimer=setTimeout(()=>slideGo(1),Math.min(45000,Math.max(8000,(ve.duration||8)*1000)));};
+      ve.src=u;ve.play().catch(()=>{});
+    }).catch(()=>{});
+  }else if(s.img){
     stage.innerHTML=`<img src="${esc(s.img)}" class="vm-bg" alt="" draggable="false" referrerpolicy="no-referrer"><img src="${esc(s.img)}" referrerpolicy="no-referrer" class="vm-img kb${slideIdx%2}" alt="" draggable="false">`;
     cap.style.animation='none';void cap.offsetWidth;cap.style.animation='';
     cap.textContent=s.text||'';
@@ -4037,6 +4145,7 @@ function slideShow(){
   el.querySelector('.vm-dots').innerHTML=slideDeck.map((x,i)=>`<span class="${i===slideIdx?'on':''}"></span>`).join('');
   const nxt=slideDeck[(slideIdx+1)%slideDeck.length];
   if(nxt&&nxt.img){const im=new Image();im.src=nxt.img;}
+  if(nxt&&nxt.vidItem)videoURL(nxt.vidItem).catch(()=>{});
   clearTimeout(slideTimer);
   slideTimer=setTimeout(()=>slideGo(1),dwell);
 }
@@ -4083,7 +4192,7 @@ function renderMorning(){
     <div class="card mo-vision" style="margin-bottom:16px">
       <h3>Vision board${moEdit?' <span class="h3sub">add image links or notes</span>':(m.vision.length?' <button class="btn btn-sm" id="mo-vision-play">▶ Vision mode</button>':'')}</h3>
       ${m.vision.length?`<div class="vboard">${m.vision.map(v=>moVisionCard(v)).join('')}</div>`:`<div class="empty">${moEdit?'Add a tile below.':'Turn on Edit to build your vision board.'}</div>`}
-      ${moEdit?`<div class="addrow" style="margin-top:16px"><input id="mo-vtext" placeholder="Caption / the dream in words"><input id="mo-vimg" placeholder="Image link (optional)" style="flex:1.2"><button class="btn" id="mo-vupload">📷 Upload photo</button><button class="btn solid" id="mo-vadd">Add tile</button></div>`:''}
+      ${moEdit?`<div class="addrow" style="margin-top:16px"><input id="mo-vtext" placeholder="Caption / the dream in words"><input id="mo-vimg" placeholder="Image link (optional)" style="flex:1.2"><button class="btn" id="mo-vupload">📷 Photo</button><button class="btn" id="mo-vvideo">🎬 Video</button><button class="btn solid" id="mo-vadd">Add tile</button></div>`:''}
     </div>
 
     <div class="grid g2" style="margin-bottom:16px">
@@ -4123,20 +4232,31 @@ function renderMorning(){
       const t=document.getElementById('mo-vtext').value.trim();
       const img=document.getElementById('mo-vimg').value.trim();
       if(!t&&!img)return;
-      m.vision.push({id:'v'+Date.now(),text:t,img});save();renderMorning();
+      if(img&&isVideoLink(img))m.vision.push({id:'v'+Date.now(),text:t,img:'',vid:{link:img}});
+      else m.vision.push({id:'v'+Date.now(),text:t,img});
+      save();renderMorning();
     };
     const vup=document.getElementById('mo-vupload');
     if(vup)vup.onclick=()=>uploadVision(null,vup);
+    const vvd=document.getElementById('mo-vvideo');
+    if(vvd)vvd.onclick=()=>uploadVisionVideo(null,vvd);
   }
   // wire each editable list
   ['affirmations','kickstarters','reminders'].forEach(key=>moWireList(key));
   // vision tile edits/deletes
   main.querySelectorAll('.vcard').forEach(card=>{
     const id=card.dataset.id;const item=m.vision.find(x=>x.id===id);if(!item)return;
-    const del=card.querySelector('.vdel');if(del)del.onclick=()=>{if(item.imgRef)delImage(item.imgRef);m.vision=m.vision.filter(x=>x.id!==id);save();renderMorning();};
+    const del=card.querySelector('.vdel');if(del)del.onclick=()=>{if(item.imgRef)delImage(item.imgRef);if(item.vid)delVideo(item.vid);m.vision=m.vision.filter(x=>x.id!==id);save();renderMorning();};
     const ph=card.querySelector('.vphoto');if(ph)ph.onclick=e=>{e.stopPropagation();uploadVision(item,ph);};
+    const vv=card.querySelector('.vvideo');if(vv)vv.onclick=e=>{e.stopPropagation();uploadVisionVideo(item,vv);};
     const cap=card.querySelector('.vcap-edit');if(cap)cap.oninput=()=>{item.text=cap.value;save();};
     if(!moEdit){card.style.cursor='zoom-in';card.onclick=()=>openSlides(visionSlides(),m.vision.indexOf(item));}
+  });
+  const vidObs='IntersectionObserver' in window?new IntersectionObserver(ents=>ents.forEach(en=>{const el=en.target;if(!el.src)return;if(en.isIntersecting)el.play().catch(()=>{});else el.pause();}),{threshold:.15}):null;
+  main.querySelectorAll('video[data-vidcard]').forEach(ve=>{
+    const item=m.vision.find(x=>x.id===ve.dataset.vidcard);if(!item)return;
+    videoURL(item).then(u=>{if(!u)return;ve.src=u;ve.play().catch(()=>{});if(vidObs)vidObs.observe(ve);})
+      .catch(()=>{const w=ve.closest('.vimg-wrap');if(w){w.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg><span>Couldn\'t load this video</span>';w.classList.remove('vimg-wrap');w.classList.add('vimg','broken');}});
   });
   main.querySelectorAll('img[data-imgref]').forEach(im=>{
     getImage(im.dataset.imgref).then(d=>{if(d)im.src=d;else handleVisionImgError(im);}).catch(()=>handleVisionImgError(im));
@@ -4163,7 +4283,7 @@ async function uploadVision(item,btn){
     const ref='vi'+Date.now();
     await putImage(ref,data);
     const m=moData();
-    if(item){if(item.imgRef)delImage(item.imgRef);item.imgRef=ref;item.img='';}
+    if(item){if(item.imgRef)delImage(item.imgRef);if(item.vid){delVideo(item.vid);delete item.vid;}item.imgRef=ref;item.img='';}
     else{const capEl=document.getElementById('mo-vtext');m.vision.push({id:'v'+Date.now(),text:capEl?capEl.value.trim():'',img:'',imgRef:ref});}
     save();renderMorning();
   }catch(e){
@@ -4173,13 +4293,22 @@ async function uploadVision(item,btn){
 }
 function moVisionCard(v){
   const hasImg=!!(v.img||v.imgRef);const src=visionImg(v);
+  const editBtns=moEdit?`<textarea class="vcap-edit" rows="2" placeholder="Caption">${esc(v.text||'')}</textarea><button class="vvideo" title="Upload a video">🎬</button><button class="vphoto" title="Upload a photo">📷</button><button class="rm vdel" title="Remove">×</button>`:'';
+  if(v.vid)return `<div class="vcard" data-id="${v.id}">
+    <div class="vimg-wrap vvid-wrap">
+      <video data-vidcard="${v.id}" muted loop playsinline autoplay preload="metadata"></video>
+      <div class="vscrim"></div>
+      ${!moEdit&&v.text?`<div class="vcap-over">${esc(v.text)}</div>`:''}
+    </div>
+    ${editBtns}
+  </div>`;
   return `<div class="vcard" data-id="${v.id}">
     ${hasImg?`<div class="vimg-wrap">
         <img ${src?`src="${esc(src)}"`:`data-imgref="${v.imgRef}"`} alt="" loading="lazy" referrerpolicy="no-referrer" onerror="handleVisionImgError(this)">
         <div class="vscrim"></div>
         ${!moEdit&&v.text?`<div class="vcap-over">${esc(v.text)}</div>`:''}
       </div>`:`<div class="vimg noimg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>${!moEdit&&v.text?`<div class="vcap">${esc(v.text)}</div>`:''}</div>`}
-    ${moEdit?`<textarea class="vcap-edit" rows="2" placeholder="Caption">${esc(v.text||'')}</textarea><button class="vphoto" title="Upload a photo">📷</button><button class="rm vdel" title="Remove">×</button>`:''}
+    ${editBtns}
   </div>`;
 }
 function handleVisionImgError(img){
@@ -4298,6 +4427,7 @@ function showLock(mode,onUnlock){
         if(!r.ok){title.textContent=d.error==='Too many attempts. Wait 15 minutes.'?d.error:'Enter your code';shake();return;}
         cryptoKey=await deriveKey(entered,d.pepper);
         await stashKey();
+        await stashMediaSecret(d.pepper);
         try{localStorage.setItem('os:unlock',h);}catch(_){}
         if(!S){await load();if(!S){title.textContent='Could not read your data';return;}}
         done();
