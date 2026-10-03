@@ -392,6 +392,8 @@
   .vcard textarea.vcap-edit:focus{outline:none;background:var(--card)}
   .vcard .vdel{position:absolute;top:9px;right:9px;z-index:2;opacity:1;background:rgba(10,11,15,.75);border-radius:7px;width:26px;height:26px;color:#fff;backdrop-filter:blur(4px)}
   .vcard .vdel:hover{color:var(--bad);background:rgba(10,11,15,.9)}
+  .vcard .vphoto{position:absolute;top:9px;right:41px;z-index:2;background:rgba(10,11,15,.75);border:none;border-radius:7px;width:26px;height:26px;color:#fff;font-size:13px;cursor:pointer;backdrop-filter:blur(4px)}
+  .vcard .vphoto:hover{background:rgba(10,11,15,.9)}
   .mo-list{display:flex;flex-direction:column;gap:4px}
   .mo-line{display:flex;align-items:flex-start;gap:12px;padding:11px 10px;border-radius:10px;transition:background .12s}
   .mo-line:hover{background:rgba(255,255,255,.03)}
@@ -2186,6 +2188,55 @@ const store={
   }
 };
 
+/* vision images uploaded from device: each lives (encrypted) in its own doc, since the main doc caps at 1MB */
+const _imgCache={};
+const imgDocId=id=>'osimg:Mo:'+id;
+async function putImage(id,dataUrl){
+  const db=await fbInit();
+  const out=cryptoKey?await encStr(dataUrl):dataUrl;
+  await db.collection(OS_DOC.collection).doc(imgDocId(id)).set({v:out});
+  _imgCache[id]=dataUrl;
+}
+async function getImage(id){
+  if(_imgCache[id])return _imgCache[id];
+  const db=await fbInit();
+  const doc=await db.collection(OS_DOC.collection).doc(imgDocId(id)).get();
+  if(!doc.exists)return null;
+  let v=doc.data().v;
+  if(String(v).startsWith(ENC))v=await decStr(v);
+  return _imgCache[id]=v;
+}
+async function delImage(id){delete _imgCache[id];try{const db=await fbInit();await db.collection(OS_DOC.collection).doc(imgDocId(id)).delete();}catch(e){}}
+function shrinkImage(file,max=1400){
+  return new Promise((res,rej)=>{
+    const u=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{
+      const sc=Math.min(1,max/Math.max(im.naturalWidth,im.naturalHeight));
+      const c=document.createElement('canvas');c.width=Math.round(im.naturalWidth*sc);c.height=Math.round(im.naturalHeight*sc);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
+      let q=.85,d=c.toDataURL('image/jpeg',q);
+      while(d.length>550000&&q>.35){q-=.1;d=c.toDataURL('image/jpeg',q);}
+      res(d);
+    };
+    im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('That file is not an image'));};
+    im.src=u;
+  });
+}
+function pickImage(){
+  return new Promise(res=>{
+    const f=document.createElement('input');f.type='file';f.accept='image/*';
+    f.onchange=()=>res(f.files&&f.files[0]||null);f.click();
+  });
+}
+/* turn share-page links into direct image links */
+function fixImgUrl(u){
+  u=(u||'').trim();let m;
+  if((m=u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/)))return 'https://lh3.googleusercontent.com/d/'+m[1];
+  if(/dropbox\.com\//.test(u))return /[?&]dl=0/.test(u)?u.replace(/dl=0/,'raw=1'):u+(u.includes('?')?'&':'?')+'raw=1';
+  return u;
+}
+function visionImg(v){return v.imgRef?(_imgCache[v.imgRef]||null):(v.img?fixImgUrl(v.img):null);}
+
 const pad=n=>String(n).padStart(2,'0');
 const keyOf=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const today=()=>keyOf(new Date());
@@ -3621,7 +3672,7 @@ const MO_LIST_META={
   kickstarters:{label:'Kickstarter',color:'45,212,191'},
   reminders:{label:'Reminder',color:'251,191,36'}
 };
-function visionSlides(){return moData().vision.map(v=>({img:v.img||null,text:v.text||'',label:'Vision',color:'255,122,71'}));}
+function visionSlides(){return moData().vision.map(v=>({img:visionImg(v),text:v.text||'',label:'Vision',color:'255,122,71'}));}
 function listSlides(key){
   const meta=MO_LIST_META[key];
   return moData()[key].map(it=>({img:null,text:it.text||'',label:meta.label,color:meta.color}));
@@ -3675,7 +3726,7 @@ function slideShow(){
   const cap=el.querySelector('.vm-cap');
   let dwell=8000;
   if(s.img){
-    stage.innerHTML=`<img src="${esc(s.img)}" class="vm-bg" alt="" draggable="false"><img src="${esc(s.img)}" class="vm-img kb${slideIdx%2}" alt="" draggable="false">`;
+    stage.innerHTML=`<img src="${esc(s.img)}" class="vm-bg" alt="" draggable="false" referrerpolicy="no-referrer"><img src="${esc(s.img)}" referrerpolicy="no-referrer" class="vm-img kb${slideIdx%2}" alt="" draggable="false">`;
     cap.style.animation='none';void cap.offsetWidth;cap.style.animation='';
     cap.textContent=s.text||'';
   }else{
@@ -3739,7 +3790,7 @@ function renderMorning(){
     <div class="card mo-vision" style="margin-bottom:16px">
       <h3>Vision board${moEdit?' <span class="h3sub">add image links or notes</span>':(m.vision.length?' <button class="btn btn-sm" id="mo-vision-play">▶ Vision mode</button>':'')}</h3>
       ${m.vision.length?`<div class="vboard">${m.vision.map(v=>moVisionCard(v)).join('')}</div>`:`<div class="empty">${moEdit?'Add a tile below.':'Turn on Edit to build your vision board.'}</div>`}
-      ${moEdit?`<div class="addrow" style="margin-top:16px"><input id="mo-vtext" placeholder="Caption / the dream in words"><input id="mo-vimg" placeholder="Image URL (optional)" style="flex:1.2"><button class="btn solid" id="mo-vadd">Add tile</button></div>`:''}
+      ${moEdit?`<div class="addrow" style="margin-top:16px"><input id="mo-vtext" placeholder="Caption / the dream in words"><input id="mo-vimg" placeholder="Image link (optional)" style="flex:1.2"><button class="btn" id="mo-vupload">📷 Upload photo</button><button class="btn solid" id="mo-vadd">Add tile</button></div>`:''}
     </div>
 
     <div class="grid g2" style="margin-bottom:16px">
@@ -3781,15 +3832,21 @@ function renderMorning(){
       if(!t&&!img)return;
       m.vision.push({id:'v'+Date.now(),text:t,img});save();renderMorning();
     };
+    const vup=document.getElementById('mo-vupload');
+    if(vup)vup.onclick=()=>uploadVision(null,vup);
   }
   // wire each editable list
   ['affirmations','kickstarters','reminders'].forEach(key=>moWireList(key));
   // vision tile edits/deletes
   main.querySelectorAll('.vcard').forEach(card=>{
     const id=card.dataset.id;const item=m.vision.find(x=>x.id===id);if(!item)return;
-    const del=card.querySelector('.vdel');if(del)del.onclick=()=>{m.vision=m.vision.filter(x=>x.id!==id);save();renderMorning();};
+    const del=card.querySelector('.vdel');if(del)del.onclick=()=>{if(item.imgRef)delImage(item.imgRef);m.vision=m.vision.filter(x=>x.id!==id);save();renderMorning();};
+    const ph=card.querySelector('.vphoto');if(ph)ph.onclick=e=>{e.stopPropagation();uploadVision(item,ph);};
     const cap=card.querySelector('.vcap-edit');if(cap)cap.oninput=()=>{item.text=cap.value;save();};
     if(!moEdit){card.style.cursor='zoom-in';card.onclick=()=>openSlides(visionSlides(),m.vision.indexOf(item));}
+  });
+  main.querySelectorAll('img[data-imgref]').forEach(im=>{
+    getImage(im.dataset.imgref).then(d=>{if(d)im.src=d;else handleVisionImgError(im);}).catch(()=>handleVisionImgError(im));
   });
   const vplay=document.getElementById('mo-vision-play');
   if(vplay)vplay.onclick=()=>openSlides(visionSlides(),0);
@@ -3805,20 +3862,37 @@ function renderMorning(){
     m.vision.sort((a,b)=>ids.indexOf(a.id)-ids.indexOf(b.id));save();
   });
 }
+async function uploadVision(item,btn){
+  const file=await pickImage();if(!file)return;
+  const label=btn.textContent;btn.disabled=true;btn.textContent='…';
+  try{
+    const data=await shrinkImage(file);
+    const ref='vi'+Date.now();
+    await putImage(ref,data);
+    const m=moData();
+    if(item){if(item.imgRef)delImage(item.imgRef);item.imgRef=ref;item.img='';}
+    else{const capEl=document.getElementById('mo-vtext');m.vision.push({id:'v'+Date.now(),text:capEl?capEl.value.trim():'',img:'',imgRef:ref});}
+    save();renderMorning();
+  }catch(e){
+    btn.disabled=false;btn.textContent=label;
+    etToast('Upload failed: '+((e&&e.message)||'try again'));
+  }
+}
 function moVisionCard(v){
-  const hasImg=!!v.img;
+  const hasImg=!!(v.img||v.imgRef);const src=visionImg(v);
   return `<div class="vcard" data-id="${v.id}">
     ${hasImg?`<div class="vimg-wrap">
-        <img src="${esc(v.img)}" alt="" loading="lazy" onerror="handleVisionImgError(this)">
+        <img ${src?`src="${esc(src)}"`:`data-imgref="${v.imgRef}"`} alt="" loading="lazy" referrerpolicy="no-referrer" onerror="handleVisionImgError(this)">
         <div class="vscrim"></div>
         ${!moEdit&&v.text?`<div class="vcap-over">${esc(v.text)}</div>`:''}
       </div>`:`<div class="vimg noimg"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>${!moEdit&&v.text?`<div class="vcap">${esc(v.text)}</div>`:''}</div>`}
-    ${moEdit?`<textarea class="vcap-edit" rows="2" placeholder="Caption">${esc(v.text||'')}</textarea><button class="rm vdel" title="Remove">×</button>`:''}
+    ${moEdit?`<textarea class="vcap-edit" rows="2" placeholder="Caption">${esc(v.text||'')}</textarea><button class="vphoto" title="Upload a photo">📷</button><button class="rm vdel" title="Remove">×</button>`:''}
   </div>`;
 }
 function handleVisionImgError(img){
   const wrap=img.closest('.vimg-wrap');if(!wrap)return;
-  wrap.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg><span>Image link didn\'t load — check the URL</span>';
+  const msg=img.dataset.imgref?'Couldn\'t load this photo':'This link isn\'t a direct image. Tap Edit, then 📷 to upload it instead';
+  wrap.innerHTML='<svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg><span>'+msg+'</span>';
   wrap.classList.remove('vimg-wrap');wrap.classList.add('vimg','broken');
 }
 function moListCard(title,key,sub,accent){
