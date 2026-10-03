@@ -2177,6 +2177,121 @@
     .wk-n{font-size:36px}
     .wk-d-bar{height:46px}
   }
+
+  /* =====================================================================
+     POLISH LAYER v3: calm surfaces, sentence-case type, less chrome.
+     Appended last so it cleanly overrides the earlier layered rules.
+     ===================================================================== */
+  :root{
+    --bg:#08080a;
+    --surface:rgba(255,255,255,.028);
+    --surface-hi:rgba(255,255,255,.052);
+    --hair:rgba(255,255,255,.066);
+    --hair-2:rgba(255,255,255,.12);
+    --r:20px;--r-sm:12px;
+  }
+  body{background:
+      radial-gradient(75% 45% at 50% -14%,rgba(255,122,71,.065),transparent 62%),
+      radial-gradient(45% 35% at 100% 0%,rgba(255,176,46,.03),transparent 60%),
+      var(--bg);
+    font-size:14.5px}
+
+  /* shell */
+  .rail{background:rgba(255,255,255,.012);border-right:1px solid var(--hair);padding:24px 14px}
+  .brand{padding:4px 10px 28px}
+  .brand .mark{background:#18181c;border:1px solid var(--hair-2);color:#f5f5f7;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);border-radius:10px;font-weight:700;font-family:var(--display)}
+  .brand .sub{text-transform:none;letter-spacing:.01em;font-size:11.5px;color:var(--faint)}
+  .navbtn{padding:10px 12px;border-radius:11px;font-size:14px;color:var(--faint)}
+  .navbtn:hover{background:var(--surface);color:var(--text)}
+  .navbtn.active{background:var(--surface-hi);color:var(--text);box-shadow:inset 0 0 0 1px var(--hair)}
+  .navbtn.active::before{display:none}
+  .navbtn.active svg{stroke:var(--accent)}
+  .topbar{border-bottom:none;background:none;padding:24px 44px 4px}
+  .topbar .hi .greet-hey{display:none}
+  .topbar .clock{font-size:14px;font-weight:500;color:var(--muted)}
+  .topbar .date{text-transform:none;letter-spacing:0;font-size:12px;color:var(--faint)}
+  main{padding:20px 44px 110px;max-width:1120px}
+
+  /* page head */
+  .head{margin-bottom:30px;align-items:center}
+  h2.sec{font-size:32px;letter-spacing:-.035em;line-height:1.1}
+  .sec-sub{font-size:14px;color:var(--faint);margin-top:8px}
+
+  /* surfaces: soft, no heavy drop shadow */
+  .card{background:var(--surface);border:1px solid var(--hair);border-radius:var(--r);padding:24px 26px;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+  .grid{gap:18px}
+
+  /* type: real sentence-case headings instead of tiny caps labels */
+  .card h3{font-family:var(--display);font-size:16px;letter-spacing:-.015em;text-transform:none;color:var(--text);font-weight:600;margin:0 0 18px}
+  .card h3 .h3sub{font-family:var(--sans);font-size:12.5px;color:var(--faint);font-weight:400;letter-spacing:0}
+  .sect-head,.sect-toggle{font-family:var(--display);font-size:16px;letter-spacing:-.015em;text-transform:none;color:var(--text);font-weight:600}
+  .sect-head span{font-family:var(--mono);font-size:12px;color:var(--faint);font-weight:400}
+  .jr-month,.jwc-cap,.mo-goal-cap,.mo-goal-cd span,.ap-head,.ns-cap,.lens-cap,.lens-horizon,.gl-ms-cap,.gl-first-cap,.gl-sixcap,.gl-log-date,.htc-edit-lbl,.htc-arrow,.ht-sect,.bn-result-cap,.mpanel-head,.ep-group-name,.tk-today-h,.tk-top3-h{text-transform:none;letter-spacing:0}
+  .jr-month{font-size:13px;color:var(--muted);font-weight:600;margin:30px 0 8px}
+  .lens-name{text-transform:none;letter-spacing:-.01em;font-family:var(--display);font-size:15px}
+
+  /* buttons: hairline ghost by default, one confident primary */
+  .btn{background:transparent;border:1px solid var(--hair-2);border-radius:11px;padding:9px 15px;font-size:13px;font-weight:500;color:var(--text)}
+  .btn:hover{background:var(--surface-hi);border-color:rgba(255,255,255,.2)}
+  .btn.solid{background:linear-gradient(135deg,#ff8350,#ffa83c);border:none;color:#1c0e06;font-weight:600;box-shadow:0 8px 24px -8px rgba(255,122,71,.6)}
+  .btn.solid:hover{filter:brightness(1.05);background:linear-gradient(135deg,#ff8350,#ffa83c)}
+  .btn-sm{padding:6px 12px;font-size:12px;border-radius:9px}
+
+  /* inputs */
+  .inp,.addrow input{background:var(--surface);border:1px solid var(--hair);border-radius:12px}
+  .inp:focus,.addrow input:focus{border-color:rgba(255,122,71,.5);box-shadow:0 0 0 4px rgba(255,122,71,.08)}
+
+  /* special cards (re-declared after .card so they keep their character) */
+  .mo-goal{background:radial-gradient(110% 150% at 0 0,rgba(255,122,71,.15),transparent 55%),radial-gradient(70% 90% at 100% 100%,rgba(255,176,46,.07),transparent 60%),var(--surface);border:1px solid rgba(255,122,71,.16);border-radius:24px;padding:32px 34px}
+  .mo-goal-cap{font-size:13px;font-weight:600;color:var(--accent)}
+  .mo-goal-cd{background:rgba(255,122,71,.07);border:1px solid rgba(255,122,71,.2);border-radius:18px}
+  .mo-goal-cd span{font-size:12px;color:var(--muted)}
+  .mo-vision{background:radial-gradient(110% 110% at 0 0,rgba(251,191,36,.05),transparent 55%),var(--surface);border:1px solid var(--hair)}
+  .headtrash-launch{background:linear-gradient(115deg,rgba(226,75,74,.07),transparent 42%),var(--surface);border:1px solid var(--hair)}
+  .ns-card{background:linear-gradient(180deg,rgba(255,122,71,.06),rgba(255,122,71,.012));border:1px solid rgba(255,122,71,.2)}
+
+  /* vision board: text-only tiles compact and editorial */
+  .vcard{border:1px solid var(--hair);border-radius:16px;box-shadow:none}
+  .vcard .vimg.noimg{aspect-ratio:16/10;background:radial-gradient(120% 120% at 0 0,rgba(255,122,71,.09),transparent 60%),rgba(255,255,255,.02)}
+  .vcard .vimg.noimg svg{display:none}
+  .vcard .vimg.noimg .vcap{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:-.015em;color:var(--text)}
+
+  /* journal: entries as clean full-width rows */
+  .jr-tabs{background:var(--surface);border:1px solid var(--hair);border-radius:12px}
+  .jr-tab{border-radius:9px}
+  .jr-tab.active{background:var(--surface-hi);box-shadow:none}
+  .jr-write-cta{background:radial-gradient(120% 150% at 0 0,rgba(255,122,71,.13),transparent 58%),var(--surface);border:1px solid rgba(255,122,71,.16);border-radius:24px;padding:30px 32px;box-shadow:none}
+  .jwc-cap{font-size:13px;font-weight:600;color:var(--accent)}
+  .jr-cards{grid-template-columns:1fr;gap:2px}
+  .jr-card{background:none;border:1px solid transparent;border-radius:12px;padding:13px 14px}
+  .jr-card:hover{background:var(--surface);border-color:var(--hair)}
+  .jr-card-title{font-weight:500;font-size:14.5px}
+  .jr-card-day{color:var(--faint);opacity:1}
+
+  /* tasks */
+  .tk-capture{background:var(--surface);border:1px solid var(--hair);border-radius:16px;box-shadow:none;padding:8px 8px 8px 18px}
+  .tk-capture:focus-within{border-color:rgba(255,122,71,.45);box-shadow:0 0 0 4px rgba(255,122,71,.07)}
+  .tk-today-h{font-family:var(--display);font-size:16px;color:var(--text);font-weight:600}
+  .tk-today-h span{font-family:var(--sans)}
+  .tk-top3-card{border-radius:16px}
+  .tk-fchip{border-color:var(--hair)}
+  .et-row:hover{background:var(--surface)}
+
+  /* goals lenses */
+  .lens{background:var(--surface);border-color:var(--hair);border-top:2px solid var(--lc)}
+
+  /* lock screen mark: match the white M icon */
+  .lk-mark{background:#18181c;border:1px solid var(--hair-2);color:#f5f5f7;box-shadow:0 10px 40px rgba(0,0,0,.5);font-family:var(--display);font-weight:700}
+
+  @media (max-width:760px){
+    main{padding:16px 18px 110px}
+    .topbar{padding:16px 18px 2px}
+    .topbar .clock,.topbar .date{display:none}
+    h2.sec{font-size:26px}
+    .head > div:last-child{flex-wrap:wrap}
+    .card{padding:20px}
+    .mo-goal,.jr-write-cta{padding:24px}
+  }
 </style>
 </head>
 <body>
@@ -3453,7 +3568,7 @@ function openHeadTrash(){
       if((h.inverted||'').trim()){
         return `<div class="htc"><div class="htc-done ${justFlipped===h.id?'flipping':''}" data-id="${h.id}">
           <div class="htc-old">${esc(h.text)}</div>
-          <div class="htc-arrow">became</div>
+          <div class="htc-arrow">Became</div>
           <div class="htc-new">${esc(h.inverted)}</div>
           <div class="htc-done-foot">
             <span class="htc-done-time">${htTime(h.ts)}</span>
@@ -3941,7 +4056,7 @@ function renderMorning(){
   const cd=g.targetDate?daysUntil(g.targetDate):null;
   main.innerHTML=`<div class="view">
     <div class="head">
-      <div><h2 class="sec">Morning Formula</h2><p class="sec-sub">${greetWord}${name?', '+esc(name):''}. ${longDate(today())}.</p></div>
+      <div><h2 class="sec">Morning Formula</h2><p class="sec-sub">${greetWord}${name?', '+esc(name):''}.</p></div>
       <div style="display:flex;gap:8px">
         <button class="btn ${moEdit?'solid':''}" id="mo-edit">${moEdit?'Done editing':'Edit'}</button>
         ${!moEdit?`<button class="btn mo-music-btn ${musicPlaying()?'on':''}" id="mo-music">${musicPlaying()?'♪ Playing':'♪ Music'}</button>`:''}
@@ -3958,7 +4073,7 @@ function renderMorning(){
         <div class="mo-goal-row">
           <div class="mo-goal-text"><span class="mo-goal-cap">${esc(feat.label||'Goal')} <span class="mo-goal-tap">tap to manifest</span></span><div class="mo-goal-big">${esc(feat.text)}</div></div>
           ${fcd!==null?`<div class="mo-goal-cd">
-            <b>${fcd>=0?fcd:0}</b><span>${fcd>=0?'days left':'past target'}</span>
+            <b>${fcd>=0?fcd:0}</b><span>${fcd>=0?'Days left':'Past target'}</span>
             ${fpct!==null?`<div class="mo-goal-track"><div class="mo-goal-fill" style="width:${fpct}%"></div></div>`:''}
           </div>`:''}
         </div>
@@ -4141,7 +4256,7 @@ function autosize(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px
 /* helpers */
 function bindText(id,apply,savedId){const el=document.getElementById(id);if(!el)return;el.oninput=()=>{apply(el.value);save();if(savedId)flash(savedId);};}
 function flash(id){const s=document.getElementById(id);if(!s)return;s.classList.add('show');clearTimeout(window['__f'+id]);window['__f'+id]=setTimeout(()=>s.classList.remove('show'),900);}
-function tick(){const d=new Date();document.getElementById('clock').textContent=pad(d.getHours())+':'+pad(d.getMinutes());document.getElementById('date').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}).toUpperCase();}
+function tick(){const d=new Date();document.getElementById('clock').textContent=pad(d.getHours())+':'+pad(d.getMinutes());document.getElementById('date').textContent=d.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});}
 function setActiveNav(v){document.querySelectorAll('.navbtn').forEach(x=>x.classList.toggle('active',x.dataset.view===v));}
 document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>{setActiveNav(b.dataset.view);currentView=b.dataset.view;render();});
 
