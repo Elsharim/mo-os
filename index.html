@@ -936,6 +936,24 @@
   .tk-stale .tk-drop{color:var(--muted)}
   .tk-stale button:hover{text-decoration:underline}
   .tk-row.stale .et-name{color:var(--muted)}
+  /* Morning Top 3 picker */
+  .mo-top3 .mt3-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0}
+  @media(max-width:620px){.mo-top3 .mt3-slots{grid-template-columns:1fr}}
+  .mt3-slot{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px;min-height:54px}
+  .mt3-slot.filled{border-color:rgba(255,122,71,.3);background:radial-gradient(130% 100% at 0 0,rgba(255,122,71,.08),transparent 70%),var(--bg)}
+  .mt3-num{width:22px;height:22px;flex:0 0 22px;border-radius:50%;border:1px solid var(--border-2);display:grid;place-items:center;font-size:11px;font-family:var(--mono);color:var(--faint)}
+  .mt3-slot.filled .mt3-num{border-color:var(--accent);color:var(--accent)}
+  .mt3-name{flex:1;min-width:0;font-size:14px;font-weight:600;line-height:1.3}
+  .mt3-empty{flex:1;color:var(--faint);font-size:13px}
+  .mt3-x{background:none;border:none;color:var(--faint);font-size:16px;cursor:pointer;flex:0 0 auto;opacity:.6}
+  .mt3-x:hover{opacity:1}
+  .mt3-pickrow{margin-bottom:10px}
+  .mt3-pickrow input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;padding:11px 13px}
+  .mt3-pickrow input:focus{outline:none;border-color:var(--accent)}
+  .mt3-pool{display:flex;flex-wrap:wrap;gap:8px}
+  .mt3-chip{background:var(--bg);border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:7px 12px;font-size:12.5px;cursor:pointer;transition:.13s;font-family:inherit;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mt3-chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  .mt3-none,.mt3-done{color:var(--faint);font-size:13px}
 
   /* ===== HABITS (simple) ===== */
   .hb-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
@@ -3924,6 +3942,19 @@ function renderMorning(){
       ${moListBody('Reminders for life','reminders','','var(--gold)')}
     </div>
 
+    <div class="card mo-top3" style="margin-bottom:16px">
+      <h3>Top 3 for today <span class="h3sub">shows big on your task page</span></h3>
+      <div class="mt3-slots">
+        ${[0,1,2].map(i=>{const t=top3Tasks()[i];
+          return t?`<div class="mt3-slot filled"><span class="mt3-num">${i+1}</span><span class="mt3-name">${esc(t.name)}</span><button class="mt3-x" data-mt3rm="${t.id}" title="Remove">×</button></div>`
+          :`<div class="mt3-slot"><span class="mt3-num">${i+1}</span><span class="mt3-empty">pick below</span></div>`;}).join('')}
+      </div>
+      ${top3Tasks().length<3?`<div class="mt3-pickrow"><input id="mt3-add" placeholder="Add a task" autocomplete="off"></div>
+        ${(()=>{const pool=openTasks().filter(t=>!top3Ids().includes(t.id)).sort((a,b)=>b.ts-a.ts).slice(0,10);
+          return pool.length?`<div class="mt3-pool">${pool.map(t=>`<button class="mt3-chip" data-mt3add="${t.id}">+ ${esc(clip(t.name,40))}</button>`).join('')}</div>`:'<div class="mt3-none">No open tasks yet. Add one above.</div>';})()}`
+      :`<div class="mt3-done">Three locked in.</div>`}
+    </div>
+
     ${(()=>{
       const ht=S.headTrash||[];
       const raw=ht.filter(h=>!(h.inverted||'').trim()).length;
@@ -3945,6 +3976,10 @@ function renderMorning(){
   document.getElementById('ht-open').onclick=()=>openHeadTrash();
   document.getElementById('mo-edit').onclick=()=>{moEdit=!moEdit;renderMorning();};
   document.getElementById('mo-start').onclick=()=>{currentView='tasks';setActiveNav('tasks');render();};
+  main.querySelectorAll('[data-mt3add]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.mt3add);save();renderMorning();});
+  main.querySelectorAll('[data-mt3rm]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.mt3rm);save();renderMorning();});
+  const mt3add=document.getElementById('mt3-add');
+  if(mt3add)mt3add.onkeydown=e=>{if(e.key==='Enter'){const v=mt3add.value.trim();if(!v)return;const t=addTask(v,{});toggleTop3(t.id);save();renderMorning();}};
 
   if(moEdit){
     const vadd=document.getElementById('mo-vadd');
