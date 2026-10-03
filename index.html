@@ -886,6 +886,56 @@
   .et-row .drag-grip{opacity:0;transition:opacity .13s}
   .et-row:hover .drag-grip{opacity:.6}
   @media (hover:none){.et-row .et-actions,.et-row .drag-grip{opacity:1}}
+  /* ===== TASK HUB ===== */
+  .tk-capture{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:7px 8px 7px 16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .tk-capture input{flex:1;background:none;border:none;color:var(--text);font-size:16px;padding:10px 0}
+  .tk-capture input:focus{outline:none}
+  .tk-capture:focus-within{border-color:var(--accent)}
+  .tk-capture .btn.solid{flex:0 0 auto}
+  .tk-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+  .tk-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);color:var(--muted);border-radius:99px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:.13s;font-family:inherit}
+  .tk-chip:hover{border-color:var(--border-2);color:var(--text)}
+  .tk-chip.on{background:var(--accent-soft);border-color:rgba(255,122,71,.45);color:var(--accent)}
+  .tk-chip-ic{font-size:14px}
+  .tk-chip-add{color:var(--faint);font-size:17px;line-height:1;padding:6px 13px}
+  .tk-top3{margin-bottom:26px}
+  .tk-top3-h{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:11px;display:flex;align-items:center;gap:9px}
+  .tk-top3-h span{color:var(--faint);font-family:var(--mono);letter-spacing:0;font-weight:400}
+  .tk-top3-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  @media(max-width:620px){.tk-top3-grid{grid-template-columns:1fr}}
+  .tk-top3-card{display:flex;align-items:center;gap:11px;background:radial-gradient(130% 100% at 0 0,rgba(255,122,71,.1),transparent 70%),var(--card);border:1px solid rgba(255,122,71,.3);border-radius:14px;padding:15px 15px;min-height:62px}
+  .tk-top3-card.empty{border-style:dashed;border-color:var(--border);background:none;color:var(--faint)}
+  .tk-top3-num{width:24px;height:24px;flex:0 0 24px;border-radius:50%;border:1px dashed var(--border-2);display:grid;place-items:center;font-size:12px;font-family:var(--mono)}
+  .tk-top3-hint{font-size:12.5px}
+  .tk-top3-name{flex:1;min-width:0;font-size:15px;font-weight:600;line-height:1.3;cursor:text}
+  .tk-top3-x{background:none;border:none;color:var(--faint);font-size:17px;cursor:pointer;flex:0 0 auto;opacity:.5;transition:.13s;padding:0 2px}
+  .tk-top3-card:hover .tk-top3-x{opacity:1}
+  .tk-area{margin-bottom:22px}
+  .tk-area-h{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;margin-bottom:5px;color:var(--text)}
+  .tk-area-ic{font-size:15px}
+  .tk-area-n{color:var(--faint);font-family:var(--mono);font-size:12px;font-weight:400}
+  .tk-area-edit{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+  .tk-area-iconbtn{width:38px;height:38px;flex:0 0 38px;font-size:18px}
+  .tk-area-rename{flex:1;min-width:0;background:var(--bg);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:15px;font-weight:600;padding:9px 12px}
+  .tk-area-rename:focus{outline:none;border-color:var(--accent)}
+  .tk-area-delete{color:var(--muted)}
+  .tk-area-delete:hover{border-color:var(--bad)!important;color:var(--bad)!important;background:none!important}
+  .tk-row .et-main{display:flex;align-items:center;flex-wrap:wrap;gap:2px 0;min-width:0}
+  .tk-acts{opacity:1!important;display:flex;align-items:center;gap:4px}
+  .tk-star{background:none;border:none;color:var(--faint);font-size:17px;cursor:pointer;padding:2px 4px;opacity:.45;transition:.13s;line-height:1}
+  .et-row:hover .tk-star{opacity:.85}
+  .tk-star:hover{opacity:1;color:var(--accent)}
+  .tk-star.on{color:var(--accent);opacity:1}
+  .tk-acts .rm{opacity:0}
+  .et-row:hover .tk-acts .rm{opacity:.6}
+  .tk-acts .rm:hover{opacity:1}
+  @media (hover:none){.tk-acts .rm{opacity:.55}.tk-star{opacity:.85}}
+  .tk-areachip{font-size:11px;font-weight:600;margin-left:10px;white-space:nowrap}
+  .tk-stale{display:inline-flex;align-items:center;gap:6px;margin-left:10px;font-size:11px;color:var(--gold);background:rgba(255,176,46,.1);border:1px solid rgba(255,176,46,.3);border-radius:99px;padding:2px 9px}
+  .tk-stale button{background:none;border:none;color:var(--gold);font-weight:700;font-size:11px;cursor:pointer;padding:0}
+  .tk-stale .tk-drop{color:var(--muted)}
+  .tk-stale button:hover{text-decoration:underline}
+  .tk-row.stale .et-name{color:var(--muted)}
 
   /* ===== HABITS (simple) ===== */
   .hb-top{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
@@ -2452,6 +2502,8 @@ function ring(pct,size,stroke,idSuffix){
 let taskCollapsed={};
 let taskShowDone={};
 let taskDoneOpen=false;
+let taskArea='all';     // 'all' | project id | 'inbox'
+let areaEdit=false;
 let _toastT=null;
 
 function execData(){
@@ -2489,7 +2541,7 @@ function addTask(name,opts){
   opts=opts||{};
   const E=execData();
   const id='t'+Date.now()+Math.random().toString(36).slice(2,7);
-  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,status:'inbox',today:!!opts.today,ts:Date.now(),completedAt:null};
+  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,status:'inbox',today:!!opts.today,ts:Date.now(),touchedAt:Date.now(),completedAt:null};
   if(opts.today)E.todayOrder.push(id);
   return E.tasks[id];
 }
@@ -2509,6 +2561,26 @@ function setToday(id,on){
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
   if(on)E.todayOrder.push(id);
 }
+/* LIFE AREAS + TOP 3 + STALE (task hub) */
+function ensureAreas(){
+  const E=execData();
+  if(E.areasSeeded)return;
+  const defs=[['Sales','🎯'],['Fitness','🏋️'],['Money','💰'],['Personal','🌱']];
+  const have=new Set(E.projects.map(p=>(p.name||'').trim().toLowerCase()));
+  defs.forEach(([n,ic])=>{if(!have.has(n.toLowerCase()))execAddProject(n,ic);});
+  E.areasSeeded=true;save();
+}
+function top3Ids(){const E=execData();if(!Array.isArray(E.top3))E.top3=[];return E.top3;}
+function top3Tasks(){const E=execData();return top3Ids().map(id=>E.tasks[id]).filter(t=>t&&t.status!=='completed');}
+function toggleTop3(id){
+  const E=execData();const arr=top3Ids();const i=arr.indexOf(id);
+  if(i>=0)arr.splice(i,1); else if(arr.length<3)arr.push(id);
+  E.top3=arr;touchTask(id);
+}
+function touchTask(id){const t=execData().tasks[id];if(t)t.touchedAt=Date.now();}
+const STALE_MS=14*24*3600*1000;
+function isStale(t){return t&&t.status!=='completed'&&(Date.now()-(t.touchedAt||t.ts||0))>STALE_MS;}
+function areaOpenTasks(pid){return openTasks().filter(t=>(t.projectId||null)===(pid||null)).sort((a,b)=>a.ts-b.ts);}
 const PROJ_COLORS=['var(--accent)','var(--accent-2)','var(--teal)','var(--gold)','var(--good)','var(--warn)'];
 function execProjColor(pid){const E=execData();const i=E.projects.findIndex(p=>p.id===pid);return PROJ_COLORS[Math.max(0,i)%PROJ_COLORS.length];}
 
@@ -2584,7 +2656,7 @@ function applyEmoji(target,val){
   if(p){p.icon=val;save();renderTasks();}
 }
 
-function execAddProject(name,icon){const E=execData();const id='p'+Date.now();E.projects.push({id,name:name.trim(),icon:icon||'📁'});return id;}
+function execAddProject(name,icon){const E=execData();const id='p'+Date.now()+Math.random().toString(36).slice(2,6);E.projects.push({id,name:name.trim(),icon:icon||'📁'});return id;}
 function execDeleteProject(id){
   const E=execData();E.projects=E.projects.filter(p=>p.id!==id);
   Object.values(E.tasks).forEach(t=>{if(t.projectId===id)t.projectId=null;});
@@ -2628,106 +2700,156 @@ function projectCard(p){
     </div>`}
   </div>`;
 }
+function hubTaskRow(t){
+  const done=t.status==='completed';
+  const proj=taskProject(t);
+  const inTop=top3Ids().includes(t.id);
+  const stale=isStale(t);
+  const showChip=taskArea==='all'; // chip only useful in the mixed view
+  return `<div class="et-row tk-row ${done?'completed':''} ${stale?'stale':''}" data-id="${t.id}">
+    <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
+    <div class="et-main">
+      <div class="et-name" data-n="${t.id}">${esc(t.name)}</div>
+      ${proj&&showChip?`<span class="tk-areachip" style="color:${execProjColor(proj.id)}">${proj.icon} ${esc(proj.name)}</span>`:''}
+      ${stale?`<span class="tk-stale">still care? <button class="tk-keep" data-keep="${t.id}">keep</button> <button class="tk-drop" data-del="${t.id}">drop</button></span>`:''}
+    </div>
+    <div class="et-actions tk-acts">
+      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Remove from Top 3':'Add to Top 3 today'}">${inTop?'★':'☆'}</button>
+      <button class="rm" data-del="${t.id}">×</button>
+    </div>
+  </div>`;
+}
+function areaSection(p){
+  const open=areaOpenTasks(p.id);
+  if(!open.length)return '';
+  return `<div class="tk-area">
+    <div class="tk-area-h"><span class="tk-area-ic" style="color:${execProjColor(p.id)}">${p.icon}</span>${esc(p.name)} <span class="tk-area-n">${open.length}</span></div>
+    <div class="et-list">${open.map(hubTaskRow).join('')}</div>
+  </div>`;
+}
 function renderTasks(){
+  ensureAreas();
   const E=execData();
-  const tToday=todayTasks(),tLater=laterTasks(),dToday=doneToday();
+  const t3=top3Tasks();
+  const dToday=doneToday();
+  const areas=E.projects;
+  const activeArea=areas.find(p=>p.id===taskArea)||null;
+  const capLabel=activeArea?`Add to ${activeArea.name}`:(taskArea==='inbox'?'Add to Inbox':'Capture anything');
+  // body
+  let body='';
+  if(taskArea==='all'){
+    const sections=areas.map(areaSection).join('');
+    const inbox=areaOpenTasks(null);
+    const inboxHtml=inbox.length?`<div class="tk-area"><div class="tk-area-h"><span class="tk-area-ic">📥</span>Inbox <span class="tk-area-n">${inbox.length}</span></div><div class="et-list">${inbox.map(hubTaskRow).join('')}</div></div>`:'';
+    body=(sections+inboxHtml)||'<div class="empty sect-empty">Nothing yet. Capture your first task above.</div>';
+  }else{
+    const list=taskArea==='inbox'?areaOpenTasks(null):areaOpenTasks(taskArea);
+    body=`${activeArea?`<div class="tk-area-edit">
+        <button type="button" class="icon-btn tk-area-iconbtn" data-picon="${activeArea.id}" title="Change icon">${activeArea.icon}</button>
+        <input class="tk-area-rename" data-pname="${activeArea.id}" value="${esc(activeArea.name)}" spellcheck="false">
+        <button class="et-lblbtn tk-area-delete" data-delproj="${activeArea.id}">Delete area</button>
+      </div>`:''}
+      ${list.length?`<div class="et-list">${list.map(hubTaskRow).join('')}</div>`:'<div class="empty sect-empty">Nothing here. Add one above.</div>'}`;
+  }
   main.innerHTML=`<div class="view">
     <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
 
-    <div class="et-addbar" style="margin-bottom:24px">
-      <input id="et-add-input" placeholder="Add a task for today (N)" autocomplete="off">
-      <button class="btn solid" id="et-add-btn">Add</button>
+    <div class="tk-capture">
+      <input id="tk-add" placeholder="${esc(capLabel)}…" autocomplete="off" autofocus>
+      <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
 
-    <div class="sect">
-      <div class="sect-head">Today <span>${tToday.length||''}</span></div>
-      ${tToday.length?`<div class="et-list" id="et-today-list">${tToday.map(t=>taskRow(t,{drag:true,showProj:true,actions:`
-        <button class="et-lblbtn" data-later="${t.id}" title="Not today">Later</button>
-        <button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`
-      :'<div class="empty sect-empty">Nothing for today yet.</div>'}
-      ${dToday.length?`<button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
-        ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>taskRow(t,{showProj:true,actions:`<button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:''}`:''}
+    <div class="tk-chips">
+      <button class="tk-chip ${taskArea==='all'?'on':''}" data-area="all">All</button>
+      ${areas.map(p=>`<button class="tk-chip ${taskArea===p.id?'on':''}" data-area="${p.id}"><span class="tk-chip-ic">${p.icon}</span>${esc(p.name)}</button>`).join('')}
+      <button class="tk-chip ${taskArea==='inbox'?'on':''}" data-area="inbox"><span class="tk-chip-ic">📥</span>Inbox</button>
+      <button class="tk-chip tk-chip-add" id="tk-area-add" title="Add a life area">+</button>
     </div>
 
-    <div class="sect">
-      <div class="sect-head">Later <span>${tLater.length||''}</span></div>
-      ${tLater.length?`<div class="et-list">${tLater.map(t=>taskRow(t,{actions:`
-        <select class="et-projsel" data-id="${t.id}" title="Move to a project"><option value="">No project</option>${E.projects.map(p=>`<option value="${p.id}">${p.icon} ${esc(p.name)}</option>`).join('')}</select>
-        <button class="et-lblbtn act-next" data-today="${t.id}">Today</button>
-        <button class="rm" data-del="${t.id}">×</button>`})).join('')}</div>`:''}
-      <div class="addrow ghost-add"><input id="later-add" placeholder="+ Add for later"></div>
+    <div class="tk-top3">
+      <div class="tk-top3-h">Top 3 today ${t3.length?`<span>${t3.length}/3</span>`:''}</div>
+      <div class="tk-top3-grid">
+        ${[0,1,2].map(i=>{const t=t3[i];
+          return t?`<div class="tk-top3-card" data-id="${t.id}">
+            <span class="box et-complete" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
+            <span class="tk-top3-name" data-n="${t.id}">${esc(t.name)}</span>
+            <button class="tk-top3-x" data-star="${t.id}" title="Remove">×</button>
+          </div>`
+          :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star a task</span></div>`;
+        }).join('')}
+      </div>
     </div>
 
-    <div class="sect">
-      <div class="sect-head">Projects <span>${E.projects.length?openProjCount()+' open':''}</span></div>
-      ${E.projects.length?`<div class="proj-stack">${E.projects.map(p=>projectCard(p)).join('')}</div>`:''}
-      <div class="addrow proj-new"><button type="button" class="icon-btn" id="proj-icon-btn" data-icon="📁" title="Choose an icon">📁</button><input id="proj-name" placeholder="+ New project" style="flex:1"><button class="btn" id="proj-add-btn" style="display:none">Add</button></div>
-    </div>
+    <div class="tk-body">${body}</div>
+
+    ${dToday.length?`<div class="sect" style="margin-top:20px">
+      <button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
+      ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>`<div class="et-row completed" data-id="${t.id}"><span class="box et-complete done" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span><div class="et-main"><div class="et-name">${esc(t.name)}</div></div><div class="et-actions"><button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button></div></div>`).join('')}</div>`:''}
+    </div>`:''}
   </div>`;
   wireTasks();
 }
 function wireTasks(){
   const E=execData();
-  const inp=document.getElementById('et-add-input');
-  const add=()=>{const v=inp.value.trim();if(!v)return;addTask(v,{today:true});save();renderTasks();const i=document.getElementById('et-add-input');if(i)i.focus();};
-  document.getElementById('et-add-btn').onclick=add;
+  const inp=document.getElementById('tk-add');
+  const add=()=>{
+    const v=inp.value.trim();if(!v)return;
+    const pid=(taskArea==='all'||taskArea==='inbox')?null:taskArea;
+    addTask(v,{projectId:pid});save();renderTasks();
+    const i=document.getElementById('tk-add');if(i){i.focus();i.value='';}
+  };
+  document.getElementById('tk-add-btn').onclick=add;
   inp.onkeydown=e=>{if(e.key==='Enter')add();};
 
-  const later=document.getElementById('later-add');
-  later.onkeydown=e=>{if(e.key==='Enter'){const v=later.value.trim();if(!v)return;addTask(v,{});save();renderTasks();const l=document.getElementById('later-add');if(l)l.focus();}};
+  main.querySelectorAll('[data-area]').forEach(b=>b.onclick=()=>{taskArea=b.dataset.area;renderTasks();});
+  const areaAdd=document.getElementById('tk-area-add');
+  if(areaAdd)areaAdd.onclick=()=>{
+    const name=prompt('New life area name');if(!name||!name.trim())return;
+    const id=execAddProject(name.trim(),'⭐');save();taskArea=id;renderTasks();
+  };
 
   main.querySelectorAll('[data-c]').forEach(c=>c.onclick=e=>{
     e.stopPropagation();
-    const id=c.dataset.c;const t=E.tasks[id];if(!t||t.status==='completed')return;
+    const id=c.dataset.c;const t=E.tasks[id];if(!t)return;
+    if(t.status==='completed'){uncompleteTask(id);save();renderTasks();return;}
     const name=t.name;
     completeTask(id);save();renderTasks();
     etToast('Done: '+clip(name,30),'undo',()=>{uncompleteTask(id);save();renderTasks();});
   });
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
   main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{deleteTask(b.dataset.del);save();renderTasks();});
-  main.querySelectorAll('[data-today]').forEach(b=>b.onclick=()=>{setToday(b.dataset.today,true);save();renderTasks();});
-  main.querySelectorAll('[data-later]').forEach(b=>b.onclick=()=>{setToday(b.dataset.later,false);save();renderTasks();});
-  main.querySelectorAll('.et-projsel').forEach(sel=>sel.onchange=()=>{
-    const t=E.tasks[sel.dataset.id];if(!t)return;
-    t.projectId=sel.value||null;save();renderTasks();
-    if(sel.value){const p=E.projects.find(x=>x.id===sel.value);if(p)etToast('Moved to '+p.icon+' '+p.name);}
-  });
-  main.querySelectorAll('.et-name').forEach(nm=>nm.onclick=()=>{
+  main.querySelectorAll('[data-keep]').forEach(b=>b.onclick=()=>{touchTask(b.dataset.keep);save();renderTasks();});
+  main.querySelectorAll('[data-star]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.star);save();renderTasks();});
+
+  main.querySelectorAll('.et-name[data-n]').forEach(nm=>nm.onclick=()=>{
     const id=nm.dataset.n;const t=E.tasks[id];if(!t)return;
     const input=document.createElement('input');
     input.className='et-rename';input.value=t.name;
     nm.replaceWith(input);input.focus();input.select();
-    input.onblur=()=>{t.name=input.value.trim()||t.name;save();renderTasks();};
+    input.onblur=()=>{if(input.value.trim()&&input.value.trim()!==t.name){t.name=input.value.trim();touchTask(id);}save();renderTasks();};
     input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
   });
-  makeSortable(document.getElementById('et-today-list'),'.et-row',ids=>{E.todayOrder=ids;save();});
+  main.querySelectorAll('.tk-top3-name[data-n]').forEach(nm=>nm.onclick=()=>{
+    const id=nm.dataset.n;const t=E.tasks[id];if(!t)return;
+    const input=document.createElement('input');input.className='et-rename';input.value=t.name;
+    nm.replaceWith(input);input.focus();input.select();
+    input.onblur=()=>{if(input.value.trim()){t.name=input.value.trim();touchTask(id);}save();renderTasks();};
+    input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
+  });
+
   const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
 
-  main.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>{taskCollapsed[b.dataset.toggle]=!taskCollapsed[b.dataset.toggle];renderTasks();});
-  main.querySelectorAll('[data-showdone]').forEach(b=>b.onclick=()=>{taskShowDone[b.dataset.showdone]=!taskShowDone[b.dataset.showdone];renderTasks();});
+  // per-area edit (when an area is filtered)
   main.querySelectorAll('[data-delproj]').forEach(b=>b.onclick=()=>{
     const p=E.projects.find(x=>x.id===b.dataset.delproj);
-    if(!confirm('Delete '+(p?p.name:'this project')+'? Its tasks move to Later.'))return;
-    execDeleteProject(b.dataset.delproj);save();renderTasks();
+    if(!confirm('Delete '+(p?p.name:'this area')+'? Its tasks move to Inbox.'))return;
+    execDeleteProject(b.dataset.delproj);taskArea='all';save();renderTasks();
   });
   main.querySelectorAll('[data-pname]').forEach(pi=>{
     pi.oninput=()=>{const p=E.projects.find(x=>x.id===pi.dataset.pname);if(p){p.name=pi.value;save();}};
     pi.onkeydown=e=>{if(e.key==='Enter')pi.blur();};
   });
   main.querySelectorAll('[data-picon]').forEach(b=>b.onclick=e=>{e.stopPropagation();openEmojiPicker(b.dataset.picon,b);});
-  const pib=document.getElementById('proj-icon-btn');
-  if(pib)pib.onclick=e=>{e.stopPropagation();openEmojiPicker('new',pib);};
-  const pn=document.getElementById('proj-name');
-  const addProj=()=>{const v=pn.value.trim();if(!v)return;execAddProject(v,(pib&&pib.dataset.icon)||'📁');save();renderTasks();};
-  pn.onkeydown=e=>{if(e.key==='Enter')addProj();};
-  document.getElementById('proj-add-btn').onclick=addProj;
-  main.querySelectorAll('.proj-task-add').forEach(ia=>ia.onkeydown=e=>{
-    if(e.key==='Enter'){
-      const v=ia.value.trim();if(!v)return;
-      addTask(v,{projectId:ia.dataset.pid});save();renderTasks();
-      const again=main.querySelector(`.proj-task-add[data-pid="${ia.dataset.pid}"]`);if(again)again.focus();
-    }
-  });
 }
 function etToast(msg,kind,undoFn){
   const old=document.getElementById('et-toast');if(old)old.remove();
@@ -2744,7 +2866,7 @@ function etToast(msg,kind,undoFn){
 document.addEventListener('keydown',e=>{
   if(currentView!=='tasks')return;
   if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
-  if(e.key==='n'){e.preventDefault();const i=document.getElementById('et-add-input');if(i)i.focus();}
+  if(e.key==='n'){e.preventDefault();const i=document.getElementById('tk-add');if(i)i.focus();}
 });
 
 function makeSortable(container,rowSel,onDrop){
