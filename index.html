@@ -4095,19 +4095,6 @@ function renderMorning(){
       ${moListBody('Reminders for life','reminders','','var(--gold)')}
     </div>
 
-    <div class="card mo-top3" style="margin-bottom:16px">
-      <h3>Top 3 for today <span class="h3sub">shows big on your task page</span></h3>
-      <div class="mt3-slots">
-        ${[0,1,2].map(i=>{const t=top3Tasks()[i];
-          return t?`<div class="mt3-slot filled"><span class="mt3-num">${i+1}</span><span class="mt3-name">${esc(t.name)}</span><button class="mt3-x" data-mt3rm="${t.id}" title="Remove">×</button></div>`
-          :`<div class="mt3-slot"><span class="mt3-num">${i+1}</span><span class="mt3-empty">pick below</span></div>`;}).join('')}
-      </div>
-      ${top3Tasks().length<3?`<div class="mt3-pickrow"><input id="mt3-add" placeholder="Add a task" autocomplete="off"></div>
-        ${(()=>{const pool=openTasks().filter(t=>!top3Ids().includes(t.id)).sort((a,b)=>b.ts-a.ts).slice(0,10);
-          return pool.length?`<div class="mt3-poollbl">Or tap one from your list</div><div class="mt3-pool">${pool.map(t=>`<button class="mt3-chip" data-mt3add="${t.id}">+ ${esc(clip(t.name,40))}</button>`).join('')}</div>`:'<div class="mt3-none">No open tasks yet. Add one above.</div>';})()}`
-      :`<div class="mt3-done">Three locked in.</div>`}
-    </div>
-
     ${(()=>{
       const ht=S.headTrash||[];
       const raw=ht.filter(h=>!(h.inverted||'').trim()).length;
@@ -4129,10 +4116,6 @@ function renderMorning(){
   document.getElementById('ht-open').onclick=()=>openHeadTrash();
   document.getElementById('mo-edit').onclick=()=>{moEdit=!moEdit;renderMorning();};
   document.getElementById('mo-start').onclick=()=>{currentView='tasks';setActiveNav('tasks');render();};
-  main.querySelectorAll('[data-mt3add]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.mt3add);save();renderMorning();});
-  main.querySelectorAll('[data-mt3rm]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.mt3rm);save();renderMorning();});
-  const mt3add=document.getElementById('mt3-add');
-  if(mt3add)mt3add.onkeydown=e=>{if(e.key==='Enter'){const v=mt3add.value.trim();if(!v)return;const t=addTask(v,{});toggleTop3(t.id);save();renderMorning();}};
 
   if(moEdit){
     const vadd=document.getElementById('mo-vadd');
