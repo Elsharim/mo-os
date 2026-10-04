@@ -38,6 +38,40 @@ const num = (x) => {
 };
 const r1 = (n) => (n == null ? null : Math.round(n * 10) / 10);
 
+// Health Auto Export (iOS app) REST format:
+// { data: { metrics: [ { name, units, data: [ { date: "2026-10-04 00:00:00 -0700", qty } ] } ] } }
+const HAE = {
+  dietary_energy: 'calories', protein: 'protein', carbohydrates: 'carbs', total_fat: 'fat',
+  step_count: 'steps', weight_body_mass: 'weight'
+};
+function fromAutoExport(body) {
+  const days = {};
+  for (const m of (body.data && body.data.metrics) || []) {
+    const field = HAE[m.name];
+    if (!field) continue;
+    for (const pt of m.data || []) {
+      const date = String(pt.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      let q = num(pt.qty);
+      if (q == null) continue;
+      const d = (days[date] = days[date] || { date });
+      if (field === 'calories' && /kj/i.test(m.units || '')) q = q / 4.184;
+      if (field === 'weight') d.weight = q + ' ' + (m.units || '');
+      else d[field] = (num(d[field]) || 0) + q;
+    }
+  }
+  return Object.values(days);
+}
+
+export async function ingestAny(body) {
+  if (body && body.data && Array.isArray(body.data.metrics)) {
+    const out = [];
+    for (const day of fromAutoExport(body)) out.push(await ingest(day));
+    return out;
+  }
+  return [await ingest(body)];
+}
+
 export async function ingest(body) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') ? body.date : null;
   if (!date) throw new Error('date must be YYYY-MM-DD');

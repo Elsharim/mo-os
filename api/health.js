@@ -1,6 +1,6 @@
 // POST /api/health from the iPhone shortcut: today's calories, macros, weight, steps.
 import { timingSafeEqual } from 'crypto';
-import { ingest } from './_health.js';
+import { ingestAny } from './_health.js';
 
 function authed(req) {
   const tok = process.env.HEALTH_TOKEN || '';
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
   try {
-    const saved = await ingest(body || {});
+    const saved = await ingestAny(body || {});
     res.status(200).json({ ok: true, saved });
   } catch (e) {
     res.status(400).json({ error: String((e && e.message) || e) });
