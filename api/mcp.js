@@ -5,6 +5,7 @@
 import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 import { hevySummary } from './_hevy.js';
+import { healthSummary } from './_health.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -48,6 +49,10 @@ const TOOLS = [{
     date: { type: 'string', description: 'YYYY-MM-DD in his local time' },
     title: { type: 'string', description: 'Optional short title if this starts a new entry' }
   }, required: ['text', 'date'] }
+}, {
+  name: 'food_and_weight',
+  description: "Mo's daily calories, protein, carbs, fat, steps and bodyweight (lbs), from MacroFactor via Apple Health. Today's numbers update a few times a day. His goal is to go from about 147 to 170 lbs, so he needs to eat in a surplus and hit protein. Use it to nudge him to eat, and to track weight trend.",
+  inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days, 1 to 90. Default 7.' } } }
 }, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
@@ -146,11 +151,13 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
           ? await whoopSummary(Math.min(30, Math.max(1, Number(args.days) || 7))).then((d) => (d ? JSON.stringify(d) : NOT_CONNECTED))
+          : name === 'food_and_weight'
+            ? JSON.stringify(await healthSummary(Math.min(90, Math.max(1, Number(args.days) || 7))))
           : name === 'write_journal'
             ? await writeJournal(args)
           : name === 'hevy'
