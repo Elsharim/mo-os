@@ -106,9 +106,48 @@ export async function healthSummary(days = 7) {
   const trend = weights.length >= 2 ? r1(weights[0].lb - weights[Math.min(weights.length - 1, 7)].lb) : null;
   return {
     goal: { bodyweight_lb: 170 },
+    saved_meals: Object.values(s.meals || {}),
     days: recent,
     latest_weight_lb: weights[0] ? weights[0].lb : null,
     weight_change_last_7_entries_lb: trend,
     note: recent.length ? undefined : 'No food or weight data yet. The iPhone shortcut sends it from Apple Health (MacroFactor).'
   };
+}
+
+// Food logged by talking to Grok (photo or text). Adds to the day's totals and
+// keeps the item list. Saved meals are reused by name with exact numbers.
+const MACROS = ['calories', 'protein', 'carbs', 'fat'];
+const mkey = (n) => String(n || '').trim().toLowerCase();
+
+export async function logFood({ date, items, save_as }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('date must be YYYY-MM-DD (his local date)');
+  const s = await load();
+  s.meals = s.meals || {};
+  const list = [];
+  for (const it of Array.isArray(items) ? items : []) {
+    const saved = s.meals[mkey(it.name)];
+    const m = { name: String(it.name || 'food').slice(0, 120) };
+    for (const k of MACROS) m[k] = Math.round(num(it[k]) ?? (saved ? saved[k] : 0) ?? 0);
+    if (!m.calories && !saved) throw new Error(`No numbers for "${m.name}" and it is not a saved meal. Estimate calories, protein, carbs and fat.`);
+    list.push(m);
+  }
+  if (!list.length) throw new Error('No food items given.');
+  if (save_as) {
+    const tot = {}; for (const k of MACROS) tot[k] = list.reduce((a, x) => a + x[k], 0);
+    s.meals[mkey(save_as)] = { name: String(save_as).slice(0, 80), ...tot };
+  }
+  const d = (s.days[date] = s.days[date] || {});
+  d.foods = d.foods || [];
+  for (const m of list) {
+    d.foods.push({ ...m, at: new Date().toISOString() });
+    for (const k of MACROS) d[k] = (d[k] || 0) + m[k];
+  }
+  d.updated = new Date().toISOString();
+  await save(s);
+  return { date, added: list, day_totals: { calories: d.calories, protein: d.protein, carbs: d.carbs, fat: d.fat } };
+}
+
+export async function savedMeals() {
+  const s = await load();
+  return Object.values(s.meals || {});
 }
