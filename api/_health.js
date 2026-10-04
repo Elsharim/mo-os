@@ -114,7 +114,7 @@ export async function healthSummary(days = 7) {
     days: recent,
     latest_weight_lb: weights[0] ? weights[0].lb : null,
     weight_change_last_7_entries_lb: trend,
-    note: recent.length ? undefined : 'No food or weight data yet. The iPhone shortcut sends it from Apple Health (MacroFactor).'
+    note: recent.length ? undefined : 'Nothing logged yet. Mo logs food and weight by messaging Grok (log_food, log_weight).'
   };
 }
 
