@@ -4595,8 +4595,15 @@ async function drainInbox(){
     }
     items.sort((a,b)=>(a.ts||0)-(b.ts||0));
     const E=execData();
-    let added=0;
+    let added=0,checked=0;
     for(const it of items){
+      if(it.kind==='workout'){
+        // a workout saved in Hevy checks off today's gym-type tasks
+        const re=/\b(gym|lift|lifting|work ?out|(leg|push|pull|chest|back|arm|upper|lower) day)\b/i;
+        openTasks().filter(t=>re.test(t.name)).forEach(t=>{completeTask(t.id);checked++;});
+        if(!checked)etToast('Workout logged: '+(it.text||'gym'));
+        continue;
+      }
       const text=String(it.text||'').trim();if(!text)continue;
       const area=String(it.area||'').trim().toLowerCase();
       const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
@@ -4605,13 +4612,14 @@ async function drainInbox(){
       added++;
     }
     // persist the merged tasks before clearing the inbox so nothing can get lost
-    if(added){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
+    if(added||checked){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
     const del={};ids.forEach(id=>{del[id]=firebase.firestore.FieldValue.delete();});
     await db.collection('poppy').doc(INBOX_DOC).update(del);
-    if(added){
+    if(checked)etToast('Workout done, '+checked+' gym task'+(checked>1?'s':'')+' checked off');
+    if(added||checked){
       const typing=['INPUT','TEXTAREA'].includes(document.activeElement&&document.activeElement.tagName);
       if(!typing&&(currentView==='tasks'||currentView==='morning'))render();
-      etToast(added+' task'+(added>1?'s':'')+' added from '+((items[0]&&items[0].src)||'your inbox'));
+      if(added)etToast(added+' task'+(added>1?'s':'')+' added from '+((items[0]&&items[0].src)||'your inbox'));
     }
   }catch(e){console.warn('inbox drain',e);}
   finally{_draining=false;}

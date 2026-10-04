@@ -4,6 +4,7 @@
 // parked in an inbox doc; the app unseals and merges it the next time it's open.
 import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
+import { hevySummary } from './_hevy.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -39,6 +40,10 @@ const TOOLS = [{
   name: 'whoop',
   description: "Mo's WHOOP data: today's recovery (score, HRV, resting HR), last night's sleep (bed and wake time in his local time, hours asleep, deep/REM, performance), day strain and calories, workouts, plus the same for recent days and his weight. Use it for morning check-ins, to judge how hard he should push today, and to spot patterns.",
   inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days, 1 to 30. Default 7.' } } }
+}, {
+  name: 'hevy',
+  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
+  inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
 }];
 
 const INSTRUCTIONS = "MO OS is Mo's personal task hub. Use add_tasks to capture anything he asks to remember or do. When he asks you to plan his day, check his calendar, Close and Slack, pick the 3 things that matter most, and add them with today=true (add other loose ends without it). You cannot read his existing tasks; they are end-to-end encrypted.";
@@ -64,6 +69,29 @@ export async function sealFor(pubJwk, payload) {
   return JSON.stringify({ e: { kty: e.kty, crv: e.crv, x: e.x, y: e.y }, iv: b64(iv), ct: b64(new Uint8Array(ct)) });
 }
 
+// Seal items to the app's public key and park them in the inbox doc.
+export async function sealToInbox(items) {
+  const r = await fetch(`${DOC_URL}?key=${API_KEY}&mask.fieldPaths=pub`);
+  if (!r.ok) throw new Error(NOT_READY);
+  const doc = await r.json();
+  const pubStr = doc.fields && doc.fields.pub && doc.fields.pub.stringValue;
+  if (!pubStr) throw new Error(NOT_READY);
+  const pub = JSON.parse(pubStr);
+  const fields = {}, paths = [];
+  for (const t of items) {
+    const id = 'i' + Date.now() + Math.random().toString(36).slice(2, 8);
+    fields[id] = { stringValue: await sealFor(pub, { ...t, ts: Date.now() }) };
+    paths.push(id);
+  }
+  const qs = paths.map((p) => 'updateMask.fieldPaths=' + encodeURIComponent(p)).join('&');
+  const w = await fetch(`${DOC_URL}?key=${API_KEY}&${qs}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields })
+  });
+  if (!w.ok) throw new Error('Could not save to the MO OS inbox (' + w.status + ').');
+}
+
 async function addTasks(args) {
   const list = Array.isArray(args && args.tasks) ? args.tasks : [];
   const clean = list
@@ -76,26 +104,7 @@ async function addTasks(args) {
     .slice(0, 20);
   if (!clean.length) throw new Error('No task text was given.');
 
-  const r = await fetch(`${DOC_URL}?key=${API_KEY}&mask.fieldPaths=pub`);
-  if (!r.ok) throw new Error(NOT_READY);
-  const doc = await r.json();
-  const pubStr = doc.fields && doc.fields.pub && doc.fields.pub.stringValue;
-  if (!pubStr) throw new Error(NOT_READY);
-  const pub = JSON.parse(pubStr);
-
-  const fields = {}, paths = [];
-  for (const t of clean) {
-    const id = 'i' + Date.now() + Math.random().toString(36).slice(2, 8);
-    fields[id] = { stringValue: await sealFor(pub, { ...t, ts: Date.now(), src: 'Grok Bot' }) };
-    paths.push(id);
-  }
-  const qs = paths.map((p) => 'updateMask.fieldPaths=' + encodeURIComponent(p)).join('&');
-  const w = await fetch(`${DOC_URL}?key=${API_KEY}&${qs}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields })
-  });
-  if (!w.ok) throw new Error('Could not save to the MO OS inbox (' + w.status + ').');
+  await sealToInbox(clean.map((t) => ({ ...t, src: 'Grok Bot' })));
 
   const n = clean.length, todayN = clean.filter((t) => t.today).length;
   return `Added ${n} task${n > 1 ? 's' : ''} to MO OS${todayN ? ` (${todayN} for today's Top 3)` : ''}. They show up the next time MO OS is open.`;
@@ -121,12 +130,14 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (name !== 'add_tasks' && name !== 'whoop') return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
           ? await whoopSummary(Math.min(30, Math.max(1, Number(args.days) || 7))).then((d) => (d ? JSON.stringify(d) : NOT_CONNECTED))
-          : await addTasks(args);
+          : name === 'hevy'
+            ? JSON.stringify(await hevySummary(Number(args.workouts) || 10))
+            : await addTasks(args);
         return ok(id, { content: [{ type: 'text', text }] });
       } catch (e) {
         return ok(id, { content: [{ type: 'text', text: String((e && e.message) || e) }], isError: true });
