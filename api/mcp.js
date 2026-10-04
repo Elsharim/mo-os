@@ -3,6 +3,7 @@
 // data. Each task is sealed to the app's public key (ECDH P-256 + AES-GCM) and
 // parked in an inbox doc; the app unseals and merges it the next time it's open.
 import { webcrypto, timingSafeEqual } from 'crypto';
+import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -34,6 +35,10 @@ const TOOLS = [{
     },
     required: ['tasks']
   }
+}, {
+  name: 'whoop',
+  description: "Mo's WHOOP data: today's recovery (score, HRV, resting HR), last night's sleep (bed and wake time in his local time, hours asleep, deep/REM, performance), day strain and calories, workouts, plus the same for recent days and his weight. Use it for morning check-ins, to judge how hard he should push today, and to spot patterns.",
+  inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days, 1 to 30. Default 7.' } } }
 }];
 
 const INSTRUCTIONS = "MO OS is Mo's personal task hub. Use add_tasks to capture anything he asks to remember or do. When he asks you to plan his day, check his calendar, Close and Slack, pick the 3 things that matter most, and add them with today=true (add other loose ends without it). You cannot read his existing tasks; they are end-to-end encrypted.";
@@ -108,7 +113,7 @@ async function handle(msg) {
       return ok(id, {
         protocolVersion: VERSIONS.includes(v) ? v : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'mo-os', version: '1.0.0' },
+        serverInfo: { name: 'mo-os', version: '1.1.0' },
         instructions: INSTRUCTIONS
       });
     }
@@ -116,9 +121,12 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (name !== 'add_tasks') return err(id, -32602, 'Unknown tool: ' + name);
+      if (name !== 'add_tasks' && name !== 'whoop') return err(id, -32602, 'Unknown tool: ' + name);
       try {
-        const text = await addTasks((params && params.arguments) || {});
+        const args = (params && params.arguments) || {};
+        const text = name === 'whoop'
+          ? await whoopSummary(Math.min(30, Math.max(1, Number(args.days) || 7))).then((d) => (d ? JSON.stringify(d) : NOT_CONNECTED))
+          : await addTasks(args);
         return ok(id, { content: [{ type: 'text', text }] });
       } catch (e) {
         return ok(id, { content: [{ type: 'text', text: String((e && e.message) || e) }], isError: true });
