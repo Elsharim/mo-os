@@ -5,7 +5,7 @@
 import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 import { hevySummary } from './_hevy.js';
-import { healthSummary, logFood } from './_health.js';
+import { healthSummary, logFood, logWeight, removeFood, setTargets } from './_health.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -64,12 +64,30 @@ const TOOLS = [{
     save_as: { type: 'string', description: 'Optional: save these items together as a named meal for next time' }
   }, required: ['date', 'items'] }
 }, {
+  name: 'log_weight',
+  description: 'Log a morning weigh-in. Pass lb (or kg) and his local date.',
+  inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD local' }, lb: { type: 'number' }, kg: { type: 'number' } }, required: ['date'] }
+}, {
+  name: 'remove_food',
+  description: 'Undo a logged food: the last item, or the latest one matching a name. Use for "undo", "delete that", or before re-logging a corrected version.',
+  inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD local' }, name: { type: 'string', description: 'Optional, part of the item name' } }, required: ['date'] }
+}, {
+  name: 'set_food_targets',
+  description: 'Change his daily calorie and protein targets (and goal weight or weekly gain rate). Only when he asks, or in the Sunday review after he agrees to an adjustment.',
+  inputSchema: { type: 'object', properties: { calories: { type: 'number' }, protein: { type: 'number' }, goal_weight_lb: { type: 'number' }, weekly_gain_lb: { type: 'number' } } }
+}, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
   inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
 }];
 
-const INSTRUCTIONS = "MO OS is Mo's personal task hub. Use add_tasks to capture anything he asks to remember or do. When he asks you to plan his day, check his calendar, Close and Slack, pick the 3 things that matter most, and add them with today=true (add other loose ends without it). You cannot read his existing tasks; they are end-to-end encrypted.";
+const INSTRUCTIONS = [
+  "MO OS is Mo's personal operating system. Tools: add_tasks, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets.",
+  "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, pick the 3 that matter most and add them with today=true.",
+  "FOOD COACH: Mo is bulking from about 147 to 170 lbs and his real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
+  "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <target> cal\nProtein  <g so far> / <target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
+  "Tone: like a sharp friend who knows nutrition. Plain words, no hype, no lectures, no em dashes. Praise only when earned (hit protein, new weight high). Never guilt him."
+].join('\n\n');
 
 const b64 = (u) => Buffer.from(u).toString('base64');
 
@@ -161,11 +179,17 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
           ? await whoopSummary(Math.min(30, Math.max(1, Number(args.days) || 7))).then((d) => (d ? JSON.stringify(d) : NOT_CONNECTED))
+          : name === 'log_weight'
+            ? JSON.stringify(await logWeight(args))
+          : name === 'remove_food'
+            ? JSON.stringify(await removeFood(args))
+          : name === 'set_food_targets'
+            ? JSON.stringify(await setTargets(args))
           : name === 'log_food'
             ? JSON.stringify(await logFood(args))
           : name === 'food_and_weight'

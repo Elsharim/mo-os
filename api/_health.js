@@ -104,8 +104,12 @@ export async function healthSummary(days = 7) {
   const recent = keys.slice(0, Math.min(90, days)).map((k) => ({ date: k, ...s.days[k] }));
   const weights = keys.map((k) => ({ date: k, lb: s.days[k].weight_lb })).filter((x) => x.lb);
   const trend = weights.length >= 2 ? r1(weights[0].lb - weights[Math.min(weights.length - 1, 7)].lb) : null;
+  const targets = { ...DEFAULT_TARGETS, ...(s.targets || {}) };
+  const avg = (arr) => (arr.length ? r1(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
+  const w7 = avg(weights.slice(0, 7).map((x) => x.lb)), wPrev7 = avg(weights.slice(7, 14).map((x) => x.lb));
   return {
-    goal: { bodyweight_lb: 170 },
+    targets,
+    weight_avg_7d_lb: w7, weight_avg_prev_7d_lb: wPrev7, weekly_change_lb: w7 != null && wPrev7 != null ? r1(w7 - wPrev7) : null,
     saved_meals: Object.values(s.meals || {}),
     days: recent,
     latest_weight_lb: weights[0] ? weights[0].lb : null,
@@ -150,4 +154,36 @@ export async function logFood({ date, items, save_as }) {
 export async function savedMeals() {
   const s = await load();
   return Object.values(s.meals || {});
+}
+
+export const DEFAULT_TARGETS = { calories: 2900, protein: 160, goal_weight_lb: 170, weekly_gain_lb: 0.4 };
+
+export async function setTargets(t) {
+  const s = await load();
+  s.targets = { ...DEFAULT_TARGETS, ...(s.targets || {}) };
+  for (const k of ['calories', 'protein', 'goal_weight_lb', 'weekly_gain_lb']) if (num(t[k]) != null) s.targets[k] = num(t[k]);
+  s.targets.changed = new Date().toISOString().slice(0, 10);
+  await save(s);
+  return s.targets;
+}
+
+export async function logWeight({ date, lb, kg }) {
+  const w = num(lb) ?? (num(kg) != null ? num(kg) * 2.20462 : null);
+  if (w == null) throw new Error('Give lb or kg.');
+  return ingest({ date, weight_lb: w });
+}
+
+// Remove a logged item: by name (latest match) or the last one.
+export async function removeFood({ date, name }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('date must be YYYY-MM-DD');
+  const s = await load();
+  const d = s.days[date];
+  if (!d || !d.foods || !d.foods.length) throw new Error('Nothing logged that day.');
+  let i = d.foods.length - 1;
+  if (name) { const n = mkey(name); for (; i >= 0; i--) if (mkey(d.foods[i].name).includes(n)) break; }
+  if (i < 0) throw new Error(`No "${name}" logged that day.`);
+  const [gone] = d.foods.splice(i, 1);
+  for (const k of MACROS) d[k] = Math.max(0, (d[k] || 0) - (gone[k] || 0));
+  await save(s);
+  return { removed: gone, day_totals: { calories: d.calories, protein: d.protein, carbs: d.carbs, fat: d.fat } };
 }
