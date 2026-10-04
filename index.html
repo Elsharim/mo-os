@@ -4595,13 +4595,24 @@ async function drainInbox(){
     }
     items.sort((a,b)=>(a.ts||0)-(b.ts||0));
     const E=execData();
-    let added=0,checked=0;
+    let added=0,checked=0,journaled=0;
     for(const it of items){
       if(it.kind==='workout'){
         // a workout saved in Hevy checks off today's gym-type tasks
         const re=/\b(gym|lift|lifting|work ?out|(leg|push|pull|chest|back|arm|upper|lower) day)\b/i;
         openTasks().filter(t=>re.test(t.name)).forEach(t=>{completeTask(t.id);checked++;});
         if(!checked)etToast('Workout logged: '+(it.text||'gym'));
+        continue;
+      }
+      if(it.kind==='journal'){
+        const body=String(it.text||'').trim();if(!body)continue;
+        const day=/^\d{4}-\d{2}-\d{2}$/.test(it.date||'')?it.date:today();
+        const J=jrData();
+        const k=Object.keys(J).filter(x=>jrBase(x)===day&&!J[x].done).sort().pop()||(J[day]?null:day)||(()=>{let n=2;while(J[day+'#'+n])n++;return day+'#'+n;})();
+        const e=J[k]||(J[k]={title:it.title||'',text:'',ts:Date.now(),done:day<today()});
+        e.text=(String(e.text||'').trim()?String(e.text).trim()+'\n\n':'')+body;
+        if(!e.title&&it.title)e.title=it.title;
+        e.ts=Date.now();journaled++;
         continue;
       }
       const text=String(it.text||'').trim();if(!text)continue;
@@ -4612,13 +4623,14 @@ async function drainInbox(){
       added++;
     }
     // persist the merged tasks before clearing the inbox so nothing can get lost
-    if(added||checked){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
+    if(added||checked||journaled){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
     const del={};ids.forEach(id=>{del[id]=firebase.firestore.FieldValue.delete();});
     await db.collection('poppy').doc(INBOX_DOC).update(del);
     if(checked)etToast('Workout done, '+checked+' gym task'+(checked>1?'s':'')+' checked off');
-    if(added||checked){
+    if(journaled)etToast('Journal updated from '+((items.find(x=>x.kind==='journal')||{}).src||'your inbox'));
+    if(added||checked||journaled){
       const typing=['INPUT','TEXTAREA'].includes(document.activeElement&&document.activeElement.tagName);
-      if(!typing&&(currentView==='tasks'||currentView==='morning'))render();
+      if(!typing&&(currentView==='tasks'||currentView==='morning'||currentView==='journal'))render();
       if(added)etToast(added+' task'+(added>1?'s':'')+' added from '+((items[0]&&items[0].src)||'your inbox'));
     }
   }catch(e){console.warn('inbox drain',e);}

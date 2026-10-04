@@ -41,6 +41,14 @@ const TOOLS = [{
   description: "Mo's WHOOP data: today's recovery (score, HRV, resting HR), last night's sleep (bed and wake time in his local time, hours asleep, deep/REM, performance), day strain and calories, workouts, plus the same for recent days and his weight. Use it for morning check-ins, to judge how hard he should push today, and to spot patterns.",
   inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days, 1 to 30. Default 7.' } } }
 }, {
+  name: 'write_journal',
+  description: "Save text to Mo's MO OS journal for a given day (appends to that day's entry, or starts one). Use it at night to save his check-in answers in his own words, lightly cleaned up. Pass the date in his local time.",
+  inputSchema: { type: 'object', properties: {
+    text: { type: 'string', description: 'What to save' },
+    date: { type: 'string', description: 'YYYY-MM-DD in his local time' },
+    title: { type: 'string', description: 'Optional short title if this starts a new entry' }
+  }, required: ['text', 'date'] }
+}, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
   inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
@@ -92,6 +100,14 @@ export async function sealToInbox(items) {
   if (!w.ok) throw new Error('Could not save to the MO OS inbox (' + w.status + ').');
 }
 
+async function writeJournal(a) {
+  const text = String(a.text || '').trim().slice(0, 8000);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : '';
+  if (!text || !date) throw new Error('Need text and a YYYY-MM-DD date.');
+  await sealToInbox([{ kind: 'journal', text, date, title: String(a.title || '').slice(0, 120), src: 'Grok Bot' }]);
+  return `Saved to the journal for ${date}. It shows up the next time MO OS is open.`;
+}
+
 async function addTasks(args) {
   const list = Array.isArray(args && args.tasks) ? args.tasks : [];
   const clean = list
@@ -130,11 +146,13 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
           ? await whoopSummary(Math.min(30, Math.max(1, Number(args.days) || 7))).then((d) => (d ? JSON.stringify(d) : NOT_CONNECTED))
+          : name === 'write_journal'
+            ? await writeJournal(args)
           : name === 'hevy'
             ? JSON.stringify(await hevySummary(Number(args.workouts) || 10))
             : await addTasks(args);
