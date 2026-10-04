@@ -45,6 +45,11 @@ export async function ingest(body) {
   const cal = num(body.calories), p = num(body.protein), c = num(body.carbs), f = num(body.fat), st = num(body.steps);
   let w = num(body.weight_lb);
   if (w == null && num(body.weight_kg) != null) w = num(body.weight_kg) * 2.20462;
+  if (w == null && num(body.weight) != null) {
+    // raw Health value like "66.6 kg" or "147 lb"; no unit -> guess by size
+    const raw = String(body.weight).toLowerCase(), n = num(body.weight);
+    w = /kg/.test(raw) || (!/lb/.test(raw) && n < 100) ? n * 2.20462 : n;
+  }
   if (cal != null) day.calories = Math.round(cal);
   if (p != null) day.protein = Math.round(p);
   if (c != null) day.carbs = Math.round(c);
