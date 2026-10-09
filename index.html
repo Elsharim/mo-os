@@ -2524,6 +2524,9 @@
   .mn-bar b{display:block;height:100%;border-radius:6px}
   .mn-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 32px}
   @media (max-width:700px){.mn-tax-top{grid-template-columns:1fr}.mn-big2{font-size:26px}.bd-stats[style*="repeat(4"]{grid-template-columns:1fr 1fr!important}}
+
+  .mn-link{cursor:pointer;transition:border-color .15s}.mn-link:hover{border-color:var(--hair-2)}
+  .mn-cols .card{margin:0}
 </style>
 </head>
 <body>
@@ -5308,17 +5311,22 @@ function wireTimeline(){
 const cad=n=>n==null?'·':(n<0?'-':'')+'$'+nf(Math.round(Math.abs(n)));
 const TYPE_LBL={cash:'Cash',savings:'Savings',investment:'Investments',crypto:'Crypto',tax:'Tax reserve',credit:'Credit cards',loan:'Loans',other:'Other'};
 const TYPE_COL={cash:'var(--teal)',savings:'var(--good)',investment:'var(--accent)',crypto:'var(--gold)',tax:'var(--warn)',other:'rgba(255,255,255,.3)'};
-function moneyHTML(d){
-  if(!d||d.error)return '<div class="bd-empty">Could not load right now.</div>';
-  const tx=d.tax||{},est=tx.estimate||{},set=d.settings||{},bt=d.by_type_cad||{};
+let mnTab=(()=>{try{return localStorage.getItem('os:mnTab')||'overview';}catch(_){return 'overview';}})();
+function mnParts(d){
+  const tx=d.tax||{},est=tx.estimate||{},bt=d.by_type_cad||{};
   const invested=(bt.investment||0)+(bt.crypto||0),owed=(bt.credit||0)+(bt.loan||0);
   const byInst={};(d.accounts||[]).filter(a=>Math.abs(a.balance)>=1).forEach(a=>{const k=a.institution||'Other';(byInst[k]=byInst[k]||[]).push(a);});
-  const instOrder=Object.keys(byInst).sort((a,b)=>byInst[b].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?0:x.cad),0)-byInst[a].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?0:x.cad),0));
+  const instSum=k=>byInst[k].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?-x.cad:x.cad),0);
+  const instOrder=Object.keys(byInst).sort((a,b)=>instSum(b)-instSum(a));
   const gap=tx.gap_cad||0,ok=gap>=0;
-  const pct=tx.should_have_set_aside_cad?Math.min(100,Math.round((tx.reserve_cad||0)/tx.should_have_set_aside_cad*100)):0;
-  const monthName=m=>new Date(m+'-15T12:00').toLocaleDateString('en-US',{month:'short'});
-  const payRows=(tx.payouts||[]).slice().reverse().map(p=>`<div class="r"><span class="d">${dateLbl(p.date)}</span><span>${p.period?esc(p.period):monthName(p.date.slice(0,7))+' payout'}</span><span class="m">${p.currency!=='CAD'?p.currency+' '+nf(Math.round(p.amount))+' · ':''}<b style="color:var(--text)">${cad(p.cad)}</b></span></div>`).join('');
-  const missing=(tx.missing_months||[]).map(monthName);
+  return {tx,est,bt,invested,owed,byInst,instSum,instOrder,gap,ok};
+}
+const monthName=m=>new Date(m+'-15T12:00').toLocaleDateString('en-US',{month:'short'});
+function mnOverview(d){
+  const {tx,est,bt,invested,owed,byInst,instSum,instOrder,gap,ok}=mnParts(d);
+  const assets=[['cash',bt.cash||0],['savings',bt.savings||0],['investment',bt.investment||0],['crypto',bt.crypto||0],['tax',bt.tax||0]].filter(([,v])=>v>0);
+  const tot=assets.reduce((a,[,v])=>a+v,0)||1;
+  const last=(tx.payouts||[]).slice(-1)[0];
   return `
     ${d.as_of?`<div class="card mn-hero">
       <div><div class="bd-cap">Net worth, everything in CAD</div><div class="mn-big">${cad(d.net_worth_cad)}</div>
@@ -5329,9 +5337,26 @@ function moneyHTML(d){
         ${bt.tax?`<div><span>Tax reserve</span><b>${cad(bt.tax)}</b></div>`:''}
         ${owed?`<div><span>Owed</span><b style="color:#f87171">-${cad(owed)}</b></div>`:''}
       </div>
-    </div>`:`<div class="card"><div class="mn-empty">No balances yet. Tell Grok <b>"log my balances"</b>.</div></div>`}
-
-    <h3 class="mn-h">Tax, ${tx.year||new Date().getFullYear()} <span class="h3sub">self-employed, Ontario · estimate, not a filing</span></h3>
+    </div>`:`<div class="card" style="margin-bottom:16px"><div class="mn-empty">No balances yet. Tell Grok <b>"log my balances"</b>.</div></div>`}
+    <div class="bd-stats" style="grid-template-columns:repeat(3,1fr)">
+      ${stat('Earned this year',cad(tx.ytd_income_cad)+'<small>CAD</small>',(tx.payouts_count||0)+' payouts · about '+cad(tx.avg_recent_payout_cad)+' a month lately')}
+      ${stat('Last payout',last?cad(last.cad):'·',last?dateLbl(last.date)+(last.currency!=='CAD'?' · '+last.currency+' '+nf(Math.round(last.amount)):''):'None logged')}
+      <div class="card mn-link" data-mntab="tax"><div class="bd-cap">Tax</div><div class="bd-big" style="color:${ok?'var(--good)':'#f87171'}">${ok?'Ahead':'Behind'}<small>by ${cad(Math.abs(gap))}</small></div><div class="bd-sub">${cad(tx.reserve_cad)} saved of ${cad(tx.should_have_set_aside_cad)} needed by today · see Tax →</div></div>
+    </div>
+    ${d.as_of?`<div class="grid g2">
+      <div class="card"><h3>Where it sits</h3>
+        <div class="mn-split">${assets.map(([t,v])=>`<b style="width:${v/tot*100}%;background:${TYPE_COL[t]||TYPE_COL.other}"></b>`).join('')}</div>
+        <div class="bd-rows">${assets.map(([t,v])=>`<div class="r"><span class="d" style="color:${TYPE_COL[t]||TYPE_COL.other}">●</span><span>${TYPE_LBL[t]||t}</span><span class="m">${cad(v)} · ${Math.round(v/tot*100)}%</span></div>`).join('')}
+        ${owed?`<div class="r"><span class="d" style="color:#f87171">●</span><span>Owed</span><span class="m" style="color:#f87171">-${cad(owed)}</span></div>`:''}</div></div>
+      <div class="card mn-link" data-mntab="accounts"><h3>By bank <span class="h3sub">see all →</span></h3><div class="bd-rows">${instOrder.map(k=>`<div class="r"><span class="d"></span><span>${esc(k)}</span><span class="m">${cad(instSum(k))}</span></div>`).join('')}</div></div>
+    </div>`:''}`;
+}
+function mnTax(d){
+  const {tx,est,gap,ok}=mnParts(d);
+  const pct=tx.should_have_set_aside_cad?Math.min(100,Math.round((tx.reserve_cad||0)/tx.should_have_set_aside_cad*100)):0;
+  const payRows=(tx.payouts||[]).slice().reverse().map(p=>`<div class="r"><span class="d">${dateLbl(p.date)}</span><span>${p.period?esc(p.period):monthName(p.date.slice(0,7))+' payout'}</span><span class="m">${p.currency!=='CAD'?p.currency+' '+nf(Math.round(p.amount))+' · ':''}<b style="color:var(--text)">${cad(p.cad)}</b></span></div>`).join('');
+  const missing=(tx.missing_months||[]).map(monthName);
+  return `
     <div class="card mn-tax">
       <div class="mn-tax-top">
         <div><div class="bd-cap">Should be set aside by today</div><div class="mn-big2">${cad(tx.should_have_set_aside_cad)}</div></div>
@@ -5345,27 +5370,40 @@ function moneyHTML(d){
       ${stat('Earned so far',cad(tx.ytd_income_cad)+'<small>CAD</small>',(tx.payouts_count||0)+' payout'+(tx.payouts_count===1?'':'s')+(missing.length?' · missing '+missing.join(', '):''))}
       ${stat('Likely for the year',cad(tx.projected_income_cad),tx.months_left?tx.months_left+' more at about '+cad(tx.avg_recent_payout_cad)+' each':'All months in')}
       ${stat('Tax you\'ll owe',cad(est.total),est.effective_rate?est.effective_rate+'% of what you earn':'')}
-      ${stat('Due',dateLbl((tx.deadlines||{}).payment||'2027-04-30').replace(/,.*/,'')+'<small>2027</small>','File by '+dateLbl((tx.deadlines||{}).filing||'2027-06-15')+' 2027')}
+      ${stat('Due',dateLbl((tx.deadlines||{}).payment||'2027-04-30')+'<small>2027</small>','File by '+dateLbl((tx.deadlines||{}).filing||'2027-06-15')+' 2027')}
     </div>
-    <div class="grid g2" style="margin-bottom:16px">
+    <div class="grid g2">
       <div class="card"><h3>Where the ${cad(est.total)} goes</h3><div class="bd-rows">
         <div class="r"><span class="d"></span><span>Federal income tax</span><span class="m">${cad(est.federal)}</span></div>
         <div class="r"><span class="d"></span><span>Ontario income tax${est.surtax?' (incl. surtax)':''}</span><span class="m">${cad(est.ontario)}</span></div>
         <div class="r"><span class="d"></span><span>Ontario health premium</span><span class="m">${cad(est.ohp)}</span></div>
         <div class="r"><span class="d"></span><span>CPP, both halves since you're self-employed</span><span class="m">${cad(est.cpp)}</span></div>
-        ${tx.deductions_cad?`<div class="r"><span class="d"></span><span>After ${cad(tx.deductions_cad)} in business expenses</span><span class="m"></span></div>`:`<div class="r"><span class="d"></span><span style="color:var(--faint)">No business expenses counted yet. Tell Grok what you'll deduct (phone, laptop, home office, software) and this drops.</span><span class="m"></span></div>`}
-      </div></div>
+        ${tx.deductions_cad?`<div class="r"><span class="d"></span><span>After ${cad(tx.deductions_cad)} in business expenses</span><span class="m"></span></div>`:`<div class="r"><span class="d"></span><span style="color:var(--faint)">No business expenses counted yet. Tell Grok what you'll deduct (phone, laptop, home office, software, work travel) and this drops.</span><span class="m"></span></div>`}
+      </div>
+      <div class="bd-cap" style="margin-top:14px;line-height:1.6">Estimate for a self-employed Ontario resident, 2026 rates, income counted on the day each payout lands. Not a filing.</div></div>
       <div class="card"><h3>Payouts <span class="h3sub">gross, converted on the day</span></h3><div class="bd-rows">${payRows||'<div class="bd-empty">None logged yet.</div>'}</div></div>
-    </div>
-
-    ${d.as_of?`<div class="card"><h3>Accounts <span class="h3sub">as of ${dateLbl(d.as_of)}</span></h3>
-      <div class="mn-cols">${instOrder.map(inst=>`<div><div class="mn-inst">${esc(inst)}</div>${byInst[inst].sort((a,b)=>b.cad-a.cad).map(a=>`<div class="mn-acc ${['credit','loan'].includes(a.type)?'neg':''}"><div><div class="n">${esc(a.name)}</div><div class="i">${TYPE_LBL[a.type]||a.type}</div></div><div class="b">${['credit','loan'].includes(a.type)?'-':''}${a.currency!=='CAD'?a.currency+' '+nf(Math.round(a.balance)):cad(a.balance)}${a.currency!=='CAD'?`<small>${cad(a.cad)} CAD</small>`:''}</div></div>`).join('')}</div>`).join('')}</div></div>`:''}`;
+    </div>`;
+}
+function mnAccounts(d){
+  const {byInst,instSum,instOrder}=mnParts(d);
+  if(!d.as_of)return '<div class="card"><div class="mn-empty">No balances yet. Tell Grok <b>"log my balances"</b>.</div></div>';
+  return `<div class="bd-cap" style="margin:-6px 0 14px">As of ${dateLbl(d.as_of)} · Grok refreshes every morning · $0 accounts hidden</div>
+    <div class="mn-cols">${instOrder.map(inst=>`<div class="card" style="margin-bottom:16px"><h3>${esc(inst)} <span class="h3sub">${cad(instSum(inst))}</span></h3>${byInst[inst].sort((a,b)=>b.cad-a.cad).map(a=>`<div class="mn-acc ${['credit','loan'].includes(a.type)?'neg':''}"><div><div class="n">${esc(a.name)}</div><div class="i">${TYPE_LBL[a.type]||a.type}</div></div><div class="b">${['credit','loan'].includes(a.type)?'-':''}${a.currency!=='CAD'?a.currency+' '+nf(Math.round(a.balance)):cad(a.balance)}${a.currency!=='CAD'?`<small>${cad(a.cad)} CAD</small>`:''}</div></div>`).join('')}</div>`).join('')}</div>`;
+}
+function moneyHTML(d){
+  if(!d||d.error)return '<div class="bd-empty">Could not load right now.</div>';
+  return ({overview:mnOverview,tax:mnTax,accounts:mnAccounts}[mnTab]||mnOverview)(d);
 }
 function renderMoney(){
-  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Money</h2><p class="sec-sub">Net worth, tax and your accounts. Grok updates balances every morning.</p></div></div><div id="mn"><div class="bd-empty">Loading…</div></div></div>`;
+  const tabs=[['overview','Overview'],['tax','Tax'],['accounts','Accounts']];
+  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Money</h2><p class="sec-sub">${mnTab==='tax'?'2026, self-employed in Ontario. An estimate, not a filing.':'Your finances at a glance. Grok updates balances every morning.'}</p></div></div>
+    <div class="bd-tabs" style="margin-bottom:18px">${tabs.map(([k,l])=>`<button class="bd-tab ${mnTab===k?'on':''}" data-mt="${k}">${l}</button>`).join('')}</div>
+    <div id="mn"><div class="bd-empty">Loading…</div></div></div>`;
+  main.querySelectorAll('[data-mt]').forEach(b=>b.onclick=()=>{mnTab=b.dataset.mt;try{localStorage.setItem('os:mnTab',mnTab);}catch(_){}renderMoney();});
   const paint=(d)=>{const el=document.getElementById('mn');if(!el||currentView!=='money')return;
     if(d&&d.needsUnlock){el.innerHTML=`<div class="tday-connect" style="margin:0"><span>Confirm your PIN once on this device to see your money.</span><button class="btn btn-sm" id="mn-connect">Connect</button></div>`;el.querySelector('#mn-connect').onclick=async()=>{await ensureMediaSecret();renderMoney();};return;}
-    el.innerHTML=moneyHTML(d);};
+    el.innerHTML=moneyHTML(d);
+    el.querySelectorAll('[data-mntab]').forEach(c=>c.onclick=()=>{mnTab=c.dataset.mntab;try{localStorage.setItem('os:mnTab',mnTab);}catch(_){}renderMoney();});};
   if(_life.money)paint(_life.money.data);
   lifeData('money').then(paint);
 }
