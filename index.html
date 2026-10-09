@@ -4930,7 +4930,7 @@ function bodyTraining(d){
     <div class="card" style="margin-bottom:16px"><h3>Lifts <span class="h3sub">pick one, estimated max over time</span></h3>
       ${lifts.length?`<div class="lift-pick">${lifts.map(l=>`<button data-lift="${esc(l.exercise)}" class="${l.exercise===liftSel?'on':''}">${esc(shortLift(l.exercise))}</button>`).join('')}</div>
       ${L?`<div class="bd-stats" style="grid-template-columns:repeat(3,1fr)">
-        ${stat('Last session',esc(L.last),dateLbl(L.last_date))}
+        ${(()=>{const h=(L.history||[])[L.history.length-1]||{};return stat('Last session',h.top_lb?h.top_lb+'<small>lbs × '+h.top_reps+'</small>':esc(L.last),esc(L.last)+' · '+dateLbl(L.last_date));})()}
         ${stat('Est. max',L.est_1rm_lb+'<small>lbs</small>',L.sessions+' sessions logged')}
         ${stat('Next time',L.next?L.next.weight_lb+'<small>lbs × '+(Array.isArray(L.next.reps)?L.next.reps.join(', '):L.next.reps)+'</small>':'·',L.next?L.next.why:'')}
       </div>${liftPts.length>1?chart({kind:'line',pts:liftPts,pad:5,fmt:v=>Math.round(v)}):'<div class="bd-empty">Log this lift a couple more times to see the trend.</div>'}
