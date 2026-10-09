@@ -2298,6 +2298,38 @@
     .card{padding:20px}
     .mo-goal,.jr-write-cta{padding:24px}
   }
+  /* TODAY STRIP (Morning) + BODY page: live data from Whoop / Hevy / calendar / food */
+  .today{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:-10px 0 18px}
+  .td{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:14px 16px 13px;min-width:0;position:relative}
+  .td.click{cursor:pointer}.td.click:hover{background:var(--surface-hi)}
+  .td-k{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
+  .td-k i{width:6px;height:6px;border-radius:50%;background:var(--td,var(--faint));display:inline-block}
+  .td-v{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.03em;margin-top:6px;line-height:1.1;white-space:nowrap}
+  .td-v small{font-size:13px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:3px}
+  .td-s{font-size:12px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .td-bar{height:3px;border-radius:3px;background:var(--hair);margin-top:9px;overflow:hidden}
+  .td-bar b{display:block;height:100%;border-radius:3px;background:var(--td,var(--accent))}
+  .today.loading .td-v{color:var(--faint)}
+  .today-connect{margin:-10px 0 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border:1px dashed var(--hair-2);border-radius:16px;color:var(--muted);font-size:13px}
+  .rec-red{--td:#f87171}.rec-amber{--td:#fbbf24}.rec-green{--td:#34d399}
+  @media (max-width:900px){.today{grid-template-columns:repeat(3,1fr)}}
+  @media (max-width:560px){.today{grid-template-columns:1fr 1fr}.today .td:last-child{grid-column:span 2}}
+
+  .bd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .bd-big{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.035em;line-height:1.05;margin-top:6px}
+  .bd-big small{font-size:14px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:4px}
+  .bd-cap{font-size:12px;color:var(--faint)}
+  .bd-sub{font-size:12.5px;color:var(--muted);margin-top:6px}
+  .bd-chart{width:100%;height:auto;display:block;overflow:visible}
+  .bd-chart text{fill:var(--faint);font-size:8.5px;font-family:var(--mono)}
+  .bd-lifts{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}
+  .bd-lift{display:grid;grid-template-columns:1fr 92px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--hair)}
+  .bd-lift:nth-child(-n+2){border-top:none}
+  .bd-lift-n{font-size:13.5px;font-weight:500}
+  .bd-lift-s{font-size:12px;color:var(--muted);margin-top:3px}
+  .bd-lift-x{font-size:12px;color:var(--accent);margin-top:3px}
+  .bd-empty{color:var(--faint);font-size:13px;padding:8px 0}
+  @media (max-width:900px){.bd-stats{grid-template-columns:1fr 1fr}.bd-lifts{grid-template-columns:1fr}.bd-lift:nth-child(2){border-top:1px solid var(--hair)}}
 </style>
 </head>
 <body>
@@ -2309,6 +2341,7 @@
     </div>
     <button class="navbtn active" data-view="morning"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg> Morning</button>
     <button class="navbtn" data-view="tasks"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg> Tasks</button>
+    <button class="navbtn" data-view="body"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg> Body</button>
     <button class="navbtn" data-view="journal"><svg viewBox="0 0 24 24"><path d="M4 4h13a3 3 0 013 3v13H7a3 3 0 01-3-3V4z"/><path d="M8 4v16"/><path d="M12 9h4M12 13h4"/></svg> Journal</button>
     <div class="rail-foot"><span class="dot" id="sync-dot"></span><span id="sync-label">Connecting…</span></div>
   </nav>
@@ -2746,7 +2779,7 @@ function weekLabel(startK){const end=addDays(startK,6);const s=startK.split('-')
 function htTime(ts){const d=new Date(ts);const now=new Date();const sameDay=d.toDateString()===now.toDateString();const t=d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});return sameDay?('Today · '+t):d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+t;}
 
 const main=document.getElementById('main');
-function render(){({morning:renderMorning,tasks:renderTasks,journal:renderJournal}[currentView]||renderMorning)();topbar();}
+function render(){({morning:renderMorning,tasks:renderTasks,journal:renderJournal,body:renderBody}[currentView]||renderMorning)();topbar();if(currentView==='morning')paintToday();}
 function topbar(){
   const n=S.name?.trim();
   const fg=featuredGoal();
@@ -4174,6 +4207,8 @@ function renderMorning(){
       </div>
     </div>
 
+    ${moEdit?'':'<div id="today-slot"></div>'}
+
     ${(()=>{
       const feat=featuredGoal();
       if(!feat)return `<div class="card mo-goal" style="margin-bottom:16px"><h3>Goals</h3><div class="empty">Set them in Journal → Goals.</div></div>`;
@@ -4554,6 +4589,145 @@ function openMusicPanel(anchor){
   setTimeout(()=>document.addEventListener('click',function off(ev){if(!el.contains(ev.target)&&ev.target!==anchor){el.remove();document.removeEventListener('click',off);}}),0);
 }
 
+
+/* LIFE DATA: Whoop, Hevy, calendar and food from /api/life (server reads them; the
+   device proves itself with its media secret, set at PIN unlock). */
+const _life={};
+async function lifeData(view,force){
+  const c=_life[view];
+  if(!force&&c&&Date.now()-c.at<5*60e3)return c.data;
+  const sec=mediaSecret();
+  if(!sec)return {needsUnlock:true};
+  try{
+    const r=await fetch('/api/life?view='+view,{headers:{'x-moos-secret':sec}});
+    if(r.status===401){try{localStorage.removeItem('os:media');}catch(_){}return {needsUnlock:true};}
+    const d=await r.json();
+    _life[view]={at:Date.now(),data:d};
+    return d;
+  }catch(e){return c?c.data:{error:true};}
+}
+function recClass(n){return n==null?'':n<34?'rec-red':n<67?'rec-amber':'rec-green';}
+function recWord(n){return n==null?'':n<34?'Take it easy today':n<67?'Normal day':'Push it today';}
+function fmt12(hm){if(!hm)return '';const [h,m]=hm.split(':').map(Number);return ((h%12)||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?'am':'pm');}
+function todayTiles(d){
+  const E=execData();
+  const ids=top3Ids().filter(id=>E.tasks[id]);
+  const done=ids.filter(id=>E.tasks[id].status==='completed').length;
+  const nextTask=ids.map(id=>E.tasks[id]).find(t=>t.status!=='completed');
+  const sl=d&&d.sleep, rec=d&&d.recovery, cal=d&&d.calendar, f=d&&d.food;
+  const t=[];
+  t.push(`<div class="td"><div class="td-k"><i style="--td:${sl&&sl.hours>=7?'var(--good)':sl&&sl.hours>=6?'var(--warn)':'#f87171'}"></i>Sleep</div>
+    <div class="td-v">${sl?sl.hours+'<small>h</small>':'·'}</div><div class="td-s">${sl?fmt12(sl.bed)+' to '+fmt12(sl.woke):'No Whoop data'}</div></div>`);
+  t.push(`<div class="td ${recClass(rec)}"><div class="td-k"><i></i>Recovery</div>
+    <div class="td-v">${rec!=null?rec+'<small>%</small>':'·'}</div><div class="td-s">${rec!=null?recWord(rec):'Waiting on Whoop'}</div></div>`);
+  if(cal){
+    const left=cal.events.filter(e=>!e.past).length;
+    t.push(`<div class="td"><div class="td-k"><i style="--td:var(--teal)"></i>Calls</div>
+      <div class="td-v">${cal.events.length}<small>${cal.events.length===1?'today':'today'}</small></div>
+      <div class="td-s">${cal.next?'Next '+fmt12(cal.next.start)+' · '+esc(cal.next.title):(cal.events.length?'All done for today':'Nothing booked')}</div></div>`);
+  }else{
+    t.push(`<div class="td"><div class="td-k"><i></i>Calls</div><div class="td-v">·</div><div class="td-s">Calendar not linked yet</div></div>`);
+  }
+  if(f){
+    const tc=(f.targets&&f.targets.calories)||2900,tp=(f.targets&&f.targets.protein)||160;
+    const pct=Math.min(100,Math.round((f.calories||0)/tc*100));
+    t.push(`<div class="td" style="--td:var(--accent)"><div class="td-k"><i></i>Food</div>
+      <div class="td-v">${(f.calories||0).toLocaleString()}<small>/ ${tc.toLocaleString()}</small></div>
+      <div class="td-s">${f.calories?(f.protein||0)+' / '+tp+'g protein':'Send Grok a photo of your food'}</div>
+      <div class="td-bar"><b style="width:${pct}%"></b></div></div>`);
+  }
+  t.push(`<div class="td click" id="td-top3" style="--td:var(--gold)"><div class="td-k"><i></i>Top 3</div>
+    <div class="td-v">${ids.length?done+'<small>/ '+ids.length+' done</small>':'·'}</div>
+    <div class="td-s">${nextTask?esc(nextTask.name):(ids.length?'All done, nice':'Pick them in Tasks')}</div></div>`);
+  return t.join('');
+}
+async function paintToday(){
+  const slot=document.getElementById('today-slot');if(!slot)return;
+  const cached=_life.today&&_life.today.data;
+  const draw=(d)=>{
+    const el=document.getElementById('today-slot');if(!el)return;
+    if(d&&d.needsUnlock){
+      el.innerHTML=`<div class="today-connect"><span>Show today's sleep, calls and food here. Confirm your PIN once on this device.</span><button class="btn btn-sm" id="td-connect">Connect</button></div>`;
+      el.querySelector('#td-connect').onclick=async()=>{await ensureMediaSecret();paintToday();};
+      return;
+    }
+    el.innerHTML=`<div class="today ${d?'':'loading'}">${todayTiles(d)}</div>`;
+    const tp=el.querySelector('#td-top3');if(tp)tp.onclick=()=>{currentView='tasks';setActiveNav('tasks');render();};
+  };
+  draw(cached||null);
+  const fresh=await lifeData('today');
+  if(currentView==='morning')draw(fresh);
+}
+
+/* BODY page */
+function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
+function avgBedtime(list){
+  const mins=list.filter(Boolean).map(hm=>{const [h,m]=hm.split(':').map(Number);let v=h*60+m;if(v<12*60)v+=1440;return v;});
+  const a=avg(mins);if(a==null)return null;const v=Math.round(a)%1440;
+  return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');
+}
+function bars(vals,{max,line,color,labels,h=96}){
+  const n=vals.length;if(!n)return '';
+  const W=320,bw=W/n,top=Math.max(max||0,...vals.map(v=>v||0))||1;
+  const y=v=>h-(v/top)*(h-8);
+  return `<svg class="bd-chart" viewBox="0 0 ${W} ${h+16}">
+    ${line!=null?`<line x1="0" x2="${W}" y1="${y(line)}" y2="${y(line)}" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>`:''}
+    ${vals.map((v,i)=>v==null?'':`<rect x="${i*bw+bw*.18}" y="${y(v)}" width="${bw*.64}" height="${Math.max(2,h-y(v))}" rx="3" fill="${typeof color==='function'?color(v):color}"/>`).join('')}
+    ${labels?labels.map((l,i)=>l?`<text x="${i*bw+bw/2}" y="${h+14}" text-anchor="middle">${l}</text>`:'').join(''):''}
+  </svg>`;
+}
+function spark(vals,{w=92,h=34,color='var(--accent)'}={}){
+  const v=vals.filter(x=>x!=null);if(v.length<2)return '';
+  const lo=Math.min(...v),hi=Math.max(...v),rg=hi-lo||1;
+  const pts=v.map((x,i)=>`${(i/(v.length-1))*w},${h-3-((x-lo)/rg)*(h-6)}`).join(' ');
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+const shortLift=n=>n.replace(/\s*\((Barbell|Dumbbell|Machine|Cable|Smith Machine|Weighted)\)/g,(m,x)=>x==='Weighted'?' (weighted)':'');
+function renderBody(){
+  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Body</h2><p class="sec-sub">Sleep, training and size, over time.</p></div></div><div id="bd">${'<div class="bd-empty">Loading…</div>'}</div></div>`;
+  const paint=(d)=>{
+    const el=document.getElementById('bd');if(!el||currentView!=='body')return;
+    if(!d||d.error){el.innerHTML='<div class="bd-empty">Could not load right now.</div>';return;}
+    if(d.needsUnlock){el.innerHTML=`<div class="today-connect" style="margin:0"><span>Confirm your PIN once on this device to see your data.</span><button class="btn btn-sm" id="bd-connect">Connect</button></div>`;el.querySelector('#bd-connect').onclick=async()=>{await ensureMediaSecret();renderBody();};return;}
+    const sl=(d.sleep||[]).slice(-14),rc=(d.recovery||[]).slice(-14),fd=(d.food||[]).slice(-14);
+    const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null,goal=d.goal_lb||170;
+    const sl7=sl.slice(-7),avgH=avg(sl7.map(x=>x.hours));
+    const rc7=rc.slice(-7),avgR=avg(rc7.map(x=>x.score));
+    const since=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
+    const gym14=(d.workouts||[]).filter(x=>x.date>=since).length;
+    const day=s=>s?['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(s+'T12:00').getDay()]:'';
+    el.innerHTML=`
+      <div class="bd-stats">
+        <div class="card"><div class="bd-cap">Bodyweight</div><div class="bd-big">${wNow!=null?wNow+'<small>lbs</small>':'·'}</div>
+          <div class="bd-sub">${wNow!=null?(goal-wNow>0?Math.round((goal-wNow)*10)/10+' lbs to '+goal:'Goal hit'):'Send Grok your weight'}</div>
+          ${w.length>1?`<div style="margin-top:10px">${spark(w.map(x=>x.lb),{w:150})}</div>`:''}</div>
+        <div class="card"><div class="bd-cap">Sleep, 7 day avg</div><div class="bd-big">${avgH!=null?(Math.round(avgH*10)/10)+'<small>h</small>':'·'}</div>
+          <div class="bd-sub">${avgBedtime(sl7.map(x=>x.bed))?'In bed around '+fmt12(avgBedtime(sl7.map(x=>x.bed))):''}</div></div>
+        <div class="card ${recClass(avgR)}"><div class="bd-cap">Recovery, 7 day avg</div><div class="bd-big" style="color:var(--td,inherit)">${avgR!=null?Math.round(avgR)+'<small>%</small>':'·'}</div>
+          <div class="bd-sub">${avgR!=null?recWord(avgR).replace(' today',''):''}</div></div>
+        <div class="card"><div class="bd-cap">Gym, last 14 days</div><div class="bd-big">${gym14}<small>${gym14===1?'session':'sessions'}</small></div>
+          <div class="bd-sub">${(d.workouts||[])[0]?'Last: '+esc(d.workouts[0].title)+' on '+new Date(d.workouts[0].date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div></div>
+      </div>
+      <div class="grid g2" style="margin-bottom:16px">
+        <div class="card"><h3>Sleep <span class="h3sub">hours a night, dashed line is 8</span></h3>
+          ${sl.length?bars(sl.map(x=>x.hours),{max:9,line:8,color:v=>v>=7?'var(--good)':v>=6?'var(--warn)':'#f87171',labels:sl.map(x=>day(x.date))}):'<div class="bd-empty">No sleep data yet.</div>'}</div>
+        <div class="card"><h3>Recovery <span class="h3sub">Whoop, last 14 days</span></h3>
+          ${rc.length?bars(rc.map(x=>x.score),{max:100,line:67,color:v=>v>=67?'var(--good)':v>=34?'var(--warn)':'#f87171',labels:rc.map(x=>day(x.date))}):'<div class="bd-empty">No recovery data yet.</div>'}</div>
+      </div>
+      <div class="card" style="margin-bottom:16px"><h3>Food <span class="h3sub">calories a day, dashed line is your target</span></h3>
+        ${fd.length?bars(fd.map(x=>x.calories),{max:(d.targets&&d.targets.calories)||2900,line:(d.targets&&d.targets.calories)||2900,color:'var(--accent)',labels:fd.map(x=>day(x.date))}):'<div class="bd-empty">Nothing logged yet. Send Grok a photo of your next meal.</div>'}</div>
+      <div class="card"><h3>Lifts <span class="h3sub">estimated max over time, and what to beat next</span></h3>
+        ${(d.lifts||[]).length?`<div class="bd-lifts">${d.lifts.map(l=>`<div class="bd-lift"><div>
+            <div class="bd-lift-n">${esc(shortLift(l.exercise))}</div>
+            <div class="bd-lift-s">Last ${esc(l.last)} · est. max ${l.est_1rm_lb} lbs</div>
+            ${l.next?`<div class="bd-lift-x">Next: ${l.next.weight_lb} lbs × ${Array.isArray(l.next.reps)?l.next.reps.join(', '):l.next.reps}</div>`:''}
+          </div>${spark((l.history||[]).map(x=>x.e1rm_lb))}</div>`).join('')}</div>`:'<div class="bd-empty">No lifts yet.</div>'}</div>`;
+  };
+  const c=_life.body&&_life.body.data;
+  if(c)paint(c);
+  lifeData('body').then(paint);
+}
+
 /* boot */
 /* INBOX: Grok Bot (via /api/mcp) drops tasks here, sealed to this app's public key.
    Only this app holds the private key (inside the encrypted state), so nothing else can read them. */
@@ -4640,7 +4814,7 @@ function finishBoot(){
   ensureInboxKey().then(drainInbox);
   if(!window.__inboxTimer){
     window.__inboxTimer=setInterval(drainInbox,45000);
-    document.addEventListener('visibilitychange',()=>{if(!document.hidden)drainInbox();});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){drainInbox();if(currentView==='morning')paintToday();}});
   }
   const wn=document.getElementById('ws-name');wn.value=S.wsName||'OS';
   wn.oninput=()=>{S.wsName=wn.value;save();document.title=wn.value||'MO OS';document.getElementById('brandmark').textContent=(S.name||wn.value||'M').trim().charAt(0).toUpperCase()||'M';};

@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         recovery: ((whoop && whoop.recovery) || []).map((r) => ({ date: r.date, score: r.score })).reverse(),
         food: (food.days || []).filter((d) => d.calories).map((d) => ({ date: d.date, calories: d.calories, protein: d.protein || 0 })).reverse(),
         targets: food.targets || null,
-        lifts: hevy && hevy.exercises ? hevy.exercises.filter((e) => e.sessions >= 2 && e.est_1rm_lb).sort((a, b) => b.sessions - a.sessions).slice(0, 8)
+        lifts: hevy && hevy.exercises ? hevy.exercises.filter((e) => e.sessions >= 2 && e.est_1rm_lb >= 40).sort((a, b) => b.last_date.localeCompare(a.last_date) || b.sessions - a.sessions).slice(0, 8)
           .map((e) => ({ exercise: e.exercise, sessions: e.sessions, history: e.history, last: e.last_sets_lb, last_date: e.last_date, est_1rm_lb: e.est_1rm_lb, next: e.next })) : [],
         workouts: hevy && hevy.workouts ? hevy.workouts.map((w) => ({ date: w.date, title: w.title, minutes: w.minutes })) : []
       });
