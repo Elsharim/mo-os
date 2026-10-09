@@ -2429,6 +2429,62 @@
   .tk-clock{background:none;border:none;color:var(--faint);cursor:pointer;font-size:13px;padding:4px 5px;border-radius:7px}
   .tk-clock:hover{color:var(--text);background:var(--surface-hi)}
   .tk-clock.on{color:var(--accent)}
+
+  /* TASKS polish: calmer rows, grouped list, motion */
+  .tk-capture{padding:6px 6px 6px 18px;margin-bottom:18px}
+  .tk-capture input{font-size:15.5px}
+  .tk-capture .btn.solid{padding:9px 16px}
+  .tk-hint{font-size:12px;color:var(--faint);margin:-10px 0 18px 4px}
+  .tk-hint b{color:var(--muted);font-weight:500}
+  .tk-today{margin-bottom:22px}
+  .tk-today-h span{font-family:var(--sans);font-size:12.5px;color:var(--faint);font-weight:400}
+  .tk-top3-card{background:var(--surface-hi);border:1px solid var(--hair-2);border-radius:16px;padding:14px 14px 14px 12px;min-height:60px;gap:10px;transition:background .15s,border-color .15s,transform .15s}
+  .tk-top3-card:hover{border-color:rgba(255,122,71,.4)}
+  .tk-top3-card .box{width:20px;height:20px;flex:0 0 20px}
+  .tk-top3-card.empty{border:1px dashed var(--hair-2);background:none}
+  .tk-top3-num{border:none;background:var(--surface-hi);color:var(--faint);width:22px;height:22px;flex-basis:22px;font-size:11.5px}
+  .tk-top3-name{font-size:14px;font-weight:500}
+  .tk-top3-when{font-size:11px;color:var(--accent);font-family:var(--mono);margin-top:3px;display:block}
+  .tk-filter{margin:0 0 6px}
+  .tk-fchip{border-color:var(--hair);color:var(--faint);padding:6px 12px;font-weight:500}
+  .tk-fchip.on{background:var(--surface-hi);color:var(--text);border-color:var(--hair-2)}
+  .tk-fchip i{font-style:normal;color:var(--faint);font-family:var(--mono);font-size:11px;margin-left:2px}
+  .tk-sect{font-size:12px;color:var(--faint);margin:18px 0 4px 4px;display:flex;align-items:baseline;gap:8px}
+  .tk-sect b{color:var(--muted);font-weight:500}
+  .et-list{gap:0}
+  .tk-row{padding:10px 10px!important;border-radius:12px;gap:12px;animation:tkIn .22s ease both}
+  .tk-row:hover{background:var(--surface)}
+  .tk-row .et-name{font-size:14.5px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 0;min-width:0}
+  .tk-row .box{transition:background .15s,border-color .15s,transform .15s}
+  .tk-row .box:hover{transform:scale(1.08);border-color:var(--good)}
+  .tk-row.leaving{animation:tkOut .22s ease forwards}
+  .tk-row.completed .et-name{color:var(--faint)}
+  @keyframes tkIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+  @keyframes tkOut{to{opacity:0;transform:translateX(10px);height:0;padding-top:0;padding-bottom:0;margin:0}}
+  .tk-when{margin-left:auto;margin-right:2px;font-family:var(--mono);font-size:11px;padding:3px 8px;border-radius:7px}
+  .tk-when.past{color:var(--faint);background:var(--surface-hi)}
+  .tk-acts{gap:2px}
+  .tk-row .tk-acts{opacity:.55;transition:opacity .13s}
+  .tk-row:hover .tk-acts{opacity:1}
+  .tk-acts .rm{opacity:1}
+  .tk-clock{font-size:12.5px}
+  .tk-quiet{margin-top:18px}
+  .tk-quiet-h{font-size:12.5px;color:var(--faint)}
+  .tl-scroll{scroll-behavior:smooth}
+  .tl-ev{font-size:12px;padding:5px 9px;transition:transform .12s,box-shadow .12s}
+  .tl-ev:hover{transform:translateX(1px);box-shadow:0 6px 18px -8px rgba(0,0,0,.6);z-index:4}
+  .tl-ev.cal{background:rgba(45,212,191,.11);border-left-color:rgba(45,212,191,.7)}
+  .tl-ev.task{background:rgba(255,122,71,.16)}
+  .tl-ev.task.pending{animation:tlPulse 1.6s ease-in-out infinite}
+  @keyframes tlPulse{0%,100%{border-color:rgba(255,122,71,.35)}50%{border-color:rgba(255,122,71,.85)}}
+  .tl-slot{transition:background .12s}
+  .tl-now span{position:absolute;right:4px;top:-9px;font-size:9.5px;color:#f87171;font-family:var(--mono);background:var(--bg);padding:0 4px;border-radius:4px}
+  .tl-hour.cur{background:rgba(255,255,255,.025)}
+  .tl-toggle{display:none}
+  @media (max-width:980px){
+    .tl-toggle{display:inline-flex;margin-bottom:10px}
+    .tl.collapsed .tl-scroll,.tl.collapsed .tl-hint{display:none}
+  }
 </style>
 </head>
 <body>
@@ -2978,8 +3034,8 @@ function ensureAreas(){
 function top3Ids(){const E=execData();if(!Array.isArray(E.top3))E.top3=[];return E.top3;}
 function top3Tasks(){const E=execData();return top3Ids().map(id=>E.tasks[id]).filter(t=>t&&t.status!=='completed');}
 function toggleTop3(id){
-  const E=execData();const arr=top3Ids();const i=arr.indexOf(id);
-  if(i>=0)arr.splice(i,1); else if(arr.length<3)arr.push(id);
+  const E=execData();let arr=top3Ids();const i=arr.indexOf(id);
+  if(i>=0)arr.splice(i,1); else {arr=arr.filter(x=>E.tasks[x]&&E.tasks[x].status!=='completed');E.top3=arr;if(arr.length<3)arr.push(id);}
   E.top3=arr;touchTask(id);
 }
 function touchTask(id){const t=execData().tasks[id];if(t)t.touchedAt=Date.now();}
@@ -3110,7 +3166,7 @@ function hubTaskRow(t){
   const proj=taskProject(t);
   const inTop=top3Ids().includes(t.id);
   const dc=proj?execProjColor(proj.id):'var(--border-2)';
-  const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
+  const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
   return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
     <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}${whenChip}</div></div>
@@ -3130,7 +3186,9 @@ function renderTasks(){
   const areas=E.projects;
   const open=openTasks();
   const filtered=taskArea==='all'?open:open.filter(t=>(t.projectId||null)===taskArea);
-  const fresh=filtered.filter(t=>!isStale(t)).sort((a,b)=>b.ts-a.ts);
+  const tk=todayKey();
+  const sched=filtered.filter(t=>t.when&&!isStale(t)).sort((a,b)=>Date.parse(a.when)-Date.parse(b.when));
+  const fresh=filtered.filter(t=>!t.when&&!isStale(t)).sort((a,b)=>{const ia=top3Ids().includes(a.id),ib=top3Ids().includes(b.id);if(ia!==ib)return ia?-1:1;return b.ts-a.ts;});
   const quiet=filtered.filter(t=>isStale(t)).sort((a,b)=>a.ts-b.ts);
   const cnt=pid=>open.filter(t=>(t.projectId||null)===pid).length;
 
@@ -3142,6 +3200,7 @@ function renderTasks(){
       <input id="tk-add" placeholder="What needs doing?" autocomplete="off" autofocus>
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
+    <div class="tk-hint">Try <b>call Clinton 3pm</b> · <b>gym tomorrow 6pm</b> · <b>@sales</b> for an area · end with <b>!</b> for Top 3</div>
 
     <div class="tk-today">
       <div class="tk-today-h">Today <span>your 3 to focus on</span></div>
@@ -3149,7 +3208,7 @@ function renderTasks(){
         ${[0,1,2].map(i=>{const t=t3[i];
           return t?`<div class="tk-top3-card" data-id="${t.id}">
             <span class="box et-complete" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-            <span class="tk-top3-name" data-n="${t.id}">${esc(t.name)}</span>
+            <span class="tk-top3-name" data-n="${t.id}">${esc(t.name)}${t.when?`<span class="tk-top3-when">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:''}</span>
             <button class="tk-top3-x" data-star="${t.id}" title="Remove">×</button>
           </div>`
           :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star one below</span></div>`;
@@ -3163,8 +3222,9 @@ function renderTasks(){
       <button class="tk-fchip tk-fadd" id="tk-area-add" title="Add a life area">+</button>
     </div>
 
-    ${fresh.length?`<div class="et-list">${fresh.map(hubTaskRow).join('')}</div>`
-      :`<div class="empty sect-empty">${open.length?'Nothing in this area.':'All clear. Capture something above.'}</div>`}
+    ${sched.length?`<div class="tk-sect"><b>Scheduled</b><span>${sched.filter(t=>isoDay(new Date(t.when))===tk).length} today</span></div><div class="et-list">${sched.map(hubTaskRow).join('')}</div>`:''}
+    ${fresh.length?`${sched.length?'<div class="tk-sect"><b>Anytime</b></div>':''}<div class="et-list">${fresh.map(hubTaskRow).join('')}</div>`
+      :(sched.length?'':`<div class="empty sect-empty">${open.length?'Nothing in this area.':'All clear. Capture something above.'}</div>`)}
 
     ${quiet.length?`<div class="tk-quiet">
       <button class="tk-quiet-h" id="tk-quiet-toggle">${taskQuietOpen?'▾':'▸'} ${quiet.length} gone quiet <span>untouched 2+ weeks</span></button>
@@ -3189,9 +3249,11 @@ function wireTasks(){
   const inp=document.getElementById('tk-add');
   const add=()=>{
     const v=inp.value.trim();if(!v)return;
-    const pt=parseTimeTail(v);
-    const t=addTask(pt?pt.name:v,{projectId:taskArea==='all'?null:taskArea});save();
-    if(pt){scheduleTask(t.id,slotDate(pt.mins));return;}
+    const pc=parseCapture(v);if(!pc.name)return;
+    const t=addTask(pc.name,{projectId:pc.area||(taskArea==='all'?null:taskArea)});
+    if(pc.top3)toggleTop3(t.id);
+    save();
+    if(pc.mins!=null){scheduleTask(t.id,slotDate(pc.mins+pc.dayOff*1440));return;}
     renderTasks();
     const i=document.getElementById('tk-add');if(i){i.focus();i.value='';}
   };
@@ -3210,7 +3272,9 @@ function wireTasks(){
     const id=c.dataset.c;const t=E.tasks[id];if(!t)return;
     if(t.status==='completed'){uncompleteTask(id);save();renderTasks();return;}
     const name=t.name;
-    completeTask(id);save();renderTasks();
+    const row=c.closest('.tk-row');
+    completeTask(id);save();
+    if(row){row.classList.add('leaving');const bx=row.querySelector('.box');if(bx)bx.classList.add('done');setTimeout(renderTasks,200);}else renderTasks();
     etToast('Done: '+clip(name,30),'undo',()=>{uncompleteTask(id);save();renderTasks();});
   });
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
@@ -4939,7 +5003,7 @@ function bodyOverview(d){
   const gymAvg=r1(ws.filter(w=>tracked(w.date)).length/trackedWeeks());
   const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null;
   return `<div class="bd-stats">
-      ${goalCard('Gym this week',thisWeek,T.workouts_per_week,'',bodyRange==='week'||trackedDays()<7?'':`Averaging ${gymAvg} a week ${sinceNote()}`,'var(--good)')}
+      ${bodyRange==='today'?stat('Gym today',ws.some(w=>w.date===todayKey())?'Done':'Not yet',thisWeek+' of '+T.workouts_per_week+' this week'):goalCard('Gym this week',thisWeek,T.workouts_per_week,'',bodyRange==='week'||trackedDays()<7?'':`Averaging ${gymAvg} a week ${sinceNote()}`,'var(--good)')}
       ${goalCard(bodyRange==='today'?'Calories today':'Calories, avg per day '+sinceNote(),fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${sinceNote()}`:'Nothing logged yet','var(--accent)')}
       ${goalCard(bodyRange==='today'?'Protein today':'Protein, avg per day',fd.length?avg(fd.map(x=>x.protein)):null,T.protein,'g','','var(--teal)')}
       ${goalCard(bodyRange==='today'?'Last night':'Sleep, avg per night',sl.length?r1(avg(sl.map(x=>x.hours))):null,8,'h',sl.length?'In bed around '+fmt12(avgClock(sl.slice(-7).map(x=>x.bed),12*60)):'','var(--gold)')}
@@ -4962,10 +5026,10 @@ function bodySleep(d){
   const latePts=bucketAvg(sl,'date',x=>{const m=clockMins(x.bed,12*60);return m==null?null:(m-21*60)/60;}).map(({b,v})=>({label:b.label,today:b.today,future:b.future,v:v==null?null:r1(v),tip:v==null?'':`<b>In bed ${fmt12(avgClock([sl.find(x=>inB(x.date,b))?.bed].filter(Boolean),12*60)||'')}</b><small>${b.tip}</small>`}));
   const hrvPts=bucketAvg(rc,'date',x=>x.hrv).filter(x=>x.v!=null).map(({b,v})=>({label:b.label,today:b.today,future:b.future,v:Math.round(v),tip:`<b>HRV ${Math.round(v)}</b><small>${b.tip}</small>`}));
   return `<div class="bd-stats">
-      ${stat(bodyRange==='today'?'Last night':'Sleep, avg '+per(),r1(avg(sl.map(x=>x.hours)))+'<small>h</small>',bodyRange==='today'?fmt12(sl[sl.length-1].bed)+' to '+fmt12(sl[sl.length-1].woke):sl.filter(x=>x.hours>=7).length+' of '+sl.length+' nights over 7h')}
+      ${stat(bodyRange==='today'?'Last night':'Sleep, avg per night '+per(),r1(avg(sl.map(x=>x.hours)))+'<small>h</small>',bodyRange==='today'?fmt12(sl[sl.length-1].bed)+' to '+fmt12(sl[sl.length-1].woke):sl.filter(x=>x.hours>=7).length+' of '+sl.length+' nights over 7h')}
       ${stat(bodyRange==='today'?'Bedtime':'Bedtime, avg '+per(),bed?fmt12(bed):'·','Up '+(bodyRange==='today'?'at ':'around ')+(wake?fmt12(wake):'·'))}
-      ${stat('Deep + REM, '+perSleep(),r1(avg(sl.map(x=>(x.deep||0)+(x.rem||0))))+'<small>h</small>','Deep '+r1(avg(sl.map(x=>x.deep)))+'h · REM '+r1(avg(sl.map(x=>x.rem)))+'h')}
-      ${stat('Recovery, '+(bodyRange==='today'?'today':'avg '+per()),rc.length?Math.round(avg(rc.map(x=>x.score)))+'<small>%</small>':'·',rc.length?'HRV '+Math.round(avg(rc.map(x=>x.hrv)))+' · resting HR '+Math.round(avg(rc.map(x=>x.rhr))):'',recClass(rc.length?avg(rc.map(x=>x.score)):null))}
+      ${stat('Deep + REM, '+(bodyRange==='today'?'last night':'avg per night '+per()),r1(avg(sl.map(x=>(x.deep||0)+(x.rem||0))))+'<small>h</small>','Deep '+r1(avg(sl.map(x=>x.deep)))+'h · REM '+r1(avg(sl.map(x=>x.rem)))+'h')}
+      ${stat('Recovery, '+(bodyRange==='today'?'today':'avg per day '+per()),rc.length?Math.round(avg(rc.map(x=>x.score)))+'<small>%</small>':'·',rc.length?'HRV '+Math.round(avg(rc.map(x=>x.hrv)))+' · resting HR '+Math.round(avg(rc.map(x=>x.rhr))):'',recClass(rc.length?avg(rc.map(x=>x.score)):null))}
     </div>
     ${ifCharts(`    <div class="grid g2" style="margin-bottom:16px">
       <div class="card"><h3>Hours asleep</h3>${chart({pts:sleepPts(d),target:8,color:sleepColor,showAvg:true,fmt:v=>r1(v)+'h'})}</div>
@@ -4991,8 +5055,8 @@ function bodyTraining(d){
   const cells=[];for(let i=days-1;i>=0;i--){const k=addD(todayKey(),-i);cells.push(`<i class="${ws.some(w=>w.date===k)?'on':''} ${i===0?'today':''}" title="${dateLbl(k)}"></i>`);}
   const weeksHit=(()=>{let n=0,tot=0;for(let i=0;i<Math.ceil(trackedDays()/7);i++){const to=addD(wkStart,-i*7+6),from=addD(to,-6);if(from>todayKey()||to<trackFrom())continue;tot++;if(ws.filter(w=>w.date>=from&&w.date<=to).length>=T.workouts_per_week)n++;}return n+' of '+tot;})();
   return `<div class="bd-stats">
-      ${goalCard('This week',thisWeek,T.workouts_per_week,'',thisWeek>=T.workouts_per_week?'Done for the week':(T.workouts_per_week-thisWeek)+' more to hit it','var(--good)')}
-      ${bodyRange==='today'?stat('Trained today',ws.some(w=>w.date===todayKey())?'Yes':'Not yet',ws.filter(w=>w.date===todayKey()).map(w=>esc(w.title)).join(', ')):stat('Per week, '+sinceNote(),trackedDays()<7?'·':r1(inR.length/trackedWeeks())+'<small>avg</small>',inR.length+' session'+(inR.length===1?'':'s')+(trackedDays()<7?' so far, avg shows after a week':' total'))}
+      ${bodyRange==='today'?stat('Gym today',ws.some(w=>w.date===todayKey())?'Done':'Not yet',ws.some(w=>w.date===todayKey())?ws.filter(w=>w.date===todayKey()).map(w=>esc(w.title)+' · '+w.minutes+' min').join(', '):thisWeek+' of '+T.workouts_per_week+' this week so far'):goalCard('This week',thisWeek,T.workouts_per_week,'',thisWeek>=T.workouts_per_week?'Done for the week':(T.workouts_per_week-thisWeek)+' more to hit it','var(--good)')}
+      ${bodyRange==='today'?goalCard('This week',thisWeek,T.workouts_per_week,'',(T.workouts_per_week-thisWeek)>0?(T.workouts_per_week-thisWeek)+' more to hit it':'Done for the week','var(--good)'):stat('Per week, '+sinceNote(),trackedDays()<7?'·':r1(inR.length/trackedWeeks())+'<small>avg</small>',inR.length+' session'+(inR.length===1?'':'s')+(trackedDays()<7?' so far, avg shows after a week':' total'))}
       ${stat('Weeks hitting '+T.workouts_per_week,weeksHit.split(' of ')[0]+'<small>of '+weeksHit.split(' of ')[1]+'</small>',sinceNote())}
       ${stat('Last workout',ws[0]?esc(ws[0].title):'·',ws[0]?(()=>{const n=Math.round((Date.now()-new Date(ws[0].date+'T12:00'))/864e5);return (n===0?'Today':n===1?'Yesterday':n+' days ago')+' · '+ws[0].minutes+' min';})():'')}
     </div>
@@ -5087,12 +5151,20 @@ const tlTop=d=>(tlMins(d)-TL_START*60)/60*TL_HPX;
 const tlFmt=d=>{const x=new Date(d);return fmt12(String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0'));};
 const sameEvent=(t,e)=>e&&t.when&&Math.abs(Date.parse(e.start_iso)-Date.parse(t.when))<120e3&&(e.title||'').trim().toLowerCase()===t.name.trim().toLowerCase();
 function slotDate(mins){const d=new Date();d.setHours(0,0,0,0);if(mins>=1440){d.setDate(d.getDate()+1);mins-=1440;}d.setHours(Math.floor(mins/60),mins%60,0,0);return d;}
-function parseTimeTail(text){
-  const m=/\s(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i.exec(text);
-  if(!m)return null;
-  let h=+m[1]%12;if(m[3].toLowerCase()==='pm')h+=12;
-  return {name:text.slice(0,m.index).trim(),mins:h*60+(+m[2]||0)};
+/* "call clinton tomorrow 3pm @sales !" -> name, time, day offset, area, top3 */
+function parseCapture(text){
+  let t=' '+text.trim(),out={name:'',mins:null,dayOff:0,area:null,top3:false};
+  const tm=/\s(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(t);
+  if(tm){let h=+tm[1]%12;if(tm[3].toLowerCase()==='pm')h+=12;out.mins=h*60+(+tm[2]||0);t=t.slice(0,tm.index)+' '+t.slice(tm.index+tm[0].length);}
+  if(/\s(tomorrow|tmrw|tmr)\b/i.test(t)){out.dayOff=1;t=t.replace(/\s(tomorrow|tmrw|tmr)\b/i,' ');}
+  const ar=/\s[@#]([a-z]+)\b/i.exec(t);
+  if(ar){const E=execData();const p=E.projects.find(x=>(x.name||'').toLowerCase().startsWith(ar[1].toLowerCase()));if(p){out.area=p.id;t=t.slice(0,ar.index)+' '+t.slice(ar.index+ar[0].length);}}
+  if(/\s!$/.test(t)||/^\s!/.test(t)){out.top3=true;t=t.replace(/\s!$/,'').replace(/^\s!/,' ');}
+  out.name=t.replace(/\s+/g,' ').trim();
+  if(out.mins!=null&&!/\s(today)\b/i.test(' '+text))out.name=out.name.replace(/\s(today)\b/i,'');
+  return out;
 }
+function parseTimeTail(text){const p=parseCapture(text);return p.mins==null?null:{name:p.name,mins:p.mins+p.dayOff*1440};}
 async function scheduleTask(id,when){
   const t=execData().tasks[id];if(!t)return;
   const start=new Date(when);const end=new Date(start.getTime()+30*6e4);
@@ -5119,7 +5191,8 @@ function timelineHTML(){
   const E=execData();
   const todayK=todayKey();
   const tasks=Object.values(E.tasks).filter(t=>t.when&&t.status!=='completed'&&isoDay(new Date(t.when))===todayK);
-  const events=(cal?cal.events:[]).filter(e=>e.start_iso).map(e=>({title:e.title,start:e.start_iso,end:e.end_iso||new Date(Date.parse(e.start_iso)+30*6e4).toISOString(),kind:'cal',past:e.past}));
+  const tidy=x=>String(x||'').replace(/\s*with Mohamed Elsharif/i,'').replace(/^[\p{Extended_Pictographic}\s]+/u,'').replace(/Poppy AI Group Onboarding/i,'Group onboarding').trim()||x;
+  const events=(cal?cal.events:[]).filter(e=>e.start_iso).map(e=>({title:tidy(e.title),start:e.start_iso,end:e.end_iso||new Date(Date.parse(e.start_iso)+30*6e4).toISOString(),kind:'cal',past:e.past}));
   const items=[...events];
   tasks.forEach(t=>{if(!events.some(e=>sameEvent(t,e)))items.push({title:t.name,start:t.when,end:new Date(Date.parse(t.when)+(t.dur||30)*6e4).toISOString(),kind:'task',pending:true,id:t.id});
     else{const e=events.find(e=>sameEvent(t,e));e.kind='task';e.id=t.id;}});
@@ -5127,7 +5200,8 @@ function timelineHTML(){
   // simple overlap columns
   items.forEach((it,i)=>{it.col=0;it.cols=1;for(let j=0;j<i;j++){const o=items[j];if(Date.parse(it.start)<Date.parse(o.end)&&Date.parse(it.end)>Date.parse(o.start)){it.col=o.col+1;o.cols=it.cols=Math.max(o.cols,it.col+1);}}});
   const H=(TL_END-TL_START)*TL_HPX;
-  const hours=[];for(let h=TL_START;h<TL_END;h++){const lbl=fmt12(String(h%24).padStart(2,'0')+':00');hours.push(`<div class="tl-hour" style="top:${(h-TL_START)*TL_HPX}px"><span>${lbl}</span></div>`);}
+  const curH=Math.floor(tlMins(new Date())/60);
+  const hours=[];for(let h=TL_START;h<TL_END;h++){const lbl=fmt12(String(h%24).padStart(2,'0')+':00');hours.push(`<div class="tl-hour ${h===curH?'cur':''}" style="top:${(h-TL_START)*TL_HPX}px;height:${TL_HPX}px"><span>${lbl}</span></div>`);}
   const slots=[];for(let m=TL_START*60;m<TL_END*60;m+=30)slots.push(`<div class="tl-slot" data-slot="${m}" style="top:${(m-TL_START*60)/60*TL_HPX}px;height:${TL_HPX/2}px"></div>`);
   const nowM=tlMins(new Date());const showNow=nowM>=TL_START*60&&nowM<TL_END*60;
   const blocks=items.map(it=>{
@@ -5137,10 +5211,11 @@ function timelineHTML(){
       <span class="tl-ev-t">${tlFmt(it.start)}</span> ${esc(it.title)}${it.id?`<button class="tl-ev-x" data-unsched="${it.id}" title="Take off the calendar">×</button>`:''}</div>`;
   }).join('');
   const pickName=tlPick&&E.tasks[tlPick]?E.tasks[tlPick].name:'';
-  return `<div class="tl">
+  return `<div class="tl ${window.__tlCollapsed?'collapsed':''}">
     <div class="tl-head"><h3>Today</h3><span class="h3sub">${cal?cal.events.length+' on your calendar':(d?'Calendar not linked':'Loading…')}</span></div>
+    <button class="btn btn-sm tl-toggle" id="tl-toggle">${window.__tlCollapsed?'Show calendar':'Hide calendar'}</button>
     ${tlPick?`<div class="tl-pick">Tap a time for <b>${esc(pickName)}</b> <button class="btn btn-sm" id="tl-pick-cancel">Cancel</button></div>`:`<div class="tl-hint">Drag a task onto a time, or tap ⏱ on a task. It goes on your Google Calendar.</div>`}
-    <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"></div>`:''}</div></div>
+    <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"><span>${tlFmt(new Date())}</span></div>`:''}</div></div>
   </div>`;
 }
 function wireTimeline(){
@@ -5155,6 +5230,8 @@ function wireTimeline(){
   });
   sc.querySelectorAll('[data-unsched]').forEach(b=>b.onclick=e=>{e.stopPropagation();unscheduleTask(b.dataset.unsched);});
   const cancel=document.getElementById('tl-pick-cancel');if(cancel)cancel.onclick=()=>{tlPick=null;renderTasks();};
+  const tg=document.getElementById('tl-toggle');if(tg)tg.onclick=()=>{window.__tlCollapsed=!window.__tlCollapsed;renderTasks();};
+  if(!window.__tlEsc){window.__tlEsc=true;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&tlPick&&currentView==='tasks'){tlPick=null;renderTasks();}});}
   main.querySelectorAll('.tk-row[draggable]').forEach(r=>{
     r.ondragstart=e=>{e.dataTransfer.setData('text/plain',r.dataset.id);e.dataTransfer.effectAllowed='move';r.classList.add('dragging');};
     r.ondragend=()=>r.classList.remove('dragging');
