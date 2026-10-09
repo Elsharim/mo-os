@@ -51,18 +51,24 @@ export default async function handler(req, res) {
     }
     if (view === 'body') {
       const [whoop, food, hevy] = await Promise.all([safe(whoopSummary(30)), safe(healthSummary(90)), safe(hevySummary(30))]);
+      if (whoop && whoop.error) whoop.sleep = whoop.recovery = whoop.strain = whoop.workouts = [];
       const weights = (food.days || []).filter((d) => d.weight_lb).map((d) => ({ date: d.date, lb: d.weight_lb })).reverse();
       if (!weights.length && whoop && whoop.weight_kg) weights.push({ date: new Date().toISOString().slice(0, 10), lb: Math.round(whoop.weight_kg * 22.0462) / 10, from: 'whoop' });
+      const days = food.days || [];
       res.status(200).json({
         goal_lb: (food.targets && food.targets.goal_weight_lb) || 170,
         weights,
-        sleep: ((whoop && whoop.sleep) || []).map((s) => ({ date: s.woke && s.woke.date, hours: s.asleep_h, bed: s.bed && s.bed.time })).reverse(),
-        recovery: ((whoop && whoop.recovery) || []).map((r) => ({ date: r.date, score: r.score })).reverse(),
-        food: (food.days || []).filter((d) => d.calories).map((d) => ({ date: d.date, calories: d.calories, protein: d.protein || 0 })).reverse(),
+        sleep: ((whoop && whoop.sleep) || []).map((s) => ({ date: s.woke && s.woke.date, hours: s.asleep_h, in_bed: s.in_bed_h, bed: s.bed && s.bed.time, woke: s.woke && s.woke.time, deep: s.deep_h, rem: s.rem_h, performance: s.performance, consistency: s.consistency })).reverse(),
+        recovery: ((whoop && whoop.recovery) || []).map((r) => ({ date: r.date, score: r.score, hrv: r.hrv, rhr: r.rhr })).reverse(),
+        strain: ((whoop && whoop.strain) || []).map((c) => ({ date: c.date, strain: c.strain, calories: c.calories })).reverse(),
+        food: days.filter((d) => d.calories).map((d) => ({ date: d.date, calories: d.calories, protein: d.protein || 0, carbs: d.carbs || 0, fat: d.fat || 0 })).reverse(),
+        food_today: days[0] && days[0].foods ? { date: days[0].date, items: days[0].foods.slice(-20) } : null,
+        saved_meals: food.saved_meals || [],
         targets: food.targets || null,
-        lifts: hevy && hevy.exercises ? hevy.exercises.filter((e) => e.sessions >= 2 && e.est_1rm_lb >= 40).sort((a, b) => b.last_date.localeCompare(a.last_date) || b.sessions - a.sessions).slice(0, 8)
+        lifts: hevy && hevy.exercises ? hevy.exercises.filter((e) => e.sessions >= 2 && e.est_1rm_lb >= 40).sort((a, b) => b.last_date.localeCompare(a.last_date) || b.sessions - a.sessions).slice(0, 10)
           .map((e) => ({ exercise: e.exercise, sessions: e.sessions, history: e.history, last: e.last_sets_lb, last_date: e.last_date, est_1rm_lb: e.est_1rm_lb, next: e.next })) : [],
-        workouts: hevy && hevy.workouts ? hevy.workouts.map((w) => ({ date: w.date, title: w.title, minutes: w.minutes })) : []
+        workouts: hevy && hevy.workouts ? hevy.workouts.map((w) => ({ date: w.date, title: w.title, minutes: w.minutes, exercises: w.exercises })) : [],
+        whoop_workouts: ((whoop && whoop.workouts) || []).map((w) => ({ date: w.date, sport: w.sport, minutes: w.minutes, strain: w.strain }))
       });
       return;
     }

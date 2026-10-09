@@ -2298,37 +2298,67 @@
     .card{padding:20px}
     .mo-goal,.jr-write-cta{padding:24px}
   }
-  /* TODAY STRIP (Morning) + BODY page: live data from Whoop / Hevy / calendar / food */
-  .today{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:-10px 0 18px}
-  .td{background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:14px 16px 13px;min-width:0;position:relative}
-  .td.click{cursor:pointer}.td.click:hover{background:var(--surface-hi)}
-  .td-k{font-size:11.5px;color:var(--faint);display:flex;align-items:center;gap:6px}
-  .td-k i{width:6px;height:6px;border-radius:50%;background:var(--td,var(--faint));display:inline-block}
-  .td-v{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.03em;margin-top:6px;line-height:1.1;white-space:nowrap}
-  .td-v small{font-size:13px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:3px}
-  .td-s{font-size:12px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .td-bar{height:3px;border-radius:3px;background:var(--hair);margin-top:9px;overflow:hidden}
-  .td-bar b{display:block;height:100%;border-radius:3px;background:var(--td,var(--accent))}
-  .today.loading .td-v{color:var(--faint)}
-  .today-connect{margin:-10px 0 18px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border:1px dashed var(--hair-2);border-radius:16px;color:var(--muted);font-size:13px}
-  .rec-red{--td:#f87171}.rec-amber{--td:#fbbf24}.rec-green{--td:#34d399}
-  @media (max-width:900px){.today{grid-template-columns:repeat(3,1fr)}}
-  @media (max-width:560px){.today{grid-template-columns:1fr 1fr}.today .td:last-child{grid-column:span 2}}
+  /* TODAY CARD (Morning) + BODY page: live data from Whoop / Hevy / calendar / food */
+  .tday{margin-bottom:16px;padding:26px 28px}
+  .tday-date{font-size:12.5px;color:var(--faint)}
+  .tday-say{font-size:16px;line-height:1.6;color:var(--text);margin:8px 0 0;max-width:780px;letter-spacing:-.005em}
+  .tday-say b{font-weight:600}
+  .tday-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:22px 0 0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+  .ts{padding:16px 18px 15px;border-left:1px solid var(--hair);min-width:0}
+  .ts:first-child{border-left:none;padding-left:0}
+  .ts-k{font-size:11.5px;color:var(--faint)}
+  .ts-v{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:-.035em;margin-top:5px;line-height:1.05;white-space:nowrap;color:var(--tv,var(--text))}
+  .ts-v small{font-size:13px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:3px}
+  .ts-s{font-size:12px;color:var(--muted);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ts-bar{height:3px;border-radius:3px;background:var(--hair);margin-top:9px;overflow:hidden;max-width:160px}
+  .ts-bar b{display:block;height:100%;border-radius:3px;background:var(--accent)}
+  .tday-cols{display:grid;grid-template-columns:1.25fr 1fr;gap:32px;margin-top:20px}
+  .tday-cap{font-size:12px;color:var(--faint);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+  .tday-cap a{color:var(--faint);cursor:pointer;text-decoration:none}.tday-cap a:hover{color:var(--text)}
+  .sch{display:flex;gap:14px;align-items:baseline;padding:8px 0;font-size:13.5px;border-bottom:1px solid var(--hair)}
+  .sch:last-child{border-bottom:none}
+  .sch-t{font-family:var(--mono);font-size:12px;color:var(--muted);width:58px;flex:none}
+  .sch-n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sch.past{opacity:.38}
+  .sch.next .sch-t{color:var(--accent)}
+  .sch-b{font-size:11px;color:var(--accent);flex:none}
+  .t3{display:flex;gap:11px;align-items:center;padding:8px 0;font-size:13.5px;border-bottom:1px solid var(--hair);cursor:pointer}
+  .t3:last-child{border-bottom:none}
+  .t3 i{width:17px;height:17px;border-radius:50%;border:1.5px solid var(--hair-2);flex:none;display:grid;place-items:center;font-style:normal;font-size:10px;color:#1c0e06}
+  .t3.done i{background:var(--good);border-color:var(--good)}
+  .t3.done span{color:var(--faint);text-decoration:line-through}
+  .t3:hover i{border-color:var(--good)}
+  .tday-empty{font-size:13px;color:var(--faint);padding:8px 0}
+  .tday-connect{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border:1px dashed var(--hair-2);border-radius:16px;color:var(--muted);font-size:13px;margin-bottom:16px}
+  .rec-red{--tv:#f87171}.rec-amber{--tv:#fbbf24}.rec-green{--tv:#34d399}
+  .iconbtn{width:38px;padding:9px 0;text-align:center}
+  @media (max-width:900px){.tday-stats{grid-template-columns:1fr 1fr}.ts:nth-child(3){border-left:none;padding-left:0}.ts:nth-child(n+3){border-top:1px solid var(--hair)}.tday-cols{grid-template-columns:1fr;gap:18px}}
 
+  .bd-tabs{display:flex;gap:6px;margin:-12px 0 22px;flex-wrap:wrap}
+  .bd-tab{padding:8px 14px;border-radius:999px;font-size:13px;color:var(--muted);border:1px solid var(--hair);background:transparent;cursor:pointer}
+  .bd-tab:hover{color:var(--text);background:var(--surface)}
+  .bd-tab.on{background:var(--surface-hi);color:var(--text);border-color:var(--hair-2)}
   .bd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
-  .bd-big{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.035em;line-height:1.05;margin-top:6px}
+  .bd-big{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.035em;line-height:1.05;margin-top:6px;color:var(--tv,var(--text))}
   .bd-big small{font-size:14px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:4px}
   .bd-cap{font-size:12px;color:var(--faint)}
   .bd-sub{font-size:12.5px;color:var(--muted);margin-top:6px}
   .bd-chart{width:100%;height:auto;display:block;overflow:visible}
   .bd-chart text{fill:var(--faint);font-size:8.5px;font-family:var(--mono)}
-  .bd-lifts{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}
-  .bd-lift{display:grid;grid-template-columns:1fr 92px;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--hair)}
+  .bd-read{font-size:14.5px;line-height:1.65;color:var(--text)}
+  .bd-read p{margin:0 0 10px}.bd-read p:last-child{margin:0}
+  .bd-lifts{display:grid;grid-template-columns:1fr 1fr;gap:0 28px}
+  .bd-lift{display:grid;grid-template-columns:1fr 92px;gap:12px;align-items:center;padding:13px 0;border-top:1px solid var(--hair)}
   .bd-lift:nth-child(-n+2){border-top:none}
   .bd-lift-n{font-size:13.5px;font-weight:500}
   .bd-lift-s{font-size:12px;color:var(--muted);margin-top:3px}
   .bd-lift-x{font-size:12px;color:var(--accent);margin-top:3px}
-  .bd-empty{color:var(--faint);font-size:13px;padding:8px 0}
+  .bd-rows .r{display:grid;grid-template-columns:90px 1fr auto;gap:14px;padding:10px 0;border-top:1px solid var(--hair);font-size:13px;align-items:baseline}
+  .bd-rows .r:first-child{border-top:none}
+  .bd-rows .r .d{color:var(--faint);font-family:var(--mono);font-size:12px}
+  .bd-rows .r .m{color:var(--muted);font-size:12.5px;text-align:right;white-space:nowrap}
+  .bd-rows .r .x{color:var(--muted);font-size:12px;margin-top:3px;line-height:1.5}
+  .bd-empty{color:var(--faint);font-size:13px;padding:6px 0;line-height:1.6}
   @media (max-width:900px){.bd-stats{grid-template-columns:1fr 1fr}.bd-lifts{grid-template-columns:1fr}.bd-lift:nth-child(2){border-top:1px solid var(--hair)}}
 </style>
 </head>
@@ -2784,7 +2814,7 @@ function topbar(){
   const n=S.name?.trim();
   const fg=featuredGoal();
   const cd=goalDays(fg);
-  const goalChip=(fg&&cd!==null&&cd>=0)
+  const goalChip=(currentView!=='morning'&&fg&&cd!==null&&cd>=0)
     ?`<span class="goal-chip" title="${esc(fg.text)}"><b>${cd}</b><span>days · ${esc(clip(fg.text,28))}</span></span>`
     :'';
   document.getElementById('greet').innerHTML=
@@ -4200,14 +4230,12 @@ function renderMorning(){
     <div class="head">
       <div><h2 class="sec">Morning Formula</h2><p class="sec-sub">${greetWord}${name?', '+esc(name):''}.</p></div>
       <div style="display:flex;gap:8px">
-        <button class="btn ${moEdit?'solid':''}" id="mo-edit">${moEdit?'Done editing':'Edit'}</button>
-        ${!moEdit?`<button class="btn mo-music-btn ${musicPlaying()?'on':''}" id="mo-music">${musicPlaying()?'♪ Playing':'♪ Music'}</button>`:''}
+        <button class="btn ${moEdit?'solid':'iconbtn'}" id="mo-edit" title="Edit">${moEdit?'Done editing':'✎'}</button>
+        ${!moEdit?`<button class="btn iconbtn mo-music-btn ${musicPlaying()?'on':''}" id="mo-music" title="Music">♪</button>`:''}
         ${!moEdit?'<button class="btn" id="mo-flow">▶ Morning flow</button>':''}
         <button class="btn solid" id="mo-start">Start the day →</button>
       </div>
     </div>
-
-    ${moEdit?'':'<div id="today-slot"></div>'}
 
     ${(()=>{
       const feat=featuredGoal();
@@ -4223,6 +4251,8 @@ function renderMorning(){
         </div>
       </div>`;
     })()}
+
+    ${moEdit?'':'<div id="today-slot"></div>'}
 
     <div class="card mo-vision" style="margin-bottom:16px">
       <h3>Vision board${moEdit?' <span class="h3sub">add image links or notes</span>':(m.vision.length?' <button class="btn btn-sm" id="mo-vision-play">▶ Vision mode</button>':'')}</h3>
@@ -4520,7 +4550,7 @@ function ensureYT(cb){
 function musicRefresh(){
   musicPill();
   const mb=document.getElementById('mo-music');
-  if(mb){mb.textContent=musicOn?'♪ Playing':'♪ Music';mb.classList.toggle('on',musicOn);}
+  if(mb){mb.textContent='♪';mb.title=musicOn?'Playing':'Music';mb.classList.toggle('on',musicOn);}
   document.querySelectorAll('#music-panel .mpanel-track').forEach(x=>x.classList.toggle('on',musicOn&&+x.dataset.track===musicIdx));
   document.querySelectorAll('[data-vm-track]').forEach(b=>b.classList.toggle('on',+b.dataset.vmTrack===musicIdx&&musicOn));
   const vp=document.getElementById('vm-music-btn');if(vp)vp.classList.toggle('on',musicOn);
@@ -4607,73 +4637,118 @@ async function lifeData(view,force){
   }catch(e){return c?c.data:{error:true};}
 }
 function recClass(n){return n==null?'':n<34?'rec-red':n<67?'rec-amber':'rec-green';}
-function recWord(n){return n==null?'':n<34?'Take it easy today':n<67?'Normal day':'Push it today';}
+function recWord(n){return n==null?'':n<34?'Take it easy':n<67?'Normal day':'Push it';}
 function fmt12(hm){if(!hm)return '';const [h,m]=hm.split(':').map(Number);return ((h%12)||12)+(m?':'+String(m).padStart(2,'0'):'')+(h<12?'am':'pm');}
-function todayTiles(d){
-  const E=execData();
-  const ids=top3Ids().filter(id=>E.tasks[id]);
-  const done=ids.filter(id=>E.tasks[id].status==='completed').length;
-  const nextTask=ids.map(id=>E.tasks[id]).find(t=>t.status!=='completed');
-  const sl=d&&d.sleep, rec=d&&d.recovery, cal=d&&d.calendar, f=d&&d.food;
-  const t=[];
-  t.push(`<div class="td"><div class="td-k"><i style="--td:${sl&&sl.hours>=7?'var(--good)':sl&&sl.hours>=6?'var(--warn)':'#f87171'}"></i>Sleep</div>
-    <div class="td-v">${sl?sl.hours+'<small>h</small>':'·'}</div><div class="td-s">${sl?fmt12(sl.bed)+' to '+fmt12(sl.woke):'No Whoop data'}</div></div>`);
-  t.push(`<div class="td ${recClass(rec)}"><div class="td-k"><i></i>Recovery</div>
-    <div class="td-v">${rec!=null?rec+'<small>%</small>':'·'}</div><div class="td-s">${rec!=null?recWord(rec):'Waiting on Whoop'}</div></div>`);
+const nf=n=>Number(n||0).toLocaleString();
+
+/* the plain-English read of the day */
+function todaySay(d){
+  const out=[];
+  const sl=d.sleep,rec=d.recovery,cal=d.calendar,f=d.food;
+  if(sl&&sl.hours!=null){
+    const h=sl.hours;
+    const night=h<5?`Rough night, only <b>${h} hours</b>`:h<6.5?`Short night, <b>${h} hours</b>`:h<7.5?`Decent night, <b>${h} hours</b>`:`Solid night, <b>${h} hours</b>`;
+    out.push(rec!=null?`${night}, and recovery's at <b>${rec}%</b>. ${rec<34?'Keep today light and get to bed early.':rec<67?'Treat it as a normal day, not a max day.':'Your body is ready, so go hard today.'}`:night+'.');
+  }
   if(cal){
-    const left=cal.events.filter(e=>!e.past).length;
-    t.push(`<div class="td"><div class="td-k"><i style="--td:var(--teal)"></i>Calls</div>
-      <div class="td-v">${cal.events.length}<small>${cal.events.length===1?'today':'today'}</small></div>
-      <div class="td-s">${cal.next?'Next '+fmt12(cal.next.start)+' · '+esc(cal.next.title):(cal.events.length?'All done for today':'Nothing booked')}</div></div>`);
-  }else{
-    t.push(`<div class="td"><div class="td-k"><i></i>Calls</div><div class="td-v">·</div><div class="td-s">Calendar not linked yet</div></div>`);
+    const up=cal.events.filter(e=>!e.past);
+    if(!cal.events.length)out.push('Nothing on the calendar today, so it\'s all deep work.');
+    else if(!up.length)out.push(`All ${cal.events.length} of today's calls are done.`);
+    else{
+      const first=up[0];
+      const fed=f&&f.calories>=600;
+      out.push(`You've got <b>${up.length} call${up.length>1?'s':''}</b> left, next at <b>${fmt12(first.start)}</b>${fed?'.':', so eat something real before then.'}`);
+    }
   }
   if(f){
     const tc=(f.targets&&f.targets.calories)||2900,tp=(f.targets&&f.targets.protein)||160;
-    const pct=Math.min(100,Math.round((f.calories||0)/tc*100));
-    t.push(`<div class="td" style="--td:var(--accent)"><div class="td-k"><i></i>Food</div>
-      <div class="td-v">${(f.calories||0).toLocaleString()}<small>/ ${tc.toLocaleString()}</small></div>
-      <div class="td-s">${f.calories?(f.protein||0)+' / '+tp+'g protein':'Send Grok a photo of your food'}</div>
-      <div class="td-bar"><b style="width:${pct}%"></b></div></div>`);
+    if(!f.calories)out.push('No food logged yet. Send Grok a photo of your first meal.');
+    else if(f.calories<tc)out.push(`You're at ${nf(f.calories)} calories, ${nf(tc-f.calories)} to go, and ${Math.max(0,tp-(f.protein||0))}g of protein left.`);
+    else out.push(`Calories done for the day${(f.protein||0)<tp?`, just ${tp-f.protein}g of protein left`:', protein too'}. Nice.`);
   }
-  t.push(`<div class="td click" id="td-top3" style="--td:var(--gold)"><div class="td-k"><i></i>Top 3</div>
-    <div class="td-v">${ids.length?done+'<small>/ '+ids.length+' done</small>':'·'}</div>
-    <div class="td-s">${nextTask?esc(nextTask.name):(ids.length?'All done, nice':'Pick them in Tasks')}</div></div>`);
-  return t.join('');
+  return out.join(' ');
+}
+function todayCard(d){
+  const E=execData();
+  const ids=top3Ids().filter(id=>E.tasks[id]);
+  const done=ids.filter(id=>E.tasks[id].status==='completed').length;
+  const sl=d&&d.sleep,rec=d&&d.recovery,cal=d&&d.calendar,f=d&&d.food;
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+  const tc=(f&&f.targets&&f.targets.calories)||2900,tp=(f&&f.targets&&f.targets.protein)||160;
+  const up=cal?cal.events.filter(e=>!e.past):[];
+  const stats=[
+    `<div class="ts"><div class="ts-k">Sleep</div><div class="ts-v">${sl?sl.hours+'<small>h</small>':'·'}</div><div class="ts-s">${sl?fmt12(sl.bed)+' to '+fmt12(sl.woke):'No Whoop data yet'}</div></div>`,
+    `<div class="ts ${recClass(rec)}"><div class="ts-k">Recovery</div><div class="ts-v">${rec!=null?rec+'<small>%</small>':'·'}</div><div class="ts-s">${rec!=null?recWord(rec):'Waiting on Whoop'}</div></div>`,
+    `<div class="ts"><div class="ts-k">Food</div><div class="ts-v">${f?nf(f.calories)+'<small>/ '+nf(tc)+'</small>':'·'}</div><div class="ts-s">${f?(f.protein||0)+' / '+tp+'g protein':''}</div>${f?`<div class="ts-bar"><b style="width:${Math.min(100,Math.round((f.calories||0)/tc*100))}%"></b></div>`:''}</div>`,
+    `<div class="ts"><div class="ts-k">Calls</div><div class="ts-v">${cal?cal.events.length+'<small>today</small>':'·'}</div><div class="ts-s">${cal?(up[0]?'Next '+fmt12(up[0].start):(cal.events.length?'All done':'None booked')):'Calendar not linked yet'}</div></div>`
+  ].join('');
+  const sched=cal&&cal.events.length
+    ?cal.events.slice(0,7).map(e=>`<div class="sch ${e.past?'past':''} ${up[0]===e?'next':''}"><span class="sch-t">${fmt12(e.start)}</span><span class="sch-n">${esc(e.title)}</span>${up[0]===e?'<span class="sch-b">next</span>':''}</div>`).join('')+(cal.events.length>7?`<div class="tday-empty">+${cal.events.length-7} more</div>`:'')
+    :`<div class="tday-empty">${cal?'Nothing booked today.':'Your calls show up here once the calendar is linked.'}</div>`;
+  const top=ids.length
+    ?ids.map(id=>{const t=E.tasks[id];const ok=t.status==='completed';return `<div class="t3 ${ok?'done':''}" data-t3="${id}"><i>${ok?'✓':''}</i><span>${esc(t.name)}</span></div>`;}).join('')
+    :`<div class="tday-empty">No Top 3 yet. <a class="link" id="t3-pick" style="color:var(--accent);cursor:pointer">Pick them in Tasks</a> or tell Grok.</div>`;
+  return `<div class="card tday">
+    <div class="tday-date">${dateStr}</div>
+    <p class="tday-say">${d?todaySay(d)||'Here\'s your day.':'Loading your day…'}</p>
+    <div class="tday-stats">${stats}</div>
+    <div class="tday-cols">
+      <div><div class="tday-cap"><span>Schedule</span></div>${sched}</div>
+      <div><div class="tday-cap"><span>Top 3${ids.length?' · '+done+' of '+ids.length+' done':''}</span><a id="t3-open">Tasks →</a></div>${top}</div>
+    </div>
+  </div>`;
 }
 async function paintToday(){
-  const slot=document.getElementById('today-slot');if(!slot)return;
-  const cached=_life.today&&_life.today.data;
+  if(!document.getElementById('today-slot'))return;
   const draw=(d)=>{
     const el=document.getElementById('today-slot');if(!el)return;
     if(d&&d.needsUnlock){
-      el.innerHTML=`<div class="today-connect"><span>Show today's sleep, calls and food here. Confirm your PIN once on this device.</span><button class="btn btn-sm" id="td-connect">Connect</button></div>`;
+      el.innerHTML=`<div class="tday-connect"><span>Show today's sleep, calls and food here. Confirm your PIN once on this device.</span><button class="btn btn-sm" id="td-connect">Connect</button></div>`;
       el.querySelector('#td-connect').onclick=async()=>{await ensureMediaSecret();paintToday();};
       return;
     }
-    el.innerHTML=`<div class="today ${d?'':'loading'}">${todayTiles(d)}</div>`;
-    const tp=el.querySelector('#td-top3');if(tp)tp.onclick=()=>{currentView='tasks';setActiveNav('tasks');render();};
+    el.innerHTML=todayCard(d&&!d.error?d:null);
+    const go=()=>{currentView='tasks';setActiveNav('tasks');render();};
+    el.querySelectorAll('#t3-open,#t3-pick').forEach(a=>a.onclick=go);
+    el.querySelectorAll('[data-t3]').forEach(r=>r.onclick=()=>{
+      const t=execData().tasks[r.dataset.t3];if(!t)return;
+      if(t.status==='completed')uncompleteTask(t.id);else completeTask(t.id);
+      touchTask(t.id);save();draw(d);
+    });
   };
-  draw(cached||null);
+  draw(_life.today?_life.today.data:null);
   const fresh=await lifeData('today');
   if(currentView==='morning')draw(fresh);
 }
 
-/* BODY page */
-function avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
-function avgBedtime(list){
-  const mins=list.filter(Boolean).map(hm=>{const [h,m]=hm.split(':').map(Number);let v=h*60+m;if(v<12*60)v+=1440;return v;});
-  const a=avg(mins);if(a==null)return null;const v=Math.round(a)%1440;
-  return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');
-}
+/* BODY page: Overview, Sleep, Training, Food, Weight */
+let bodyTab=(()=>{try{return localStorage.getItem('os:bodyTab')||'overview';}catch(_){return 'overview';}})();
+function avg(a){a=a.filter(x=>x!=null&&!isNaN(x));return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
+const r1=n=>n==null?null:Math.round(n*10)/10;
+function clockMins(hm,pivot){if(!hm)return null;const [h,m]=hm.split(':').map(Number);let v=h*60+m;if(v<pivot)v+=1440;return v;}
+function avgClock(list,pivot){const a=avg(list.map(x=>clockMins(x,pivot)));if(a==null)return null;const v=Math.round(a)%1440;return String(Math.floor(v/60)).padStart(2,'0')+':'+String(v%60).padStart(2,'0');}
+const dayLbl=s=>s?['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(s+'T12:00').getDay()]:'';
+const dateLbl=s=>s?new Date(s+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
 function bars(vals,{max,line,color,labels,h=96}){
   const n=vals.length;if(!n)return '';
   const W=320,bw=W/n,top=Math.max(max||0,...vals.map(v=>v||0))||1;
   const y=v=>h-(v/top)*(h-8);
   return `<svg class="bd-chart" viewBox="0 0 ${W} ${h+16}">
-    ${line!=null?`<line x1="0" x2="${W}" y1="${y(line)}" y2="${y(line)}" stroke="rgba(255,255,255,.18)" stroke-dasharray="3 4"/>`:''}
-    ${vals.map((v,i)=>v==null?'':`<rect x="${i*bw+bw*.18}" y="${y(v)}" width="${bw*.64}" height="${Math.max(2,h-y(v))}" rx="3" fill="${typeof color==='function'?color(v):color}"/>`).join('')}
-    ${labels?labels.map((l,i)=>l?`<text x="${i*bw+bw/2}" y="${h+14}" text-anchor="middle">${l}</text>`:'').join(''):''}
+    ${line!=null?`<line x1="0" x2="${W}" y1="${y(line)}" y2="${y(line)}" stroke="rgba(255,255,255,.2)" stroke-dasharray="3 4"/>`:''}
+    ${vals.map((v,i)=>v==null?'':`<rect x="${i*bw+bw*.18}" y="${y(v)}" width="${bw*.64}" height="${Math.max(2,h-y(v))}" rx="3" fill="${typeof color==='function'?color(v,i):color}"/>`).join('')}
+    ${labels?labels.map((l,i)=>l?`<text x="${i*bw+bw/2}" y="${h+12}" text-anchor="middle">${l}</text>`:'').join(''):''}
+  </svg>`;
+}
+function lineChart(pts,{goal,h=110,color='var(--accent)'}={}){
+  const v=pts.map(p=>p.v);if(v.length<2)return '';
+  const W=320,lo=Math.min(...v,goal??Infinity)-1,hi=Math.max(...v,goal??-Infinity)+1,rg=hi-lo||1;
+  const x=i=>8+(i/(v.length-1))*(W-16),y=val=>h-6-((val-lo)/rg)*(h-14);
+  return `<svg class="bd-chart" viewBox="0 0 ${W} ${h+16}">
+    ${goal!=null?`<line x1="0" x2="${W}" y1="${y(goal)}" y2="${y(goal)}" stroke="rgba(255,255,255,.22)" stroke-dasharray="3 4"/><text x="${W-2}" y="${y(goal)-4}" text-anchor="end">goal ${goal}</text>`:''}
+    <polyline points="${v.map((val,i)=>x(i)+','+y(val)).join(' ')}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${v.map((val,i)=>`<circle cx="${x(i)}" cy="${y(val)}" r="2.6" fill="${color}"/>`).join('')}
+    <text x="8" y="${h+12}">${dateLbl(pts[0].d)}</text><text x="${W-8}" y="${h+12}" text-anchor="end">${dateLbl(pts[pts.length-1].d)}</text>
   </svg>`;
 }
 function spark(vals,{w=92,h=34,color='var(--accent)'}={}){
@@ -4683,48 +4758,121 @@ function spark(vals,{w=92,h=34,color='var(--accent)'}={}){
   return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 }
 const shortLift=n=>n.replace(/\s*\((Barbell|Dumbbell|Machine|Cable|Smith Machine|Weighted)\)/g,(m,x)=>x==='Weighted'?' (weighted)':'');
+const sleepColor=v=>v>=7?'var(--good)':v>=6?'var(--warn)':'#f87171';
+const recColor=v=>v>=67?'var(--good)':v>=34?'var(--warn)':'#f87171';
+function stat(cap,big,sub,cls){return `<div class="card ${cls||''}"><div class="bd-cap">${cap}</div><div class="bd-big">${big}</div><div class="bd-sub">${sub||''}</div></div>`;}
+function sessionsSince(d,days){const s=new Date(Date.now()-days*864e5).toISOString().slice(0,10);return (d.workouts||[]).filter(w=>w.date>=s).length;}
+
+function bodyOverview(d){
+  const sl7=(d.sleep||[]).slice(-7),rc7=(d.recovery||[]).slice(-7);
+  const avgH=r1(avg(sl7.map(x=>x.hours))),avgR=avg(rc7.map(x=>x.score));
+  const bed=avgClock(sl7.map(x=>x.bed),12*60);
+  const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null,goal=d.goal_lb||170;
+  const g14=sessionsSince(d,14);
+  const fd7=(d.food||[]).slice(-7),tc=(d.targets&&d.targets.calories)||2900;
+  const read=[];
+  if(avgH!=null)read.push(`You're averaging <b>${avgH} hours</b> of sleep this week${bed?` and getting into bed around <b>${fmt12(bed)}</b>`:''}. ${avgH<7?`That's about ${r1(8-avgH)} hours short of 8 every night, and it's the thing holding everything else back.`:'That\'s solid, keep it there.'}`);
+  if(avgR!=null)read.push(`Recovery's averaging <b>${Math.round(avgR)}%</b>, ${avgR>=67?'so your body is handling the load well.':avgR>=34?'which is okay but leaves room. More sleep is the fastest way up.':'which is low. Ease up and sleep more.'}`);
+  read.push(g14?`You've trained <b>${g14} time${g14>1?'s':''}</b> in the last two weeks. ${g14<6?'For a bulk you want 3 to 4 a week, so that\'s the next thing to lock in.':'Good consistency.'}`:'No workouts logged in the last two weeks. Getting back in the gym is the move.');
+  if(fd7.length)read.push(`On the days you logged food you averaged <b>${nf(Math.round(avg(fd7.map(x=>x.calories))))}</b> calories against a ${nf(tc)} target.`);
+  else read.push('No food logged yet, so there\'s no way to know if you\'re eating enough to grow. Send Grok your meals.');
+  if(wNow!=null)read.push(`You're at <b>${wNow} lbs</b>, ${r1(goal-wNow)} to go to ${goal}.`);
+  return `<div class="bd-stats">
+      ${stat('Bodyweight',wNow!=null?wNow+'<small>lbs</small>':'·',wNow!=null?r1(goal-wNow)+' lbs to '+goal:'Send Grok your weight')}
+      ${stat('Sleep, 7 day avg',avgH!=null?avgH+'<small>h</small>':'·',bed?'In bed around '+fmt12(bed):'')}
+      ${stat('Recovery, 7 day avg',avgR!=null?Math.round(avgR)+'<small>%</small>':'·',avgR!=null?recWord(avgR):'',recClass(avgR))}
+      ${stat('Gym, last 14 days',g14+'<small>'+(g14===1?'session':'sessions')+'</small>',(d.workouts||[])[0]?'Last: '+esc(d.workouts[0].title)+' on '+dateLbl(d.workouts[0].date):'')}
+    </div>
+    <div class="card" style="margin-bottom:16px"><h3>The read</h3><div class="bd-read">${read.map(x=>`<p>${x}</p>`).join('')}</div></div>
+    <div class="grid g2">
+      <div class="card"><h3>Sleep <span class="h3sub">hours a night, line is 8</span></h3>${(d.sleep||[]).length?bars(d.sleep.slice(-14).map(x=>x.hours),{max:9,line:8,color:sleepColor,labels:d.sleep.slice(-14).map(x=>dayLbl(x.date))}):'<div class="bd-empty">No sleep data yet.</div>'}</div>
+      <div class="card"><h3>Recovery <span class="h3sub">last 14 days</span></h3>${(d.recovery||[]).length?bars(d.recovery.slice(-14).map(x=>x.score),{max:100,line:67,color:recColor,labels:d.recovery.slice(-14).map(x=>dayLbl(x.date))}):'<div class="bd-empty">No recovery data yet.</div>'}</div>
+    </div>`;
+}
+function bodySleep(d){
+  const sl=(d.sleep||[]).slice(-14),sl7=sl.slice(-7),rc=(d.recovery||[]).slice(-14);
+  if(!sl.length)return '<div class="card"><div class="bd-empty">No sleep data from Whoop yet.</div></div>';
+  const bed=avgClock(sl7.map(x=>x.bed),12*60),wake=avgClock(sl7.map(x=>x.woke),0);
+  const lateness=sl.map(x=>{const m=clockMins(x.bed,12*60);return m==null?null:Math.max(0,m-21*60)/60;});
+  const hrv=rc.map(x=>x.hrv).filter(Boolean);
+  return `<div class="bd-stats">
+      ${stat('Avg sleep, 7 days',r1(avg(sl7.map(x=>x.hours)))+'<small>h</small>',r1(avg(sl7.map(x=>x.in_bed)))+'h in bed')}
+      ${stat('Avg bedtime',bed?fmt12(bed):'·','Up around '+(wake?fmt12(wake):'·'))}
+      ${stat('Deep + REM',r1(avg(sl7.map(x=>(x.deep||0)+(x.rem||0))))+'<small>h</small>','Deep '+r1(avg(sl7.map(x=>x.deep)))+'h · REM '+r1(avg(sl7.map(x=>x.rem)))+'h')}
+      ${stat('Consistency',Math.round(avg(sl7.map(x=>x.consistency))||0)+'<small>%</small>','How regular your schedule is')}
+    </div>
+    <div class="grid g2" style="margin-bottom:16px">
+      <div class="card"><h3>Hours asleep <span class="h3sub">line is 8</span></h3>${bars(sl.map(x=>x.hours),{max:9,line:8,color:sleepColor,labels:sl.map(x=>dayLbl(x.date))})}</div>
+      <div class="card"><h3>How late you went to bed <span class="h3sub">hours past 9pm, line is midnight</span></h3>${bars(lateness,{max:10,line:3,color:v=>v<=3?'var(--good)':v<=4.5?'var(--warn)':'#f87171',labels:sl.map(x=>dayLbl(x.date))})}</div>
+    </div>
+    ${hrv.length>1?`<div class="card" style="margin-bottom:16px"><h3>HRV <span class="h3sub">higher means more recovered</span></h3>${lineChart(rc.filter(x=>x.hrv).map(x=>({d:x.date,v:x.hrv})),{color:'var(--teal)'})}</div>`:''}
+    <div class="card"><h3>Last nights</h3><div class="bd-rows">${sl.slice().reverse().slice(0,10).map(x=>`<div class="r"><span class="d">${dayLbl(x.date)} ${dateLbl(x.date)}</span><span>${fmt12(x.bed)} to ${fmt12(x.woke)}</span><span class="m">${x.hours}h · deep ${x.deep}h · REM ${x.rem}h</span></div>`).join('')}</div></div>`;
+}
+function bodyTraining(d){
+  const ws=d.workouts||[];
+  const weeks=[];for(let i=7;i>=0;i--){const end=Date.now()-i*7*864e5,start=end-7*864e5;const s=new Date(start).toISOString().slice(0,10),e=new Date(end).toISOString().slice(0,10);weeks.push({n:ws.filter(w=>w.date>s&&w.date<=e).length,l:dateLbl(new Date(start+864e5).toISOString().slice(0,10))});}
+  return `<div class="bd-stats">
+      ${stat('This week',sessionsSince(d,7)+'<small>sessions</small>','Aim for 3 to 4')}
+      ${stat('Last 4 weeks',sessionsSince(d,28)+'<small>sessions</small>',r1(sessionsSince(d,28)/4)+' a week')}
+      ${stat('Avg session',(ws.length?Math.round(avg(ws.slice(0,8).map(w=>Math.min(w.minutes,150)))):0)+'<small>min</small>','Last 8 workouts')}
+      ${stat('Last workout',ws[0]?esc(ws[0].title):'·',ws[0]?dateLbl(ws[0].date)+', '+Math.round((Date.now()-new Date(ws[0].date+'T12:00'))/864e5)+' days ago':'')}
+    </div>
+    <div class="card" style="margin-bottom:16px"><h3>Sessions per week <span class="h3sub">last 8 weeks, line is 3</span></h3>${bars(weeks.map(w=>w.n),{max:5,line:3,color:v=>v>=3?'var(--good)':v>=1?'var(--warn)':'rgba(255,255,255,.12)',labels:weeks.map(w=>w.l)})}</div>
+    <div class="card" style="margin-bottom:16px"><h3>Lifts <span class="h3sub">estimated max over time, and what to beat next</span></h3>
+      ${(d.lifts||[]).length?`<div class="bd-lifts">${d.lifts.map(l=>`<div class="bd-lift"><div>
+          <div class="bd-lift-n">${esc(shortLift(l.exercise))}</div>
+          <div class="bd-lift-s">Last ${esc(l.last)} · est. max ${l.est_1rm_lb} lbs</div>
+          ${l.next?`<div class="bd-lift-x">Next: ${l.next.weight_lb} lbs × ${Array.isArray(l.next.reps)?l.next.reps.join(', '):l.next.reps}</div>`:''}
+        </div>${spark((l.history||[]).map(x=>x.e1rm_lb))}</div>`).join('')}</div>`:'<div class="bd-empty">Log a couple of workouts in Hevy and your lifts show up here.</div>'}</div>
+    <div class="card"><h3>Recent workouts</h3><div class="bd-rows">${ws.slice(0,6).map(w=>`<div class="r"><span class="d">${dateLbl(w.date)}</span><div><div>${esc(w.title)}</div><div class="x">${(w.exercises||[]).map(e=>esc(e.replace(/\s*\((Barbell|Dumbbell|Machine|Cable|Smith Machine)\)/g,''))).join('<br>')}</div></div><span class="m">${w.minutes} min</span></div>`).join('')||'<div class="bd-empty">No workouts yet.</div>'}</div></div>`;
+}
+function bodyFood(d){
+  const tc=(d.targets&&d.targets.calories)||2900,tp=(d.targets&&d.targets.protein)||160;
+  const fd=(d.food||[]).slice(-14),today=d.food_today;
+  const todayTot=today?today.items.reduce((a,x)=>({c:a.c+(x.calories||0),p:a.p+(x.protein||0)}),{c:0,p:0}):{c:0,p:0};
+  return `<div class="bd-stats">
+      ${stat('Today',nf(todayTot.c)+'<small>/ '+nf(tc)+'</small>',Math.max(0,tc-todayTot.c)?nf(tc-todayTot.c)+' to go':'Target hit')}
+      ${stat('Protein today',todayTot.p+'<small>/ '+tp+'g</small>',Math.max(0,tp-todayTot.p)?(tp-todayTot.p)+'g to go':'Target hit')}
+      ${stat('7 day avg',fd.length?nf(Math.round(avg(fd.slice(-7).map(x=>x.calories))))+'<small>cal</small>':'·',fd.length?Math.round(avg(fd.slice(-7).map(x=>x.protein)))+'g protein':'')}
+      ${stat('Days on target',fd.filter(x=>x.calories>=tc*.9).length+'<small>/ '+fd.length+'</small>','Last 14 days')}
+    </div>
+    <div class="grid g2" style="margin-bottom:16px">
+      <div class="card"><h3>Calories <span class="h3sub">line is your target</span></h3>${fd.length?bars(fd.map(x=>x.calories),{max:tc*1.15,line:tc,color:v=>v>=tc*.9?'var(--good)':'var(--accent)',labels:fd.map(x=>dayLbl(x.date))}):'<div class="bd-empty">Nothing logged yet.</div>'}</div>
+      <div class="card"><h3>Protein <span class="h3sub">grams, line is ${tp}</span></h3>${fd.length?bars(fd.map(x=>x.protein),{max:tp*1.15,line:tp,color:v=>v>=tp*.9?'var(--good)':'var(--teal)',labels:fd.map(x=>dayLbl(x.date))}):'<div class="bd-empty">Nothing logged yet.</div>'}</div>
+    </div>
+    <div class="grid g2">
+      <div class="card"><h3>Eaten today</h3><div class="bd-rows">${today&&today.items.length?today.items.slice().reverse().map(x=>`<div class="r"><span class="d">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</span><span>${esc(x.name)}</span><span class="m">${nf(x.calories)} cal · ${x.protein}g</span></div>`).join(''):'<div class="bd-empty">Nothing yet today. Send Grok a photo or just text it what you ate.</div>'}</div></div>
+      <div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-rows">${(d.saved_meals||[]).length?d.saved_meals.map(m=>`<div class="r"><span class="d"></span><span>${esc(m.name)}</span><span class="m">${nf(m.calories)} cal · ${m.protein}g</span></div>`).join(''):'<div class="bd-empty">None yet. After a meal you eat a lot, tell Grok "save this as" and a name.</div>'}</div></div>
+    </div>`;
+}
+function bodyWeight(d){
+  const w=d.weights||[],goal=d.goal_lb||170,now=w.length?w[w.length-1].lb:null;
+  const rate=(d.targets&&d.targets.weekly_gain_lb)||0.4;
+  let wk=null;if(w.length>=2){const a=w[0],b=w[w.length-1];const days=(new Date(b.date)-new Date(a.date))/864e5;if(days>=5)wk=r1((b.lb-a.lb)/days*7);}
+  const pace=wk&&wk>0?wk:rate;
+  const eta=now!=null&&goal>now?new Date(Date.now()+((goal-now)/pace)*7*864e5).toLocaleDateString('en-US',{month:'short',year:'numeric'}):null;
+  return `<div class="bd-stats">
+      ${stat('Now',now!=null?now+'<small>lbs</small>':'·',w.length?'Last weigh-in '+dateLbl(w[w.length-1].date):'No weigh-ins yet')}
+      ${stat('Goal',goal+'<small>lbs</small>',now!=null?r1(goal-now)+' lbs to go':'')}
+      ${stat('Weekly change',wk!=null?(wk>0?'+':'')+wk+'<small>lbs</small>':'·','Target +'+rate+' a week')}
+      ${stat('On pace for',eta||'·',eta?(wk?'At your current rate':'At +'+rate+' lbs a week'):'')}
+    </div>
+    <div class="card" style="margin-bottom:16px"><h3>Bodyweight <span class="h3sub">line is your goal</span></h3>${w.length>1?lineChart(w.map(x=>({d:x.date,v:x.lb})),{goal}):`<div class="bd-empty">${w.length?'One weigh-in so far. ':''}Weigh yourself each morning and send Grok the number. After a few days your trend shows up here.</div>`}</div>
+    <div class="card"><h3>Weigh-ins</h3><div class="bd-rows">${w.slice().reverse().slice(0,14).map(x=>`<div class="r"><span class="d">${dayLbl(x.date)} ${dateLbl(x.date)}</span><span>${x.lb} lbs</span><span class="m">${x.from==='whoop'?'from Whoop':''}</span></div>`).join('')||'<div class="bd-empty">None yet.</div>'}</div></div>`;
+}
 function renderBody(){
-  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Body</h2><p class="sec-sub">Sleep, training and size, over time.</p></div></div><div id="bd">${'<div class="bd-empty">Loading…</div>'}</div></div>`;
+  const tabs=[['overview','Overview'],['sleep','Sleep'],['training','Training'],['food','Food'],['weight','Weight']];
+  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Body</h2><p class="sec-sub">Sleep, training, food and size, over time.</p></div></div>
+    <div class="bd-tabs">${tabs.map(([k,l])=>`<button class="bd-tab ${bodyTab===k?'on':''}" data-bt="${k}">${l}</button>`).join('')}</div>
+    <div id="bd"><div class="bd-empty">Loading…</div></div></div>`;
+  main.querySelectorAll('[data-bt]').forEach(b=>b.onclick=()=>{bodyTab=b.dataset.bt;try{localStorage.setItem('os:bodyTab',bodyTab);}catch(_){}renderBody();});
   const paint=(d)=>{
     const el=document.getElementById('bd');if(!el||currentView!=='body')return;
     if(!d||d.error){el.innerHTML='<div class="bd-empty">Could not load right now.</div>';return;}
-    if(d.needsUnlock){el.innerHTML=`<div class="today-connect" style="margin:0"><span>Confirm your PIN once on this device to see your data.</span><button class="btn btn-sm" id="bd-connect">Connect</button></div>`;el.querySelector('#bd-connect').onclick=async()=>{await ensureMediaSecret();renderBody();};return;}
-    const sl=(d.sleep||[]).slice(-14),rc=(d.recovery||[]).slice(-14),fd=(d.food||[]).slice(-14);
-    const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null,goal=d.goal_lb||170;
-    const sl7=sl.slice(-7),avgH=avg(sl7.map(x=>x.hours));
-    const rc7=rc.slice(-7),avgR=avg(rc7.map(x=>x.score));
-    const since=new Date(Date.now()-14*864e5).toISOString().slice(0,10);
-    const gym14=(d.workouts||[]).filter(x=>x.date>=since).length;
-    const day=s=>s?['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(s+'T12:00').getDay()]:'';
-    el.innerHTML=`
-      <div class="bd-stats">
-        <div class="card"><div class="bd-cap">Bodyweight</div><div class="bd-big">${wNow!=null?wNow+'<small>lbs</small>':'·'}</div>
-          <div class="bd-sub">${wNow!=null?(goal-wNow>0?Math.round((goal-wNow)*10)/10+' lbs to '+goal:'Goal hit'):'Send Grok your weight'}</div>
-          ${w.length>1?`<div style="margin-top:10px">${spark(w.map(x=>x.lb),{w:150})}</div>`:''}</div>
-        <div class="card"><div class="bd-cap">Sleep, 7 day avg</div><div class="bd-big">${avgH!=null?(Math.round(avgH*10)/10)+'<small>h</small>':'·'}</div>
-          <div class="bd-sub">${avgBedtime(sl7.map(x=>x.bed))?'In bed around '+fmt12(avgBedtime(sl7.map(x=>x.bed))):''}</div></div>
-        <div class="card ${recClass(avgR)}"><div class="bd-cap">Recovery, 7 day avg</div><div class="bd-big" style="color:var(--td,inherit)">${avgR!=null?Math.round(avgR)+'<small>%</small>':'·'}</div>
-          <div class="bd-sub">${avgR!=null?recWord(avgR).replace(' today',''):''}</div></div>
-        <div class="card"><div class="bd-cap">Gym, last 14 days</div><div class="bd-big">${gym14}<small>${gym14===1?'session':'sessions'}</small></div>
-          <div class="bd-sub">${(d.workouts||[])[0]?'Last: '+esc(d.workouts[0].title)+' on '+new Date(d.workouts[0].date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}):''}</div></div>
-      </div>
-      <div class="grid g2" style="margin-bottom:16px">
-        <div class="card"><h3>Sleep <span class="h3sub">hours a night, dashed line is 8</span></h3>
-          ${sl.length?bars(sl.map(x=>x.hours),{max:9,line:8,color:v=>v>=7?'var(--good)':v>=6?'var(--warn)':'#f87171',labels:sl.map(x=>day(x.date))}):'<div class="bd-empty">No sleep data yet.</div>'}</div>
-        <div class="card"><h3>Recovery <span class="h3sub">Whoop, last 14 days</span></h3>
-          ${rc.length?bars(rc.map(x=>x.score),{max:100,line:67,color:v=>v>=67?'var(--good)':v>=34?'var(--warn)':'#f87171',labels:rc.map(x=>day(x.date))}):'<div class="bd-empty">No recovery data yet.</div>'}</div>
-      </div>
-      <div class="card" style="margin-bottom:16px"><h3>Food <span class="h3sub">calories a day, dashed line is your target</span></h3>
-        ${fd.length?bars(fd.map(x=>x.calories),{max:(d.targets&&d.targets.calories)||2900,line:(d.targets&&d.targets.calories)||2900,color:'var(--accent)',labels:fd.map(x=>day(x.date))}):'<div class="bd-empty">Nothing logged yet. Send Grok a photo of your next meal.</div>'}</div>
-      <div class="card"><h3>Lifts <span class="h3sub">estimated max over time, and what to beat next</span></h3>
-        ${(d.lifts||[]).length?`<div class="bd-lifts">${d.lifts.map(l=>`<div class="bd-lift"><div>
-            <div class="bd-lift-n">${esc(shortLift(l.exercise))}</div>
-            <div class="bd-lift-s">Last ${esc(l.last)} · est. max ${l.est_1rm_lb} lbs</div>
-            ${l.next?`<div class="bd-lift-x">Next: ${l.next.weight_lb} lbs × ${Array.isArray(l.next.reps)?l.next.reps.join(', '):l.next.reps}</div>`:''}
-          </div>${spark((l.history||[]).map(x=>x.e1rm_lb))}</div>`).join('')}</div>`:'<div class="bd-empty">No lifts yet.</div>'}</div>`;
+    if(d.needsUnlock){el.innerHTML=`<div class="tday-connect"><span>Confirm your PIN once on this device to see your data.</span><button class="btn btn-sm" id="bd-connect">Connect</button></div>`;el.querySelector('#bd-connect').onclick=async()=>{await ensureMediaSecret();renderBody();};return;}
+    el.innerHTML=({overview:bodyOverview,sleep:bodySleep,training:bodyTraining,food:bodyFood,weight:bodyWeight}[bodyTab]||bodyOverview)(d);
   };
-  const c=_life.body&&_life.body.data;
-  if(c)paint(c);
+  if(_life.body)paint(_life.body.data);
   lifeData('body').then(paint);
 }
 
