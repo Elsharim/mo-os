@@ -4774,7 +4774,14 @@ function goalCard(cap,val,target,unit,sub,color){
   const pct=target?Math.min(100,Math.round((val||0)/target*100)):0;
   return `<div class="card bd-goal" style="--gc:${color||'var(--accent)'}"><div class="bd-cap">${cap}</div><div class="bd-big">${val==null?'·':nf(Math.round(val))}<small>/ ${nf(target)}${unit?' '+unit:''}</small></div><div class="pct">${pct}%</div><div class="bar"><b style="width:${pct}%"></b></div>${sub?`<div class="bd-sub" style="grid-column:1/-1">${sub}</div>`:''}</div>`;
 }
-function targetsOf(d){return Object.assign({calories:3000,protein:150,workouts_per_week:5,goal_weight_lb:170,weekly_gain_lb:0.4},d.targets||{});}
+function targetsOf(d){return Object.assign({calories:3000,protein:150,workouts_per_week:5,goal_weight_lb:170,weekly_gain_lb:0.4,tracking_since:'2026-10-09'},d.targets||{});}
+/* gym, food and weight only count from the day Mo started tracking properly */
+let _trackFrom='2026-10-09';
+const trackFrom=()=>_trackFrom>since(rangeDays())?_trackFrom:since(rangeDays());
+const tracked=k=>k>=trackFrom();
+const trackedDays=()=>Math.max(1,Math.round((new Date(todayKey()+'T12:00')-new Date(trackFrom()+'T12:00'))/864e5)+1);
+const trackedWeeks=()=>Math.max(1,trackedDays()/7);
+const sinceNote=()=>_trackFrom>since(rangeDays())?'since '+dateLbl(_trackFrom):RANGES[bodyRange].label;
 function rangeDays(){return RANGES[bodyRange].days;}
 function bodyData(){return lifeData('body&days='+rangeDays());}
 
@@ -4849,11 +4856,11 @@ function workoutPts(d){
   if(RANGES[bodyRange].by==='day'){
     // per week within the range, so a daily range still reads as sessions per week
     const out=[];const t=todayKey();const weeks=bodyRange==='week'?1:5;
-    for(let i=weeks-1;i>=0;i--){const to=addD(t,-i*7),from=addD(to,-6);const n=ws.filter(w=>w.date>=from&&w.date<=to).length;out.push({label:dateLbl(from),v:n,tip:`<b>${n} session${n===1?'':'s'}</b><small>Week of ${dateLbl(from)}</small>`});}
+    for(let i=weeks-1;i>=0;i--){const to=addD(t,-i*7),from=addD(to,-6);if(to<_trackFrom){out.push({label:dateLbl(from),v:null});continue;}const n=ws.filter(w=>w.date>=from&&w.date<=to).length;out.push({label:dateLbl(from),v:n,tip:`<b>${n} session${n===1?'':'s'}</b><small>Week of ${dateLbl(from)}</small>`});}
     return out;
   }
   const B=buckets();
-  return bucketCount(ws,'date').map(({b,v})=>{const weeks=RANGES[bodyRange].by==='month'?4.33:1;return {label:b.label,v:RANGES[bodyRange].by==='month'?r1(v/weeks):v,tip:`<b>${v} session${v===1?'':'s'}</b><small>${b.tip}${RANGES[bodyRange].by==='month'?' · '+r1(v/weeks)+' a week':''}</small>`};});
+  return bucketCount(ws,'date').map(({b,v})=>{if(b.to<_trackFrom)return {label:b.label,v:null};const weeks=RANGES[bodyRange].by==='month'?4.33:1;return {label:b.label,v:RANGES[bodyRange].by==='month'?r1(v/weeks):v,tip:`<b>${v} session${v===1?'':'s'}</b><small>${b.tip}${RANGES[bodyRange].by==='month'?' · '+r1(v/weeks)+' a week':''}</small>`};});
 }
 function weightPts(d){const w=(d.weights||[]).filter(x=>inRange(x.date));
   if(RANGES[bodyRange].by==='day')return w.map(x=>({label:dateLbl(x.date),v:x.lb,tip:`<b>${x.lb} lbs</b><small>${dayLbl(x.date)} ${dateLbl(x.date)}</small>`}));
@@ -4862,13 +4869,14 @@ function weightPts(d){const w=(d.weights||[]).filter(x=>inRange(x.date));
 /* OVERVIEW */
 function bodyOverview(d){
   const T=targetsOf(d),R=RANGES[bodyRange];
-  const sl=(d.sleep||[]).filter(x=>inRange(x.date)),fd=(d.food||[]).filter(x=>inRange(x.date)),ws=(d.workouts||[]);
+  _trackFrom=T.tracking_since||_trackFrom;
+  const sl=(d.sleep||[]).filter(x=>inRange(x.date)),fd=(d.food||[]).filter(x=>tracked(x.date)),ws=(d.workouts||[]);
   const wkStart=weekStart(),thisWeek=ws.filter(w=>w.date>=wkStart).length;
-  const gymAvg=r1(ws.filter(w=>inRange(w.date)).length/(rangeDays()/7));
+  const gymAvg=r1(ws.filter(w=>tracked(w.date)).length/trackedWeeks());
   const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null;
   return `<div class="bd-stats">
-      ${goalCard('Gym this week',thisWeek,T.workouts_per_week,'',bodyRange==='week'?'':`Averaging ${gymAvg} a week ${R.label}`,'var(--good)')}
-      ${goalCard('Calories, avg per day',fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${R.label}`:'Nothing logged yet','var(--accent)')}
+      ${goalCard('Gym this week',thisWeek,T.workouts_per_week,'',bodyRange==='week'||trackedDays()<7?'':`Averaging ${gymAvg} a week ${sinceNote()}`,'var(--good)')}
+      ${goalCard('Calories, avg per day',fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${sinceNote()}`:'Nothing logged yet','var(--accent)')}
       ${goalCard('Protein, avg per day',fd.length?avg(fd.map(x=>x.protein)):null,T.protein,'g','','var(--teal)')}
       ${goalCard('Sleep, avg per night',sl.length?r1(avg(sl.map(x=>x.hours))):null,8,'h',sl.length?'In bed around '+fmt12(avgClock(sl.slice(-7).map(x=>x.bed),12*60)):'','var(--gold)')}
     </div>
@@ -4907,25 +4915,25 @@ function bodySleep(d){
 }
 /* TRAINING */
 function bodyTraining(d){
-  const T=targetsOf(d),ws=d.workouts||[],wkStart=weekStart();
-  const thisWeek=ws.filter(w=>w.date>=wkStart).length,inR=ws.filter(w=>inRange(w.date));
+  const T=targetsOf(d),ws=d.workouts||[],wkStart=weekStart();_trackFrom=T.tracking_since||_trackFrom;
+  const thisWeek=ws.filter(w=>w.date>=wkStart).length,inR=ws.filter(w=>tracked(w.date));
   const lifts=d.lifts||[];
   if(!liftSel||!lifts.some(l=>l.exercise===liftSel))liftSel=lifts[0]?lifts[0].exercise:null;
   const L=lifts.find(l=>l.exercise===liftSel);
   const hist=L?(L.history||[]).filter(h=>inRange(h.date)):[];
   const liftPts=(hist.length>=2?hist:(L?L.history:[])).map(h=>({label:dateLbl(h.date),v:h.e1rm_lb,tip:`<b>${h.top_lb?h.top_lb+' lbs × '+h.top_reps:''}</b><small>${dateLbl(h.date)} · est. max ${h.e1rm_lb}</small>`}));
-  const days=Math.min(rangeDays(),91);
+  const days=Math.min(trackedDays(),91);
   const cells=[];for(let i=days-1;i>=0;i--){const k=addD(todayKey(),-i);cells.push(`<i class="${ws.some(w=>w.date===k)?'on':''} ${i===0?'today':''}" title="${dateLbl(k)}"></i>`);}
-  const weeksHit=(()=>{let n=0,tot=0;for(let i=0;i<Math.floor(rangeDays()/7);i++){const to=addD(wkStart,-i*7+6),from=addD(to,-6);if(from>todayKey())continue;tot++;if(ws.filter(w=>w.date>=from&&w.date<=to).length>=T.workouts_per_week)n++;}return n+' of '+tot;})();
+  const weeksHit=(()=>{let n=0,tot=0;for(let i=0;i<Math.ceil(trackedDays()/7);i++){const to=addD(wkStart,-i*7+6),from=addD(to,-6);if(from>todayKey()||to<trackFrom())continue;tot++;if(ws.filter(w=>w.date>=from&&w.date<=to).length>=T.workouts_per_week)n++;}return n+' of '+tot;})();
   return `<div class="bd-stats">
       ${goalCard('This week',thisWeek,T.workouts_per_week,'',thisWeek>=T.workouts_per_week?'Done for the week':(T.workouts_per_week-thisWeek)+' more to hit it','var(--good)')}
-      ${stat('Per week, '+RANGES[bodyRange].label,r1(inR.length/(rangeDays()/7))+'<small>avg</small>',inR.length+' sessions total')}
-      ${stat('Weeks hitting '+T.workouts_per_week,weeksHit.split(' of ')[0]+'<small>of '+weeksHit.split(' of ')[1]+'</small>',RANGES[bodyRange].label)}
+      ${stat('Per week, '+sinceNote(),trackedDays()<7?'·':r1(inR.length/trackedWeeks())+'<small>avg</small>',inR.length+' session'+(inR.length===1?'':'s')+(trackedDays()<7?' so far, avg shows after a week':' total'))}
+      ${stat('Weeks hitting '+T.workouts_per_week,weeksHit.split(' of ')[0]+'<small>of '+weeksHit.split(' of ')[1]+'</small>',sinceNote())}
       ${stat('Last workout',ws[0]?esc(ws[0].title):'·',ws[0]?dateLbl(ws[0].date)+', '+Math.round((Date.now()-new Date(ws[0].date+'T12:00'))/864e5)+' days ago · '+ws[0].minutes+' min':'')}
     </div>
     <div class="grid g2" style="margin-bottom:16px">
       <div class="card"><h3>Sessions per week <span class="h3sub">target ${T.workouts_per_week}</span></h3>${chart({pts:workoutPts(d),target:T.workouts_per_week,max:T.workouts_per_week+1,color:v=>v>=T.workouts_per_week?'var(--good)':v>0?'var(--warn)':'rgba(255,255,255,.12)',fmt:v=>Math.round(v)})}</div>
-      <div class="card"><h3>Days trained <span class="h3sub">last ${days} days</span></h3><div class="cgrid">${cells.join('')}</div><div class="cgrid-cap"><span>${dateLbl(addD(todayKey(),-days+1))}</span><span>${inR.length} sessions</span><span>today</span></div></div>
+      <div class="card"><h3>Days trained <span class="h3sub">${sinceNote()}</span></h3><div class="cgrid">${cells.join('')}</div><div class="cgrid-cap"><span>${dateLbl(addD(todayKey(),-days+1))}</span><span>${inR.length} sessions</span><span>today</span></div></div>
     </div>
     <div class="card" style="margin-bottom:16px"><h3>Lifts <span class="h3sub">pick one, estimated max over time</span></h3>
       ${lifts.length?`<div class="lift-pick">${lifts.map(l=>`<button data-lift="${esc(l.exercise)}" class="${l.exercise===liftSel?'on':''}">${esc(shortLift(l.exercise))}</button>`).join('')}</div>
@@ -4935,11 +4943,11 @@ function bodyTraining(d){
         ${stat('Next time',L.next?L.next.weight_lb+'<small>lbs × '+(Array.isArray(L.next.reps)?L.next.reps.join(', '):L.next.reps)+'</small>':'·',L.next?L.next.why:'')}
       </div>${liftPts.length>1?chart({kind:'line',pts:liftPts,pad:5,fmt:v=>Math.round(v)}):'<div class="bd-empty">Log this lift a couple more times to see the trend.</div>'}
       <div class="bd-rows" style="margin-top:14px">${(L.history||[]).slice().reverse().slice(0,8).map(h=>`<div class="r"><span class="d">${dateLbl(h.date)}</span><span>${esc(h.sets)}</span><span class="m">est. ${h.e1rm_lb}</span></div>`).join('')}</div>`:''}`:'<div class="bd-empty">Log a couple of workouts in Hevy and your lifts show up here.</div>'}</div>
-    <div class="card"><h3>Workouts <span class="h3sub">${RANGES[bodyRange].label}</span></h3><div class="bd-rows">${inR.slice(0,12).map(w=>`<div class="r"><span class="d">${dayLbl(w.date)} ${dateLbl(w.date)}</span><div><div>${esc(w.title)}</div><div class="x">${(w.exercises||[]).map(e=>esc(shortLift(e))).join('<br>')}</div></div><span class="m">${w.minutes} min</span></div>`).join('')||'<div class="bd-empty">No workouts in this range.</div>'}</div></div>`;
+    <div class="card"><h3>Workouts <span class="h3sub">${sinceNote()}</span></h3><div class="bd-rows">${ws.filter(w=>inRange(w.date)).slice(0,12).map(w=>`<div class="r"><span class="d">${dayLbl(w.date)} ${dateLbl(w.date)}</span><div><div>${esc(w.title)}</div><div class="x">${(w.exercises||[]).map(e=>esc(shortLift(e))).join('<br>')}</div></div><span class="m">${w.minutes} min</span></div>`).join('')||'<div class="bd-empty">No workouts in this range.</div>'}</div></div>`;
 }
 /* FOOD */
 function bodyFood(d){
-  const T=targetsOf(d),fd=(d.food||[]).filter(x=>inRange(x.date)),today=d.food_today;
+  const T=targetsOf(d);_trackFrom=T.tracking_since||_trackFrom;const fd=(d.food||[]).filter(x=>tracked(x.date)),today=d.food_today;
   const items=today&&today.date===todayKey()?today.items:[];
   const tot=items.reduce((a,x)=>({c:a.c+(x.calories||0),p:a.p+(x.protein||0),cb:a.cb+(x.carbs||0),f:a.f+(x.fat||0)}),{c:0,p:0,cb:0,f:0});
   let streak=0;{let k=todayKey();if(!(d.food||[]).some(x=>x.date===k&&x.calories))k=addD(k,-1);while((d.food||[]).some(x=>x.date===k&&x.calories)){streak++;k=addD(k,-1);}}
@@ -4948,7 +4956,7 @@ function bodyFood(d){
   return `<div class="bd-stats">
       ${goalCard('Today',tot.c,T.calories,'',tot.c?(Math.max(0,T.calories-tot.c)?nf(T.calories-tot.c)+' to go':'Target hit'):'Nothing logged yet','var(--accent)')}
       ${goalCard('Protein today',tot.p,T.protein,'g',tot.p?(Math.max(0,T.protein-tot.p)?(T.protein-tot.p)+'g to go':'Target hit'):'','var(--teal)')}
-      ${stat('Avg per day, '+RANGES[bodyRange].label,fd.length?nf(Math.round(avg(fd.map(x=>x.calories))))+'<small>cal</small>':'·',fd.length?Math.round(avg(fd.map(x=>x.protein)))+'g protein · '+fd.length+' days logged':'No days logged')}
+      ${stat('Avg per day, '+sinceNote(),fd.length?nf(Math.round(avg(fd.map(x=>x.calories))))+'<small>cal</small>':'·',fd.length?Math.round(avg(fd.map(x=>x.protein)))+'g protein · '+fd.length+' days logged':'No days logged')}
       ${stat('Days on target',fd.length?onT+'<small>of '+fd.length+'</small>':'·',(fd.length?'Protein hit '+onP+' of '+fd.length+' · ':'')+'logging streak '+streak+' day'+(streak===1?'':'s'))}
     </div>
     <div class="grid g2" style="margin-bottom:16px">

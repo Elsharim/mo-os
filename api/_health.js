@@ -156,12 +156,13 @@ export async function savedMeals() {
   return Object.values(s.meals || {});
 }
 
-export const DEFAULT_TARGETS = { calories: 3000, protein: 150, workouts_per_week: 5, goal_weight_lb: 170, weekly_gain_lb: 0.4 };
+export const DEFAULT_TARGETS = { calories: 3000, protein: 150, workouts_per_week: 5, goal_weight_lb: 170, weekly_gain_lb: 0.4, tracking_since: '2026-10-09' };
 
 export async function setTargets(t) {
   const s = await load();
   s.targets = { ...DEFAULT_TARGETS, ...(s.targets || {}) };
   for (const k of ['calories', 'protein', 'workouts_per_week', 'goal_weight_lb', 'weekly_gain_lb']) if (num(t[k]) != null) s.targets[k] = num(t[k]);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t.tracking_since || '')) s.targets.tracking_since = t.tracking_since;
   s.targets.changed = new Date().toISOString().slice(0, 10);
   await save(s);
   return s.targets;

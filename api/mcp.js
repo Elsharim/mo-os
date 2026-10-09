@@ -74,7 +74,7 @@ const TOOLS = [{
 }, {
   name: 'set_food_targets',
   description: 'Change his daily calorie and protein targets (and goal weight or weekly gain rate). Only when he asks, or in the Sunday review after he agrees to an adjustment.',
-  inputSchema: { type: 'object', properties: { calories: { type: 'number' }, protein: { type: 'number' }, goal_weight_lb: { type: 'number' }, weekly_gain_lb: { type: 'number' } } }
+  inputSchema: { type: 'object', properties: { calories: { type: 'number' }, protein: { type: 'number' }, workouts_per_week: { type: 'number' }, goal_weight_lb: { type: 'number' }, weekly_gain_lb: { type: 'number' }, tracking_since: { type: 'string', description: 'YYYY-MM-DD, the day he started tracking properly; averages for gym, food and weight only count from here' } } }
 }, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
