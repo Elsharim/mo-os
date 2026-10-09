@@ -2500,6 +2500,20 @@
   .mn-cat:first-child{border-top:none}
   .mn-cat span:last-child{color:var(--muted);font-family:var(--mono);font-size:12px}
   .mn-empty{padding:28px 24px;text-align:center;color:var(--muted);font-size:14px;line-height:1.6}
+
+  .mn-hero{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;margin-bottom:16px;padding:26px 28px}
+  .mn-big{font-family:var(--display);font-size:44px;font-weight:600;letter-spacing:-.04em;line-height:1.05;margin-top:6px}
+  .mn-delta{font-size:13px;margin-top:8px;color:var(--muted)}.mn-delta.up{color:var(--good)}.mn-delta.down{color:#f87171}
+  .mn-hero-side{display:flex;gap:26px}
+  .mn-hero-side div{display:flex;flex-direction:column;gap:3px}
+  .mn-hero-side span{font-size:12px;color:var(--faint)}
+  .mn-hero-side b{font-family:var(--display);font-size:18px;font-weight:600;letter-spacing:-.02em}
+  .mn-ch-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .mn-inst{font-size:12px;color:var(--faint);margin:14px 0 2px}.mn-inst:first-child{margin-top:0}
+  .mn-io{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
+  .mn-io div{display:flex;flex-direction:column;gap:3px}.mn-io span{font-size:12px;color:var(--faint)}
+  .mn-io b{font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:-.02em}
+  @media (max-width:700px){.mn-hero{flex-direction:column;align-items:flex-start}.mn-big{font-size:38px}.bd-stats[style*="repeat(3"]{grid-template-columns:1fr!important}}
 </style>
 </head>
 <body>
@@ -4956,7 +4970,9 @@ function chart(o){
   if(isLine){
     const have=pts.map((p,i)=>p.v==null?null:[x(i),y(p.v)]).filter(Boolean);
     body=`<polyline points="${have.map(p=>p.join(',')).join(' ')}" fill="none" stroke="${o.color||'var(--accent)'}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`+
-      pts.map((p,i)=>p.v==null?'':`<circle class="p" data-tip="${esc(p.tip||'')}" cx="${x(i)}" cy="${y(p.v)}" r="${p.today?4.2:3.2}" fill="${o.color||'var(--accent)'}"/>${showVals||n<=8?`<text class="val" x="${x(i)}" y="${y(p.v)-8}" text-anchor="middle">${vf(p.v)}</text>`:''}`).join('');
+      pts.map((p,i)=>p.v==null?'':(o.dots===false
+        ?`<circle class="p" data-tip="${esc(p.tip||'')}" cx="${x(i)}" cy="${y(p.v)}" r="7" fill="transparent"/>${i===n-1?`<circle cx="${x(i)}" cy="${y(p.v)}" r="3.5" fill="${o.color||'var(--accent)'}"/><text class="val" x="${x(i)}" y="${y(p.v)-9}" text-anchor="end">${vf(p.v)}</text>`:''}`
+        :`<circle class="p" data-tip="${esc(p.tip||'')}" cx="${x(i)}" cy="${y(p.v)}" r="${p.today?4.2:3.2}" fill="${o.color||'var(--accent)'}"/>${showVals||n<=8?`<text class="val" x="${x(i)}" y="${y(p.v)-8}" text-anchor="middle">${vf(p.v)}</text>`:''}`)).join('');
   }else{
     body=pts.map((p,i)=>{
       if(p.v==null)return p.future?`<rect x="${x(i)-bw*.3}" y="${T}" width="${bw*.6}" height="${h-T}" rx="4" fill="rgba(255,255,255,.025)"/>`:'';
@@ -5280,41 +5296,54 @@ function wireTimeline(){
 
 /* MONEY page: balances Grok logs from Plaid, net worth over time, month, runway */
 const cad=n=>n==null?'·':(n<0?'-':'')+'$'+nf(Math.round(Math.abs(n)));
-const TYPE_LBL={cash:'Cash',savings:'Savings',investment:'Investments',crypto:'Crypto',credit:'Credit cards',loan:'Loans',other:'Other'};
-const TYPE_COL={cash:'var(--teal)',savings:'var(--good)',investment:'var(--accent)',crypto:'var(--gold)',other:'rgba(255,255,255,.3)'};
+const TYPE_LBL={cash:'Cash',savings:'Savings',investment:'Investments',crypto:'Crypto',tax:'Tax reserve',credit:'Credit cards',loan:'Loans',other:'Other'};
+const TYPE_COL={cash:'var(--teal)',savings:'var(--good)',investment:'var(--accent)',crypto:'var(--gold)',tax:'var(--warn)',other:'rgba(255,255,255,.3)'};
+let mnRange=90;
 function moneyHTML(d){
   if(!d||d.error)return '<div class="bd-empty">Could not load right now.</div>';
   if(!d.as_of)return `<div class="card"><div class="mn-empty">Nothing here yet. Tell Grok <b>"log my balances"</b> and this fills in: net worth, every account, runway, this month.</div></div>`;
-  const m=d.this_month||{},set=d.settings||{};
-  const assets=Object.entries(d.by_type_cad||{}).filter(([t,v])=>!['credit','loan'].includes(t)&&v>0);
-  const tot=assets.reduce((a,[,v])=>a+v,0)||1;
-  const nwPts=(d.history||[]).map(x=>({label:dateLbl(x.date),v:x.net_worth_cad,tip:`<b>${cad(x.net_worth_cad)}</b><small>${dayLbl(x.date)} ${dateLbl(x.date)}</small>`}));
-  const accs=(d.accounts||[]).slice().sort((a,b)=>b.cad-a.cad);
-  return `<div class="bd-stats">
-      ${stat('Net worth',cad(d.net_worth_cad)+'<small>CAD</small>',d.change_30d_cad!=null?(d.change_30d_cad>=0?'+':'')+cad(d.change_30d_cad)+' in 30 days':'As of '+dateLbl(d.as_of))}
-      ${stat('Runway',d.runway_months!=null?d.runway_months+'<small>months</small>':'·','At '+cad(set.monthly_burn_cad)+' a month · goal '+(set.runway_goal_months||12))}
-      ${stat('This month',m.income_cad!=null?cad(m.income_cad)+'<small>in</small>':'·',m.spent_cad!=null?cad(m.spent_cad)+' out'+(m.saved_pct!=null?' · saved '+m.saved_pct+'%':''):'Spending not logged yet')}
-      ${stat('Set aside for tax',d.tax_set_aside_cad!=null?cad(d.tax_set_aside_cad):'·',Math.round((set.tax_rate||0)*100)+'% of this month\'s income')}
+  const m=d.this_month||{},set=d.settings||{},bt=d.by_type_cad||{};
+  const invested=(bt.investment||0)+(bt.crypto||0),owed=(bt.credit||0)+(bt.loan||0);
+  const hist=(d.history||[]).filter(x=>x.date>=addD(todayKey(),-mnRange));
+  const nwPts=hist.map(x=>({label:dateLbl(x.date),v:x.net_worth_cad,tip:`<b>${cad(x.net_worth_cad)}</b><small>${dayLbl(x.date)} ${dateLbl(x.date)}</small>`}));
+  const byInst={};(d.accounts||[]).filter(a=>Math.abs(a.balance)>=1).forEach(a=>{const k=a.institution||'Other';(byInst[k]=byInst[k]||[]).push(a);});
+  const instOrder=Object.keys(byInst).sort((a,b)=>byInst[b].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?0:x.cad),0)-byInst[a].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?0:x.cad),0));
+  const kept=m.income_cad!=null&&m.spent_cad!=null?m.income_cad-m.spent_cad:null;
+  const outPct=m.income_cad?Math.min(100,Math.round((m.spent_cad||0)/m.income_cad*100)):0;
+  return `
+    <div class="card mn-hero">
+      <div><div class="bd-cap">Net worth, everything in CAD</div><div class="mn-big">${cad(d.net_worth_cad)}</div>
+        <div class="mn-delta ${d.change_30d_cad>=0?'up':'down'}">${d.change_30d_cad!=null?(d.change_30d_cad>=0?'▲ +':'▼ ')+cad(d.change_30d_cad)+' in the last 30 days':'First snapshot, '+dateLbl(d.as_of)}</div></div>
+      <div class="mn-hero-side">
+        <div><span>Cash</span><b>${cad(d.liquid_cad)}</b></div>
+        <div><span>Invested</span><b>${cad(invested)}</b></div>
+        ${bt.tax?`<div><span>Tax reserve</span><b>${cad(bt.tax)}</b></div>`:''}
+        ${owed?`<div><span>Owed</span><b style="color:#f87171">-${cad(owed)}</b></div>`:''}
+      </div>
     </div>
-    <div class="grid g2" style="margin-bottom:16px">
-      <div class="card"><h3>Net worth <span class="h3sub">CAD, ${(d.history||[]).length>1?'since '+dateLbl(d.history[0].date):'first snapshot'}</span></h3>${nwPts.length>1?chart({kind:'line',pts:nwPts,pad:Math.max(200,Math.round(Math.abs(d.net_worth_cad||1000)*.05)),fmt:v=>'$'+(Math.abs(v)>=1000?Math.round(v/1000)+'k':Math.round(v)),vfmt:v=>cad(v)}):'<div class="bd-empty">The line appears after a couple of daily snapshots.</div>'}</div>
-      <div class="card"><h3>Where it sits</h3>
-        <div class="mn-split">${assets.map(([t,v])=>`<b style="width:${v/tot*100}%;background:${TYPE_COL[t]||TYPE_COL.other}"></b>`).join('')}</div>
-        <div class="bd-rows">${assets.map(([t,v])=>`<div class="r"><span class="d" style="color:${TYPE_COL[t]||TYPE_COL.other}">●</span><span>${TYPE_LBL[t]||t}</span><span class="m">${cad(v)} · ${Math.round(v/tot*100)}%</span></div>`).join('')}
-        ${['credit','loan'].filter(t=>d.by_type_cad&&d.by_type_cad[t]).map(t=>`<div class="r"><span class="d" style="color:#f87171">●</span><span>${TYPE_LBL[t]}</span><span class="m" style="color:#f87171">-${cad(d.by_type_cad[t])}</span></div>`).join('')}</div></div>
+    <div class="bd-stats" style="grid-template-columns:repeat(3,1fr)">
+      ${stat('Runway',d.runway_months!=null?d.runway_months+'<small>months</small>':'<small>unknown</small>',d.burn_cad?'How long your cash lasts at '+cad(d.burn_cad)+' a month'+(d.burn_from==='avg'?', your average spend':''):'Tell Grok what a normal month costs you')}
+      ${stat('Kept this month',kept!=null?cad(kept)+'<small>'+(m.saved_pct!=null?m.saved_pct+'%':'')+'</small>':'·',kept!=null?cad(m.income_cad)+' in, '+cad(m.spent_cad)+' out':'Grok logs income and spending each morning')}
+      ${stat('Tax reserve',cad(d.tax_reserve_cad||0),d.tax_set_aside_cad?'This month adds '+cad(d.tax_set_aside_cad)+' ('+Math.round((set.tax_rate||0)*100)+'% of income)':Math.round((set.tax_rate||0)*100)+'% of each month\'s income goes here')}
     </div>
+    <div class="card" style="margin-bottom:16px"><div class="mn-ch-head"><h3 style="margin:0">Net worth over time</h3><div class="bd-range">${[[30,'1M'],[90,'3M'],[365,'1Y']].map(([n,l])=>`<button data-mnr="${n}" class="${mnRange===n?'on':''}">${l}</button>`).join('')}</div></div>
+      ${nwPts.length>1?chart({kind:'line',pts:nwPts,dots:false,pad:Math.max(300,Math.round(Math.abs(d.net_worth_cad||1000)*.06)),fmt:v=>'$'+(Math.abs(v)>=1000?Math.round(v/1000)+'k':Math.round(v)),vfmt:v=>cad(v)}):'<div class="bd-empty">The line appears after a couple of daily snapshots.</div>'}</div>
     <div class="grid g2">
-      <div class="card"><h3>Accounts <span class="h3sub">as of ${dateLbl(d.as_of)}</span></h3>${accs.map(a=>`<div class="mn-acc ${['credit','loan'].includes(a.type)?'neg':''}"><div><div class="n">${esc(a.name)}</div><div class="i">${esc(a.institution||'')}${a.institution?' · ':''}${TYPE_LBL[a.type]||a.type}</div></div><div class="b">${a.currency!=='CAD'?a.currency+' '+nf(Math.round(a.balance)):cad(a.balance)}${a.currency!=='CAD'?`<small>${cad(a.cad)} CAD</small>`:''}</div></div>`).join('')}</div>
-      <div class="card"><h3>This month <span class="h3sub">${m.month||''}</span></h3>
-        ${m.income_cad!=null||m.spent_cad!=null?`<div class="bd-rows"><div class="r"><span class="d"></span><span>Money in</span><span class="m">${cad(m.income_cad)}</span></div><div class="r"><span class="d"></span><span>Money out</span><span class="m">${cad(m.spent_cad)}</span></div><div class="r"><span class="d"></span><span>Kept</span><span class="m">${m.income_cad!=null&&m.spent_cad!=null?cad(m.income_cad-m.spent_cad)+' · '+m.saved_pct+'%':'·'}</span></div></div>`:'<div class="bd-empty">Ask Grok to log this month\'s income and spending from Plaid.</div>'}
-        ${(m.top_spending||[]).length?`<div style="margin-top:14px"><div class="bd-cap" style="margin-bottom:6px">Top spending</div>${m.top_spending.map(x=>`<div class="mn-cat"><span>${esc(x.category)}</span><span>${cad(x.cad)}</span></div>`).join('')}</div>`:''}</div>
+      <div class="card"><h3>Accounts <span class="h3sub">as of ${dateLbl(d.as_of)}</span></h3>
+        ${instOrder.map(inst=>`<div class="mn-inst">${esc(inst)}</div>${byInst[inst].sort((a,b)=>b.cad-a.cad).map(a=>`<div class="mn-acc ${['credit','loan'].includes(a.type)?'neg':''}"><div><div class="n">${esc(a.name)}</div><div class="i">${TYPE_LBL[a.type]||a.type}</div></div><div class="b">${['credit','loan'].includes(a.type)?'-':''}${a.currency!=='CAD'?a.currency+' '+nf(Math.round(a.balance)):cad(a.balance)}${a.currency!=='CAD'?`<small>${cad(a.cad)} CAD</small>`:''}</div></div>`).join('')}`).join('')}</div>
+      <div class="card"><h3>This month <span class="h3sub">${m.month?new Date(m.month+'-15').toLocaleDateString('en-US',{month:'long'}):''}</span></h3>
+        ${m.income_cad!=null||m.spent_cad!=null?`
+        <div class="mn-io"><div><span>In</span><b>${cad(m.income_cad)}</b></div><div><span>Out</span><b>${cad(m.spent_cad)}</b></div><div><span>Kept</span><b style="color:var(--good)">${kept!=null?cad(kept):'·'}</b></div></div>
+        <div class="mn-split"><b style="width:${outPct}%;background:var(--accent)"></b><b style="width:${100-outPct}%;background:var(--good)"></b></div>
+        <div class="bd-cap" style="margin-bottom:10px">${outPct}% spent, ${100-outPct}% kept</div>`:'<div class="bd-empty">Grok logs this month\'s income and spending from Plaid each morning.</div>'}
+        ${(m.top_spending||[]).length?`<div class="bd-cap" style="margin:8px 0 4px">Where it went</div>${m.top_spending.map(x=>`<div class="mn-cat"><span>${esc(x.category)}</span><span>${cad(x.cad)}</span></div>`).join('')}`:''}</div>
     </div>`;
 }
 function renderMoney(){
   main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Money</h2><p class="sec-sub">Net worth, runway and this month. Grok updates it from Plaid every morning.</p></div></div><div id="mn"><div class="bd-empty">Loading…</div></div></div>`;
   const paint=(d)=>{const el=document.getElementById('mn');if(!el||currentView!=='money')return;
     if(d&&d.needsUnlock){el.innerHTML=`<div class="tday-connect" style="margin:0"><span>Confirm your PIN once on this device to see your money.</span><button class="btn btn-sm" id="mn-connect">Connect</button></div>`;el.querySelector('#mn-connect').onclick=async()=>{await ensureMediaSecret();renderMoney();};return;}
-    el.innerHTML=moneyHTML(d);wireCharts(el);};
+    el.innerHTML=moneyHTML(d);wireCharts(el);el.querySelectorAll('[data-mnr]').forEach(b=>b.onclick=()=>{mnRange=+b.dataset.mnr;paint(d);});};
   if(_life.money)paint(_life.money.data);
   lifeData('money').then(paint);
 }

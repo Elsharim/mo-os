@@ -78,11 +78,11 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { calories: { type: 'number' }, protein: { type: 'number' }, workouts_per_week: { type: 'number' }, goal_weight_lb: { type: 'number' }, weekly_gain_lb: { type: 'number' }, tracking_since: { type: 'string', description: 'YYYY-MM-DD, the day he started tracking properly; averages for gym, food and weight only count from here' } } }
 }, {
   name: 'log_money',
-  description: "Save today's account balances to MO OS (run this every morning from Mo's Plaid connection, and whenever he asks). Pass every account with its balance and currency; types: cash, savings, investment, crypto, credit, loan. Credit and loan balances are what he owes (positive number). Optionally pass this month's income and spending in CAD and top spending categories. MO OS converts to CAD and tracks net worth over time.",
+  description: "Save today's account balances to MO OS (run this every morning from Mo's Plaid connection, and whenever he asks). Pass every account with its balance and currency; types: cash, savings, investment, crypto, tax (his tax reserve account), credit, loan. Credit and loan balances are what he owes (positive number). Optionally pass this month's income and spending in CAD and top spending categories. MO OS converts to CAD and tracks net worth over time.",
   inputSchema: { type: 'object', properties: {
     date: { type: 'string', description: 'YYYY-MM-DD in his local time, default today' },
     accounts: { type: 'array', items: { type: 'object', properties: {
-      name: { type: 'string' }, institution: { type: 'string' }, type: { type: 'string', enum: ['cash', 'savings', 'investment', 'crypto', 'credit', 'loan', 'other'] },
+      name: { type: 'string' }, institution: { type: 'string' }, type: { type: 'string', enum: ['cash', 'savings', 'investment', 'crypto', 'tax', 'credit', 'loan', 'other'] },
       currency: { type: 'string', description: 'CAD, USD, EUR...' }, balance: { type: 'number' }
     }, required: ['name', 'balance'] } },
     income_month_cad: { type: 'number', description: 'Money in this month so far, CAD' },

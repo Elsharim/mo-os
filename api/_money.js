@@ -8,7 +8,7 @@ const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Ar
 const API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyCYCt9-opphzCOSInAaPnrGIBN8M6kWW-Y';
 const DOC_URL = 'https://firestore.googleapis.com/v1/projects/poppy-sales/databases/(default)/documents/poppy/osmoney:Mo';
 const KEEP_DAYS = 400;
-const TYPES = ['cash', 'savings', 'investment', 'crypto', 'credit', 'loan', 'other'];
+const TYPES = ['cash', 'savings', 'investment', 'crypto', 'tax', 'credit', 'loan', 'other'];
 
 async function key() {
   return subtle.importKey('raw', createHash('sha256').update('money:' + (process.env.WHOOP_STORE_SECRET || '')).digest(), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
@@ -56,7 +56,8 @@ export async function logMoney(a) {
   const accounts = (Array.isArray(a.accounts) ? a.accounts : []).map((x) => {
     const cur = String(x.currency || 'CAD').toUpperCase().slice(0, 3);
     const bal = num(x.balance);
-    const type = TYPES.includes(String(x.type || '').toLowerCase()) ? String(x.type).toLowerCase() : 'other';
+    let type = TYPES.includes(String(x.type || '').toLowerCase()) ? String(x.type).toLowerCase() : 'other';
+    if (/\btax\b/i.test(String(x.name || ''))) type = 'tax'; // his tax reserve, not an investment
     return bal == null ? null : {
       name: String(x.name || 'Account').slice(0, 80), institution: String(x.institution || '').slice(0, 60),
       type, currency: cur, balance: r2(bal), cad: r2(bal * (rates[cur] || FX_DEFAULT[cur] || 1))
@@ -90,15 +91,19 @@ export async function moneySummary(days = 90) {
   const keys = Object.keys(s.days).sort();
   const latestKey = keys[keys.length - 1];
   const latest = latestKey ? s.days[latestKey] : null;
+  if (latest) latest.accounts = (latest.accounts || []).map((x) => (/\btax\b/i.test(x.name || '') ? { ...x, type: 'tax' } : x));
   const hist = keys.slice(-Math.min(400, days)).map((k) => ({ date: k, net_worth_cad: s.days[k].net_worth_cad }));
   const ym = new Date().toISOString().slice(0, 7);
   const month = s.months[ym] || {};
   const months = Object.keys(s.months).sort().slice(-12).map((k) => ({ month: k, ...s.months[k] }));
-  const set = { monthly_burn_cad: 4000, tax_rate: 0.3, runway_goal_months: 12, ...s.settings };
+  const set = { tax_rate: 0.3, ...s.settings };
   const byType = {};
   (latest ? latest.accounts : []).forEach((x) => { byType[x.type] = r2((byType[x.type] || 0) + x.cad); });
   const liquid = (byType.cash || 0) + (byType.savings || 0);
-  const burn = set.monthly_burn_cad || (months.length ? months[months.length - 1].spent : null) || 4000;
+  // what a month costs him: his setting, else the average of full months logged
+  const spentMonths = months.filter((m) => m.month !== ym && m.spent != null).slice(-3);
+  const burn = set.monthly_burn_cad || (spentMonths.length ? r2(spentMonths.reduce((a, m) => a + m.spent, 0) / spentMonths.length) : null);
+  const burnFrom = set.monthly_burn_cad ? 'set' : spentMonths.length ? 'avg' : null;
   const prevKey = keys.filter((k) => k <= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).pop();
   return {
     as_of: latestKey || null,
@@ -108,10 +113,12 @@ export async function moneySummary(days = 90) {
     by_type_cad: byType,
     liquid_cad: r2(liquid),
     runway_months: liquid && burn ? Math.round((liquid / burn) * 10) / 10 : null,
+    burn_cad: burn, burn_from: burnFrom,
     this_month: { month: ym, income_cad: month.income ?? null, spent_cad: month.spent ?? null, saved_pct: month.income && month.spent != null ? Math.round(((month.income - month.spent) / month.income) * 100) : null, top_spending: month.top || [] },
     months,
     settings: set,
     tax_set_aside_cad: month.income ? r2(month.income * set.tax_rate) : null,
+    tax_reserve_cad: byType.tax || 0,
     history: hist,
     note: latest ? undefined : 'No money data yet. Grok logs balances from Plaid with log_money.'
   };
