@@ -43,6 +43,7 @@ export default async function handler(req, res) {
         sleep: t && t.sleep ? { bed: t.sleep.bed && t.sleep.bed.time, woke: t.sleep.woke && t.sleep.woke.time, woke_date: t.sleep.woke && t.sleep.woke.date, hours: t.sleep.asleep_h, performance: t.sleep.performance } : null,
         recovery: t && t.recovery ? t.recovery.score : null,
         hrv: t && t.recovery ? t.recovery.hrv : null,
+        rhr: t && t.recovery ? t.recovery.rhr : null,
         calendar: cal && !cal.error ? cal : null,
         food: food && !food.error ? { date: todayFood && todayFood.date, calories: (todayFood && todayFood.calories) || 0, protein: (todayFood && todayFood.protein) || 0, targets: food.targets } : null,
         whoop_connected: !!(whoop && !whoop.error)
