@@ -166,9 +166,11 @@ export function taxPicture(s, reserveCad) {
   const set = { tax_rate: 0.3, deductions_cad: 0, ...(s.settings || {}) };
   const pays = (s.payouts || []).filter((p) => p.date.startsWith(String(year)));
   const ytd = r2(pays.reduce((t, p) => t + p.cad, 0));
-  // one payout a month; months not yet paid are projected from the recent average
-  const paidMonths = new Set(pays.map((p) => p.date.slice(0, 7)));
-  const monthsLeft = 12 - paidMonths.size;
+  // one payout a month, paid around month end (sometimes the first days of the next
+  // month), so a payout in the first week counts for the month before
+  const periodMonth = (p) => { const d = new Date(p.date + 'T12:00'); if (d.getDate() <= 7) d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 7); };
+  const paidMonths = new Set(pays.map(periodMonth));
+  const monthsLeft = Math.max(0, 12 - pays.length);
   const recent = pays.slice(-3);
   const avgRecent = recent.length ? recent.reduce((t, p) => t + p.cad, 0) / recent.length : 0;
   const projected = r2(ytd + monthsLeft * avgRecent);
@@ -179,7 +181,9 @@ export function taxPicture(s, reserveCad) {
   const reserve = r2(reserveCad || 0);
   const nextPay = pays.length ? pays[pays.length - 1].cad : avgRecent;
   return {
-    year, payouts: pays, payouts_count: pays.length, missing_months: Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`).filter((m) => !paidMonths.has(m) && m <= new Date().toISOString().slice(0, 7)),
+    year, payouts: pays, payouts_count: pays.length,
+    // months whose payout should have landed by now but isn't logged
+    missing_months: Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`).filter((m) => !paidMonths.has(m) && m < new Date().toISOString().slice(0, 7)),
     ytd_income_cad: ytd, avg_recent_payout_cad: r2(avgRecent), months_left: monthsLeft, projected_income_cad: projected,
     deductions_cad: set.deductions_cad || 0,
     estimate: est,
