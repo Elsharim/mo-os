@@ -2334,7 +2334,8 @@
   .iconbtn{width:38px;padding:9px 0;text-align:center}
   @media (max-width:900px){.tday-stats{grid-template-columns:1fr 1fr}.ts:nth-child(3){border-left:none;padding-left:0}.ts:nth-child(n+3){border-top:1px solid var(--hair)}.tday-cols{grid-template-columns:1fr;gap:18px}}
 
-  .bd-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-12px 0 20px}
+  .bd-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:-12px 0 10px}
+  .bd-period{font-size:13px;color:var(--muted);margin:0 0 18px}
   .bd-tabs{display:flex;gap:6px;flex-wrap:wrap}
   .bd-tab{padding:8px 14px;border-radius:999px;font-size:13px;color:var(--muted);border:1px solid var(--hair);background:transparent;cursor:pointer}
   .bd-tab:hover{color:var(--text);background:var(--surface)}
@@ -4761,7 +4762,7 @@ async function paintToday(){
 let bodyTab=(()=>{try{return localStorage.getItem('os:bodyTab')||'overview';}catch(_){return 'overview';}})();
 let bodyRange=(()=>{try{return localStorage.getItem('os:bodyRange')||'month';}catch(_){return 'month';}})();
 let liftSel=null;
-const RANGES={week:{days:7,by:'day',label:'this week'},month:{days:30,by:'day',label:'last 30 days'},'3mo':{days:91,by:'week',label:'last 3 months'},year:{days:365,by:'month',label:'last year'}};
+const RANGES={today:{days:1,by:'day',label:'today'},week:{days:7,by:'day',label:'this week'},month:{days:30,by:'day',label:'last 30 days'},'3mo':{days:91,by:'week',label:'last 3 months'},year:{days:365,by:'month',label:'last year'}};
 function avg(a){a=a.filter(x=>x!=null&&!isNaN(x));return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
 const r1=n=>n==null?null:Math.round(n*10)/10;
 const isoDay=d=>{const x=new Date(d);return new Date(x.getTime()-x.getTimezoneOffset()*6e4).toISOString().slice(0,10);};
@@ -4780,6 +4781,10 @@ function goalCard(cap,val,target,unit,sub,color){
   const pct=target?Math.min(100,Math.round((val||0)/target*100)):0;
   return `<div class="card bd-goal" style="--gc:${color||'var(--accent)'}"><div class="bd-cap">${cap}</div><div class="bd-big">${val==null?'·':nf(Math.round(val))}<small>/ ${nf(target)}${unit?' '+unit:''}</small></div><div class="pct">${pct}%</div><div class="bar"><b style="width:${pct}%"></b></div>${sub?`<div class="bd-sub" style="grid-column:1/-1">${sub}</div>`:''}</div>`;
 }
+const per=()=>RANGES[bodyRange].label;
+const perSleep=()=>bodyRange==='today'?'last night':per();
+function periodLine(){const R=RANGES[bodyRange],t=todayKey();if(bodyRange==='today')return 'Today, '+dateLbl(t);const from=since(R.days);return (bodyRange==='week'?'This week':bodyRange==='month'?'Last 30 days':bodyRange==='3mo'?'Last 3 months':'Last year')+' · '+dateLbl(from)+' to today';}
+const ifCharts=h=>bodyRange==='today'?'':h;
 function targetsOf(d){return Object.assign({calories:3000,protein:150,workouts_per_week:5,goal_weight_lb:170,weekly_gain_lb:0.4,tracking_since:'2026-10-09'},d.targets||{});}
 /* gym, food and weight only count from the day Mo started tracking properly */
 let _trackFrom='2026-10-09';
@@ -4895,11 +4900,11 @@ function bodyOverview(d){
   const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null;
   return `<div class="bd-stats">
       ${goalCard('Gym this week',thisWeek,T.workouts_per_week,'',bodyRange==='week'||trackedDays()<7?'':`Averaging ${gymAvg} a week ${sinceNote()}`,'var(--good)')}
-      ${goalCard('Calories, avg per day',fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${sinceNote()}`:'Nothing logged yet','var(--accent)')}
-      ${goalCard('Protein, avg per day',fd.length?avg(fd.map(x=>x.protein)):null,T.protein,'g','','var(--teal)')}
-      ${goalCard('Sleep, avg per night',sl.length?r1(avg(sl.map(x=>x.hours))):null,8,'h',sl.length?'In bed around '+fmt12(avgClock(sl.slice(-7).map(x=>x.bed),12*60)):'','var(--gold)')}
+      ${goalCard(bodyRange==='today'?'Calories today':'Calories, avg per day '+sinceNote(),fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${sinceNote()}`:'Nothing logged yet','var(--accent)')}
+      ${goalCard(bodyRange==='today'?'Protein today':'Protein, avg per day',fd.length?avg(fd.map(x=>x.protein)):null,T.protein,'g','','var(--teal)')}
+      ${goalCard(bodyRange==='today'?'Last night':'Sleep, avg per night',sl.length?r1(avg(sl.map(x=>x.hours))):null,8,'h',sl.length?'In bed around '+fmt12(avgClock(sl.slice(-7).map(x=>x.bed),12*60)):'','var(--gold)')}
     </div>
-    <div class="bd-mini">
+    ${ifCharts(`    <div class="bd-mini">
       <div class="card"><h4>Sleep <b>${sl.length?r1(avg(sl.map(x=>x.hours)))+'h avg':''}</b></h4>${chart({pts:sleepPts(d),target:8,color:sleepColor,h:90,fmt:v=>r1(v)+'h'})}</div>
       <div class="card"><h4>Calories <b>${fd.length?nf(Math.round(avg(fd.map(x=>x.calories)))):''}</b></h4>${chart({pts:calPts(d,'calories',' cal'),target:T.calories,color:v=>v>=T.calories*.9?'var(--good)':'var(--accent)',h:90,fmt:v=>nf(Math.round(v))})}</div>
       <div class="card"><h4>Workouts per week <b>${thisWeek}/${T.workouts_per_week} this week</b></h4>${chart({pts:workoutPts(d),target:T.workouts_per_week,max:T.workouts_per_week+1,color:v=>v>=T.workouts_per_week?'var(--good)':v>0?'var(--warn)':'rgba(255,255,255,.12)',h:90,fmt:v=>Math.round(v)})}</div>
@@ -4907,7 +4912,7 @@ function bodyOverview(d){
     <div class="grid g2">
       <div class="card"><h3>Bodyweight <span class="h3sub">${wNow!=null?wNow+' lbs now, goal '+T.goal_weight_lb:'goal '+T.goal_weight_lb+' lbs'}</span></h3>${weightPts(d).length>1?chart({kind:'line',pts:weightPts(d),target:T.goal_weight_lb,pad:2,fmt:v=>Math.round(v),vfmt:v=>r1(v)}):'<div class="bd-empty">Weigh in each morning and send Grok the number. The trend shows up after a few days.</div>'}</div>
       <div class="card"><h3>Recovery <span class="h3sub">Whoop</span></h3>${chart({pts:bucketAvg((d.recovery||[]),'date',x=>x.score).map(({b,v,n})=>({label:b.label,today:b.today,future:b.future,v:v==null?null:Math.round(v),tip:`<b>${Math.round(v)}%</b><small>${b.tip}</small>`})),target:67,max:100,color:recColor,fmt:v=>v+'%'})}</div>
-    </div>`;
+    </div>`)}`;
 }
 /* SLEEP */
 function bodySleep(d){
@@ -4917,12 +4922,12 @@ function bodySleep(d){
   const latePts=bucketAvg(sl,'date',x=>{const m=clockMins(x.bed,12*60);return m==null?null:(m-21*60)/60;}).map(({b,v})=>({label:b.label,today:b.today,future:b.future,v:v==null?null:r1(v),tip:v==null?'':`<b>In bed ${fmt12(avgClock([sl.find(x=>inB(x.date,b))?.bed].filter(Boolean),12*60)||'')}</b><small>${b.tip}</small>`}));
   const hrvPts=bucketAvg(rc,'date',x=>x.hrv).filter(x=>x.v!=null).map(({b,v})=>({label:b.label,today:b.today,future:b.future,v:Math.round(v),tip:`<b>HRV ${Math.round(v)}</b><small>${b.tip}</small>`}));
   return `<div class="bd-stats">
-      ${stat('Avg sleep',r1(avg(sl.map(x=>x.hours)))+'<small>h</small>',sl.filter(x=>x.hours>=7).length+' of '+sl.length+' nights over 7h')}
-      ${stat('Avg bedtime',bed?fmt12(bed):'·','Up around '+(wake?fmt12(wake):'·'))}
-      ${stat('Deep + REM',r1(avg(sl.map(x=>(x.deep||0)+(x.rem||0))))+'<small>h</small>','Deep '+r1(avg(sl.map(x=>x.deep)))+'h · REM '+r1(avg(sl.map(x=>x.rem)))+'h')}
-      ${stat('Recovery',rc.length?Math.round(avg(rc.map(x=>x.score)))+'<small>%</small>':'·',rc.length?'HRV '+Math.round(avg(rc.map(x=>x.hrv)))+' · resting HR '+Math.round(avg(rc.map(x=>x.rhr))):'',recClass(rc.length?avg(rc.map(x=>x.score)):null))}
+      ${stat(bodyRange==='today'?'Last night':'Sleep, avg '+per(),r1(avg(sl.map(x=>x.hours)))+'<small>h</small>',bodyRange==='today'?fmt12(sl[sl.length-1].bed)+' to '+fmt12(sl[sl.length-1].woke):sl.filter(x=>x.hours>=7).length+' of '+sl.length+' nights over 7h')}
+      ${stat(bodyRange==='today'?'Bedtime':'Bedtime, avg '+per(),bed?fmt12(bed):'·','Up '+(bodyRange==='today'?'at ':'around ')+(wake?fmt12(wake):'·'))}
+      ${stat('Deep + REM, '+perSleep(),r1(avg(sl.map(x=>(x.deep||0)+(x.rem||0))))+'<small>h</small>','Deep '+r1(avg(sl.map(x=>x.deep)))+'h · REM '+r1(avg(sl.map(x=>x.rem)))+'h')}
+      ${stat('Recovery, '+(bodyRange==='today'?'today':'avg '+per()),rc.length?Math.round(avg(rc.map(x=>x.score)))+'<small>%</small>':'·',rc.length?'HRV '+Math.round(avg(rc.map(x=>x.hrv)))+' · resting HR '+Math.round(avg(rc.map(x=>x.rhr))):'',recClass(rc.length?avg(rc.map(x=>x.score)):null))}
     </div>
-    <div class="grid g2" style="margin-bottom:16px">
+    ${ifCharts(`    <div class="grid g2" style="margin-bottom:16px">
       <div class="card"><h3>Hours asleep</h3>${chart({pts:sleepPts(d),target:8,color:sleepColor,showAvg:true,fmt:v=>r1(v)+'h'})}</div>
       <div class="card"><h3>Bedtime <span class="h3sub">hours after 9pm</span></h3>${chart({pts:latePts,target:3,max:9,color:v=>v<=3?'var(--good)':v<=4.5?'var(--warn)':'#f87171',fmt:v=>fmt12(String(Math.floor((21*60+v*60)/60)%24).padStart(2,'0')+':'+String(Math.round((v*60)%60)).padStart(2,'0'))})}</div>
     </div>
@@ -4930,7 +4935,8 @@ function bodySleep(d){
       <div class="card"><h3>Recovery</h3>${chart({pts:bucketAvg(rc,'date',x=>x.score).map(({b,v})=>({label:b.label,today:b.today,future:b.future,v:v==null?null:Math.round(v),tip:`<b>${Math.round(v)}%</b><small>${b.tip}</small>`})),target:67,max:100,color:recColor,fmt:v=>v+'%'})}</div>
       <div class="card"><h3>HRV <span class="h3sub">higher is more recovered</span></h3>${hrvPts.length>1?chart({kind:'line',pts:hrvPts,color:'var(--teal)',pad:4,fmt:v=>Math.round(v)}):'<div class="bd-empty">Not enough data yet.</div>'}</div>
     </div>
-    <div class="card"><h3>Nights</h3><div class="bd-rows">${sl.slice().reverse().slice(0,bodyRange==='week'?7:14).map(x=>`<div class="r"><span class="d">${dayLbl(x.date)} ${dateLbl(x.date)}</span><span>${fmt12(x.bed)} to ${fmt12(x.woke)}</span><span class="m">${x.hours}h · deep ${x.deep}h · REM ${x.rem}h</span></div>`).join('')}</div></div>`;
+`)}
+    <div class="card"><h3>${bodyRange==='today'?'Last night':'Nights'}</h3><div class="bd-rows">${sl.slice().reverse().slice(0,bodyRange==='week'?7:14).map(x=>`<div class="r"><span class="d">${dayLbl(x.date)} ${dateLbl(x.date)}</span><span>${fmt12(x.bed)} to ${fmt12(x.woke)}</span><span class="m">${x.hours}h · deep ${x.deep}h · REM ${x.rem}h</span></div>`).join('')}</div></div>`;
 }
 /* TRAINING */
 function bodyTraining(d){
@@ -4946,11 +4952,11 @@ function bodyTraining(d){
   const weeksHit=(()=>{let n=0,tot=0;for(let i=0;i<Math.ceil(trackedDays()/7);i++){const to=addD(wkStart,-i*7+6),from=addD(to,-6);if(from>todayKey()||to<trackFrom())continue;tot++;if(ws.filter(w=>w.date>=from&&w.date<=to).length>=T.workouts_per_week)n++;}return n+' of '+tot;})();
   return `<div class="bd-stats">
       ${goalCard('This week',thisWeek,T.workouts_per_week,'',thisWeek>=T.workouts_per_week?'Done for the week':(T.workouts_per_week-thisWeek)+' more to hit it','var(--good)')}
-      ${stat('Per week, '+sinceNote(),trackedDays()<7?'·':r1(inR.length/trackedWeeks())+'<small>avg</small>',inR.length+' session'+(inR.length===1?'':'s')+(trackedDays()<7?' so far, avg shows after a week':' total'))}
+      ${bodyRange==='today'?stat('Trained today',ws.some(w=>w.date===todayKey())?'Yes':'Not yet',ws.filter(w=>w.date===todayKey()).map(w=>esc(w.title)).join(', ')):stat('Per week, '+sinceNote(),trackedDays()<7?'·':r1(inR.length/trackedWeeks())+'<small>avg</small>',inR.length+' session'+(inR.length===1?'':'s')+(trackedDays()<7?' so far, avg shows after a week':' total'))}
       ${stat('Weeks hitting '+T.workouts_per_week,weeksHit.split(' of ')[0]+'<small>of '+weeksHit.split(' of ')[1]+'</small>',sinceNote())}
       ${stat('Last workout',ws[0]?esc(ws[0].title):'·',ws[0]?(()=>{const n=Math.round((Date.now()-new Date(ws[0].date+'T12:00'))/864e5);return (n===0?'Today':n===1?'Yesterday':n+' days ago')+' · '+ws[0].minutes+' min';})():'')}
     </div>
-    <div class="grid g2" style="margin-bottom:16px">
+    ${ifCharts(`    <div class="grid g2" style="margin-bottom:16px">
       <div class="card"><h3>Sessions per week <span class="h3sub">target ${T.workouts_per_week}</span></h3>${chart({pts:workoutPts(d),target:T.workouts_per_week,max:T.workouts_per_week+1,color:v=>v>=T.workouts_per_week?'var(--good)':v>0?'var(--warn)':'rgba(255,255,255,.12)',fmt:v=>Math.round(v)})}</div>
       <div class="card"><h3>Days trained <span class="h3sub">${sinceNote()}</span></h3><div class="cgrid">${cells.join('')}</div><div class="cgrid-cap"><span>${dateLbl(addD(todayKey(),-days+1))}</span><span>${inR.length} sessions</span><span>today</span></div></div>
     </div>
@@ -4962,7 +4968,8 @@ function bodyTraining(d){
         ${stat('Next time',L.next?L.next.weight_lb+'<small>lbs × '+(Array.isArray(L.next.reps)?L.next.reps.join(', '):L.next.reps)+'</small>':'·',L.next?L.next.why:'')}
       </div>${liftPts.length>1?chart({kind:'line',pts:liftPts,pad:5,fmt:v=>Math.round(v)}):'<div class="bd-empty">Log this lift a couple more times to see the trend.</div>'}
       <div class="bd-rows" style="margin-top:14px">${(L.history||[]).slice().reverse().slice(0,8).map(h=>`<div class="r"><span class="d">${dateLbl(h.date)}</span><span>${esc(h.sets)}</span><span class="m">est. ${h.e1rm_lb}</span></div>`).join('')}</div>`:''}`:'<div class="bd-empty">Log a couple of workouts in Hevy and your lifts show up here.</div>'}</div>
-    <div class="card"><h3>Workouts <span class="h3sub">${sinceNote()}</span></h3><div class="bd-rows">${ws.filter(w=>inRange(w.date)).slice(0,12).map(w=>`<div class="r"><span class="d">${dayLbl(w.date)} ${dateLbl(w.date)}</span><div><div>${esc(w.title)}</div><div class="x">${(w.exercises||[]).map(e=>esc(shortLift(e))).join('<br>')}</div></div><span class="m">${w.minutes} min</span></div>`).join('')||'<div class="bd-empty">No workouts in this range.</div>'}</div></div>`;
+`)}
+    <div class="card"><h3>Workouts <span class="h3sub">${bodyRange==='today'?'today':sinceNote()}</span></h3><div class="bd-rows">${ws.filter(w=>inRange(w.date)).slice(0,12).map(w=>`<div class="r"><span class="d">${dayLbl(w.date)} ${dateLbl(w.date)}</span><div><div>${esc(w.title)}</div><div class="x">${(w.exercises||[]).map(e=>esc(shortLift(e))).join('<br>')}</div></div><span class="m">${w.minutes} min</span></div>`).join('')||'<div class="bd-empty">No workouts in this range.</div>'}</div></div>`;
 }
 /* FOOD */
 function bodyFood(d){
@@ -4975,13 +4982,14 @@ function bodyFood(d){
   return `<div class="bd-stats">
       ${goalCard('Today',tot.c,T.calories,'',tot.c?(Math.max(0,T.calories-tot.c)?nf(T.calories-tot.c)+' to go':'Target hit'):'Nothing logged yet','var(--accent)')}
       ${goalCard('Protein today',tot.p,T.protein,'g',tot.p?(Math.max(0,T.protein-tot.p)?(T.protein-tot.p)+'g to go':'Target hit'):'','var(--teal)')}
-      ${stat('Avg per day, '+sinceNote(),fd.length?nf(Math.round(avg(fd.map(x=>x.calories))))+'<small>cal</small>':'·',fd.length?fd.length+' day'+(fd.length===1?'':'s')+' logged':'No days logged')}
-      ${stat('Days on target',fd.length?onT+'<small>of '+fd.length+'</small>':'·',fd.length?'Protein '+onP+' of '+fd.length:'')}
+      ${bodyRange==='today'?stat('Meals logged today',items.length+'<small>item'+(items.length===1?'':'s')+'</small>',''):stat('Avg per day, '+sinceNote(),fd.length?nf(Math.round(avg(fd.map(x=>x.calories))))+'<small>cal</small>':'·',fd.length?fd.length+' day'+(fd.length===1?'':'s')+' logged':'No days logged')}
+      ${stat('Days on target, '+sinceNote(),fd.length?onT+'<small>of '+fd.length+'</small>':'·',fd.length?'Protein '+onP+' of '+fd.length:'')}
     </div>
-    <div class="grid g2" style="margin-bottom:16px">
+    ${ifCharts(`    <div class="grid g2" style="margin-bottom:16px">
       <div class="card"><h3>Calories <span class="h3sub">${RANGES[bodyRange].by==='day'?'per day':'avg per day, by '+RANGES[bodyRange].by}</span></h3>${chart({pts:calPts(d,'calories',' cal'),target:T.calories,showAvg:true,color:v=>v>=T.calories*.9?'var(--good)':'var(--accent)',fmt:v=>nf(Math.round(v))})}</div>
       <div class="card"><h3>Protein <span class="h3sub">grams</span></h3>${chart({pts:calPts(d,'protein','g'),target:T.protein,showAvg:true,color:v=>v>=T.protein*.9?'var(--good)':'var(--teal)',fmt:v=>Math.round(v)+'g'})}</div>
     </div>
+`)}
     <div class="grid g2">
       <div class="card"><h3>Eaten today <span class="h3sub">${items.length?nf(tot.c)+' cal':''}</span></h3>
         ${items.length?`<div class="macro"><b style="width:${kc.p/kt*100}%;background:var(--teal)"></b><b style="width:${kc.cb/kt*100}%;background:var(--gold)"></b><b style="width:${kc.f/kt*100}%;background:var(--accent)"></b></div>
@@ -5004,15 +5012,17 @@ function bodyWeight(d){
       ${stat('Weekly change',wk!=null?(wk>0?'+':'')+wk+'<small>lbs</small>':'<small>no trend yet</small>','Goal +'+T.weekly_gain_lb+' a week')}
       ${stat('On pace for',eta||'·',eta?(wk?'At your current rate':'If you gain '+T.weekly_gain_lb+' lbs a week'):'')}
     </div>
-    <div class="card" style="margin-bottom:16px"><h3>Bodyweight <span class="h3sub">${RANGES[bodyRange].label}</span></h3>${weightPts(d).length>1?chart({kind:'line',pts:weightPts(d),target:goal,pad:2,fmt:v=>Math.round(v),vfmt:v=>r1(v)}):`<div class="bd-empty">${w.length?'Only '+w.length+' weigh-in in this range. ':''}Weigh yourself each morning and send Grok the number.</div>`}</div>
+    ${ifCharts(`    <div class="card" style="margin-bottom:16px"><h3>Bodyweight <span class="h3sub">${RANGES[bodyRange].label}</span></h3>${weightPts(d).length>1?chart({kind:'line',pts:weightPts(d),target:goal,pad:2,fmt:v=>Math.round(v),vfmt:v=>r1(v)}):`<div class="bd-empty">${w.length?'Only '+w.length+' weigh-in in this range. ':''}Weigh yourself each morning and send Grok the number.</div>`}</div>
+`)}
     <div class="card"><h3>Weigh-ins</h3><div class="bd-rows">${inR.slice().reverse().slice(0,20).map(x=>`<div class="r"><span class="d">${dayLbl(x.date)} ${dateLbl(x.date)}</span><span>${x.lb} lbs</span><span class="m">${x.from==='whoop'?'Whoop profile, not a weigh-in':''}</span></div>`).join('')||'<div class="bd-empty">None in this range.</div>'}</div></div>`;
 }
 function renderBody(){
   const tabs=[['overview','Overview'],['sleep','Sleep'],['training','Training'],['food','Food'],['weight','Weight']];
-  const ranges=[['week','Week'],['month','Month'],['3mo','3 Months'],['year','Year']];
+  const ranges=[['today','Today'],['week','Week'],['month','Month'],['3mo','3 Months'],['year','Year']];
   main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Body</h2><p class="sec-sub">Sleep, training, food and size, over time.</p></div></div>
     <div class="bd-top"><div class="bd-tabs">${tabs.map(([k,l])=>`<button class="bd-tab ${bodyTab===k?'on':''}" data-bt="${k}">${l}</button>`).join('')}</div>
     <div class="bd-range">${ranges.map(([k,l])=>`<button data-br="${k}" class="${bodyRange===k?'on':''}">${l}</button>`).join('')}</div></div>
+    <div class="bd-period">${periodLine()}</div>
     <div id="bd"><div class="bd-empty">Loading…</div></div></div>`;
   main.querySelectorAll('[data-bt]').forEach(b=>b.onclick=()=>{bodyTab=b.dataset.bt;try{localStorage.setItem('os:bodyTab',bodyTab);}catch(_){}renderBody();});
   main.querySelectorAll('[data-br]').forEach(b=>b.onclick=()=>{bodyRange=b.dataset.br;try{localStorage.setItem('os:bodyRange',bodyRange);}catch(_){}renderBody();});
