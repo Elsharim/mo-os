@@ -2383,6 +2383,7 @@
   .bd-rows .r .d{color:var(--faint);font-family:var(--mono);font-size:12px}
   .bd-rows .r .m{color:var(--muted);font-size:12.5px;text-align:right;white-space:nowrap}
   .bd-rows .r .x{color:var(--muted);font-size:12px;margin-top:3px;line-height:1.5}
+  .bd-rows .r.meal{padding:13px 0}.bd-rows .r.meal .m b{color:var(--text);font-weight:600;font-size:14px}
   .bd-empty{color:var(--faint);font-size:13px;padding:6px 0;line-height:1.6}
   .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(13px,1fr));gap:4px}
   .cgrid i{aspect-ratio:1;border-radius:3px;background:var(--hair);display:block}
@@ -5083,6 +5084,24 @@ function bodyFood(d){
   let streak=0;{let k=todayKey();if(!(d.food||[]).some(x=>x.date===k&&x.calories))k=addD(k,-1);while((d.food||[]).some(x=>x.date===k&&x.calories)){streak++;k=addD(k,-1);}}
   const onT=fd.filter(x=>x.calories>=T.calories*.9).length,onP=fd.filter(x=>x.protein>=T.protein*.9).length;
   const kc={p:tot.p*4,cb:tot.cb*4,f:tot.f*9};const kt=kc.p+kc.cb+kc.f||1;
+  if(bodyRange==='today'){
+    const y=(d.food||[]).find(x=>x.date===addD(todayKey(),-1));
+    const leftC=Math.max(0,T.calories-tot.c),leftP=Math.max(0,T.protein-tot.p);
+    const hrs=new Date().getHours();
+    const when=hrs<12?'before your first call':hrs<18?'by tonight':'before bed';
+    const mealRows=items.length?items.slice().reverse().map(x=>`<div class="r meal"><span class="d">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</span><div><div>${esc(x.name)}</div><div class="x">${x.protein||0}g protein · ${x.carbs||0}g carbs · ${x.fat||0}g fat</div></div><span class="m"><b>${nf(x.calories)}</b> cal</span></div>`).join(''):'<div class="bd-empty">Nothing yet today. Send Grok a photo or text it what you ate.</div>';
+    return `<div class="bd-stats">
+      ${goalCard('Calories today',tot.c,T.calories,'',tot.c?(leftC?nf(leftC)+' to go':'Target hit'):'Nothing logged yet','var(--accent)')}
+      ${goalCard('Protein today',tot.p,T.protein,'g',tot.p?(leftP?leftP+'g to go':'Target hit'):'','var(--teal)')}
+      ${stat('Still to eat',leftC||leftP?nf(leftC)+'<small>cal · '+leftP+'g</small>':'Done<small>for today</small>',leftC||leftP?(leftC>=1200?'About 3 more meals '+when:leftC>=600?'A proper meal plus a shake '+when:leftC>0?'One more snack or a shake '+when:'Just protein left, a shake covers it'):'Nice, both targets hit')}
+      ${stat('Yesterday',y?nf(y.calories)+'<small>cal · '+(y.protein||0)+'g</small>':'·',y?(y.calories>=T.calories*.9?'Hit the target':nf(T.calories-y.calories)+' short'):'Nothing logged yesterday')}
+    </div>
+    <div class="card" style="margin-bottom:16px"><h3>Meals today <span class="h3sub">${items.length?items.length+' logged · '+nf(tot.c)+' cal':''}</span></h3>
+      ${items.length?`<div class="macro"><b style="width:${kc.p/kt*100}%;background:var(--teal)"></b><b style="width:${kc.cb/kt*100}%;background:var(--gold)"></b><b style="width:${kc.f/kt*100}%;background:var(--accent)"></b></div>
+      <div class="macro-k"><span><i style="background:var(--teal)"></i>Protein ${tot.p}g · ${Math.round(kc.p/kt*100)}%</span><span><i style="background:var(--gold)"></i>Carbs ${tot.cb}g · ${Math.round(kc.cb/kt*100)}%</span><span><i style="background:var(--accent)"></i>Fat ${tot.f}g · ${Math.round(kc.f/kt*100)}%</span></div>`:''}
+      <div class="bd-rows" style="margin-top:14px">${mealRows}</div></div>
+    ${(d.saved_meals||[]).length?`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-rows">${d.saved_meals.map(m=>`<div class="r"><span class="d"></span><span>${esc(m.name)}</span><span class="m">${nf(m.calories)} cal · ${m.protein}g</span></div>`).join('')}</div></div>`:''}`;
+  }
   return `<div class="bd-stats">
       ${goalCard('Today',tot.c,T.calories,'',tot.c?(Math.max(0,T.calories-tot.c)?nf(T.calories-tot.c)+' to go':'Target hit'):'Nothing logged yet','var(--accent)')}
       ${goalCard('Protein today',tot.p,T.protein,'g',tot.p?(Math.max(0,T.protein-tot.p)?(T.protein-tot.p)+'g to go':'Target hit'):'','var(--teal)')}
