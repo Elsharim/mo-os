@@ -6,7 +6,7 @@ import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets } from './_health.js';
-import { logMoney, moneySummary, setMoneySettings } from './_money.js';
+import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout } from './_money.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -95,9 +95,13 @@ const TOOLS = [{
   description: "Mo's money from MO OS: net worth in CAD and its 30 day change, every account balance, cash vs investments, runway in months, this month's income, spending, saved %, top spending, and tax to set aside. Use it for money questions and in the night check-in / Sunday review.",
   inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'History length for net worth, default 90' } } }
 }, {
+  name: 'log_payout',
+  description: "Record a Poppy payout (his monthly contractor income). Pass the date the money was sent, the gross amount and currency (usually USD). MO OS converts to CAD at that day's rate and uses it for the 2026 tax estimate. Logging the same date again replaces it.",
+  inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD' }, amount: { type: 'number' }, currency: { type: 'string', description: 'USD or CAD, default USD' }, period: { type: 'string', description: 'e.g. "Aug 26 to Sep 25"' }, remove: { type: 'boolean', description: 'true to delete the payout on that date' } }, required: ['date'] }
+}, {
   name: 'set_money_settings',
-  description: 'Change money assumptions: monthly_burn_cad (what a normal month costs him), tax_rate (0.3 = 30%), runway_goal_months. Only when he asks.',
-  inputSchema: { type: 'object', properties: { monthly_burn_cad: { type: 'number' }, tax_rate: { type: 'number' }, runway_goal_months: { type: 'number' } } }
+  description: 'Change money assumptions: deductions_cad (business expenses he will deduct this year), monthly_burn_cad, tax_rate. Only when he asks.',
+  inputSchema: { type: 'object', properties: { deductions_cad: { type: 'number' }, monthly_burn_cad: { type: 'number' }, tax_rate: { type: 'number' } } }
 }, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
@@ -202,7 +206,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -211,6 +215,8 @@ async function handle(msg) {
             ? JSON.stringify(await logMoney(args))
           : name === 'money'
             ? JSON.stringify(await moneySummary(Number(args.days) || 90))
+          : name === 'log_payout'
+            ? JSON.stringify(args.remove ? await removePayout(args.date) : await logPayout(args))
           : name === 'set_money_settings'
             ? JSON.stringify(await setMoneySettings(args))
           : name === 'log_weight'

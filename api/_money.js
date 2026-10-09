@@ -2,6 +2,7 @@
 // monthly income / spend, pushed by Grok from his Plaid connection (log_money).
 // Stored encrypted in Firestore (poppy/osmoney:Mo) with a server-only secret.
 import { webcrypto, createHash } from 'crypto';
+import { estimateTax, TAX_2026 } from './_tax.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -81,7 +82,7 @@ export async function logMoney(a) {
 
 export async function setMoneySettings(t) {
   const s = await load();
-  for (const k of ['monthly_burn_cad', 'tax_rate', 'runway_goal_months']) if (num(t[k]) != null) s.settings[k] = num(t[k]);
+  for (const k of ['monthly_burn_cad', 'tax_rate', 'runway_goal_months', 'deductions_cad']) if (num(t[k]) != null) s.settings[k] = num(t[k]);
   await save(s);
   return s.settings;
 }
@@ -105,7 +106,9 @@ export async function moneySummary(days = 90) {
   const burn = set.monthly_burn_cad || (spentMonths.length ? r2(spentMonths.reduce((a, m) => a + m.spent, 0) / spentMonths.length) : null);
   const burnFrom = set.monthly_burn_cad ? 'set' : spentMonths.length ? 'avg' : null;
   const prevKey = keys.filter((k) => k <= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).pop();
+  const tax = taxPicture(s, byType.tax || 0);
   return {
+    tax,
     as_of: latestKey || null,
     net_worth_cad: latest ? latest.net_worth_cad : null,
     change_30d_cad: latest && prevKey ? r2(latest.net_worth_cad - s.days[prevKey].net_worth_cad) : null,
@@ -121,5 +124,68 @@ export async function moneySummary(days = 90) {
     tax_reserve_cad: byType.tax || 0,
     history: hist,
     note: latest ? undefined : 'No money data yet. Grok logs balances from Plaid with log_money.'
+  };
+}
+
+// Poppy payouts (gross, usually USD, once a month). Converted to CAD at the
+// Bank-of-Canada-style daily rate for the payout date (frankfurter.app), cached.
+async function fxOn(date, cur) {
+  if (cur === 'CAD') return 1;
+  try {
+    const r = await fetch(`https://api.frankfurter.app/${date}?from=${cur}&to=CAD`);
+    const j = await r.json();
+    return (j.rates && j.rates.CAD) || null;
+  } catch (_) { return null; }
+}
+export async function logPayout(a) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : null;
+  const amount = num(a.amount);
+  if (!date || amount == null) throw new Error('Need date (YYYY-MM-DD) and amount.');
+  const cur = String(a.currency || 'USD').toUpperCase().slice(0, 3);
+  const s = await load();
+  s.payouts = s.payouts || [];
+  const rate = (await fxOn(date, cur)) || FX_DEFAULT[cur] || 1;
+  const rec = { date, amount: r2(amount), currency: cur, cad: r2(amount * rate), rate: Math.round(rate * 10000) / 10000, period: String(a.period || '').slice(0, 40), source: String(a.source || 'Poppy').slice(0, 40) };
+  // same date = replace (re-logging a corrected amount)
+  s.payouts = s.payouts.filter((p) => p.date !== date).concat(rec).sort((x, y) => x.date.localeCompare(y.date));
+  await save(s);
+  return rec;
+}
+export async function removePayout(date) {
+  const s = await load();
+  const before = (s.payouts || []).length;
+  s.payouts = (s.payouts || []).filter((p) => p.date !== date);
+  await save(s);
+  return { removed: before - s.payouts.length };
+}
+
+// The tax picture for the current year: income so far, projected, estimated
+// tax, what should be set aside by today vs what is in the tax reserve.
+export function taxPicture(s, reserveCad) {
+  const year = new Date().getFullYear();
+  const set = { tax_rate: 0.3, deductions_cad: 0, ...(s.settings || {}) };
+  const pays = (s.payouts || []).filter((p) => p.date.startsWith(String(year)));
+  const ytd = r2(pays.reduce((t, p) => t + p.cad, 0));
+  // one payout a month; months not yet paid are projected from the recent average
+  const paidMonths = new Set(pays.map((p) => p.date.slice(0, 7)));
+  const monthsLeft = 12 - paidMonths.size;
+  const recent = pays.slice(-3);
+  const avgRecent = recent.length ? recent.reduce((t, p) => t + p.cad, 0) / recent.length : 0;
+  const projected = r2(ytd + monthsLeft * avgRecent);
+  const net = Math.max(0, projected - (set.deductions_cad || 0));
+  const est = estimateTax(net);
+  const share = projected ? ytd / projected : 0;
+  const shouldHave = r2(est.total * share);
+  const reserve = r2(reserveCad || 0);
+  const nextPay = pays.length ? pays[pays.length - 1].cad : avgRecent;
+  return {
+    year, payouts: pays, payouts_count: pays.length, missing_months: Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`).filter((m) => !paidMonths.has(m) && m <= new Date().toISOString().slice(0, 7)),
+    ytd_income_cad: ytd, avg_recent_payout_cad: r2(avgRecent), months_left: monthsLeft, projected_income_cad: projected,
+    deductions_cad: set.deductions_cad || 0,
+    estimate: est,
+    should_have_set_aside_cad: shouldHave, reserve_cad: reserve, gap_cad: r2(reserve - shouldHave),
+    set_aside_pct: est.effective_rate ? Math.ceil(est.effective_rate) : null,
+    set_aside_next_payout_cad: r2(nextPay * (est.effective_rate / 100)),
+    deadlines: TAX_2026.deadlines
   };
 }

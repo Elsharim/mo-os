@@ -2514,6 +2514,16 @@
   .mn-io div{display:flex;flex-direction:column;gap:3px}.mn-io span{font-size:12px;color:var(--faint)}
   .mn-io b{font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:-.02em}
   @media (max-width:700px){.mn-hero{flex-direction:column;align-items:flex-start}.mn-big{font-size:38px}.bd-stats[style*="repeat(3"]{grid-template-columns:1fr!important}}
+
+  .mn-h{font-family:var(--display);font-size:16px;font-weight:600;margin:6px 0 12px;letter-spacing:-.015em}
+  .mn-h .h3sub{font-family:var(--sans);font-size:12.5px;color:var(--faint);font-weight:400;letter-spacing:0;margin-left:6px}
+  .mn-tax{margin-bottom:16px;padding:24px 26px}
+  .mn-tax-top{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .mn-big2{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.035em;line-height:1.05;margin-top:6px}
+  .mn-bar{height:6px;border-radius:6px;background:var(--hair);margin-top:18px;overflow:hidden}
+  .mn-bar b{display:block;height:100%;border-radius:6px}
+  .mn-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 32px}
+  @media (max-width:700px){.mn-tax-top{grid-template-columns:1fr}.mn-big2{font-size:26px}.bd-stats[style*="repeat(4"]{grid-template-columns:1fr 1fr!important}}
 </style>
 </head>
 <body>
@@ -2969,7 +2979,7 @@ function topbar(){
   const n=S.name?.trim();
   const fg=featuredGoal();
   const cd=goalDays(fg);
-  const goalChip=(currentView!=='morning'&&fg&&cd!==null&&cd>=0)
+  const goalChip=(false&&fg&&cd!==null&&cd>=0)
     ?`<span class="goal-chip" title="${esc(fg.text)}"><b>${cd}</b><span>days · ${esc(clip(fg.text,28))}</span></span>`
     :'';
   document.getElementById('greet').innerHTML=
@@ -5298,52 +5308,64 @@ function wireTimeline(){
 const cad=n=>n==null?'·':(n<0?'-':'')+'$'+nf(Math.round(Math.abs(n)));
 const TYPE_LBL={cash:'Cash',savings:'Savings',investment:'Investments',crypto:'Crypto',tax:'Tax reserve',credit:'Credit cards',loan:'Loans',other:'Other'};
 const TYPE_COL={cash:'var(--teal)',savings:'var(--good)',investment:'var(--accent)',crypto:'var(--gold)',tax:'var(--warn)',other:'rgba(255,255,255,.3)'};
-let mnRange=90;
 function moneyHTML(d){
   if(!d||d.error)return '<div class="bd-empty">Could not load right now.</div>';
-  if(!d.as_of)return `<div class="card"><div class="mn-empty">Nothing here yet. Tell Grok <b>"log my balances"</b> and this fills in: net worth, every account, runway, this month.</div></div>`;
-  const m=d.this_month||{},set=d.settings||{},bt=d.by_type_cad||{};
+  const tx=d.tax||{},est=tx.estimate||{},set=d.settings||{},bt=d.by_type_cad||{};
   const invested=(bt.investment||0)+(bt.crypto||0),owed=(bt.credit||0)+(bt.loan||0);
-  const hist=(d.history||[]).filter(x=>x.date>=addD(todayKey(),-mnRange));
-  const nwPts=hist.map(x=>({label:dateLbl(x.date),v:x.net_worth_cad,tip:`<b>${cad(x.net_worth_cad)}</b><small>${dayLbl(x.date)} ${dateLbl(x.date)}</small>`}));
   const byInst={};(d.accounts||[]).filter(a=>Math.abs(a.balance)>=1).forEach(a=>{const k=a.institution||'Other';(byInst[k]=byInst[k]||[]).push(a);});
   const instOrder=Object.keys(byInst).sort((a,b)=>byInst[b].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?0:x.cad),0)-byInst[a].reduce((t,x)=>t+(['credit','loan'].includes(x.type)?0:x.cad),0));
-  const kept=m.income_cad!=null&&m.spent_cad!=null?m.income_cad-m.spent_cad:null;
-  const outPct=m.income_cad?Math.min(100,Math.round((m.spent_cad||0)/m.income_cad*100)):0;
+  const gap=tx.gap_cad||0,ok=gap>=0;
+  const pct=tx.should_have_set_aside_cad?Math.min(100,Math.round((tx.reserve_cad||0)/tx.should_have_set_aside_cad*100)):0;
+  const monthName=m=>new Date(m+'-15T12:00').toLocaleDateString('en-US',{month:'short'});
+  const payRows=(tx.payouts||[]).slice().reverse().map(p=>`<div class="r"><span class="d">${dateLbl(p.date)}</span><span>${p.period?esc(p.period):monthName(p.date.slice(0,7))+' payout'}</span><span class="m">${p.currency!=='CAD'?p.currency+' '+nf(Math.round(p.amount))+' · ':''}<b style="color:var(--text)">${cad(p.cad)}</b></span></div>`).join('');
+  const missing=(tx.missing_months||[]).map(monthName);
   return `
-    <div class="card mn-hero">
+    ${d.as_of?`<div class="card mn-hero">
       <div><div class="bd-cap">Net worth, everything in CAD</div><div class="mn-big">${cad(d.net_worth_cad)}</div>
-        <div class="mn-delta ${d.change_30d_cad>=0?'up':'down'}">${d.change_30d_cad!=null?(d.change_30d_cad>=0?'▲ +':'▼ ')+cad(d.change_30d_cad)+' in the last 30 days':'First snapshot, '+dateLbl(d.as_of)}</div></div>
+        <div class="mn-delta ${d.change_30d_cad>=0?'up':'down'}">${d.change_30d_cad!=null?(d.change_30d_cad>=0?'▲ +':'▼ ')+cad(d.change_30d_cad)+' in the last 30 days':'As of '+dateLbl(d.as_of)}</div></div>
       <div class="mn-hero-side">
         <div><span>Cash</span><b>${cad(d.liquid_cad)}</b></div>
         <div><span>Invested</span><b>${cad(invested)}</b></div>
         ${bt.tax?`<div><span>Tax reserve</span><b>${cad(bt.tax)}</b></div>`:''}
         ${owed?`<div><span>Owed</span><b style="color:#f87171">-${cad(owed)}</b></div>`:''}
       </div>
+    </div>`:`<div class="card"><div class="mn-empty">No balances yet. Tell Grok <b>"log my balances"</b>.</div></div>`}
+
+    <h3 class="mn-h">Tax, ${tx.year||new Date().getFullYear()} <span class="h3sub">self-employed, Ontario · estimate, not a filing</span></h3>
+    <div class="card mn-tax">
+      <div class="mn-tax-top">
+        <div><div class="bd-cap">Should be set aside by today</div><div class="mn-big2">${cad(tx.should_have_set_aside_cad)}</div></div>
+        <div><div class="bd-cap">In your tax reserve</div><div class="mn-big2" style="color:${ok?'var(--good)':'#f87171'}">${cad(tx.reserve_cad)}</div></div>
+        <div><div class="bd-cap">${ok?'Ahead by':'Behind by'}</div><div class="mn-big2" style="color:${ok?'var(--good)':'#f87171'}">${cad(Math.abs(gap))}</div></div>
+      </div>
+      <div class="mn-bar"><b style="width:${pct}%;background:${ok?'var(--good)':'#f87171'}"></b></div>
+      <div class="bd-cap" style="margin-top:8px">${pct}% of what you should have by now${tx.set_aside_pct?` · put <b style="color:var(--text)">${tx.set_aside_pct}%</b> of every payout here (about ${cad(tx.set_aside_next_payout_cad)} next time)`:''}</div>
     </div>
-    <div class="bd-stats" style="grid-template-columns:repeat(3,1fr)">
-      ${stat('Runway',d.runway_months!=null?d.runway_months+'<small>months</small>':'<small>unknown</small>',d.burn_cad?'How long your cash lasts at '+cad(d.burn_cad)+' a month'+(d.burn_from==='avg'?', your average spend':''):'Tell Grok what a normal month costs you')}
-      ${m.income_cad?stat('Kept this month',cad(kept)+'<small>'+(m.saved_pct!=null?m.saved_pct+'%':'')+'</small>',cad(m.income_cad)+' in, '+cad(m.spent_cad)+' out'):stat('Spent so far this month',m.spent_cad!=null?cad(m.spent_cad):'·',m.spent_cad!=null?'No income landed yet this month':'Grok logs income and spending each morning')}
-      ${stat('Tax reserve',cad(d.tax_reserve_cad||0),d.tax_set_aside_cad?'This month adds '+cad(d.tax_set_aside_cad)+' ('+Math.round((set.tax_rate||0)*100)+'% of income)':Math.round((set.tax_rate||0)*100)+'% of each month\'s income goes here')}
+    <div class="bd-stats" style="grid-template-columns:repeat(4,1fr)">
+      ${stat('Earned so far',cad(tx.ytd_income_cad)+'<small>CAD</small>',(tx.payouts_count||0)+' payout'+(tx.payouts_count===1?'':'s')+(missing.length?' · missing '+missing.join(', '):''))}
+      ${stat('Likely for the year',cad(tx.projected_income_cad),tx.months_left?tx.months_left+' more at about '+cad(tx.avg_recent_payout_cad)+' each':'All months in')}
+      ${stat('Tax you\'ll owe',cad(est.total),est.effective_rate?est.effective_rate+'% of what you earn':'')}
+      ${stat('Due',dateLbl((tx.deadlines||{}).payment||'2027-04-30').replace(/,.*/,'')+'<small>2027</small>','File by '+dateLbl((tx.deadlines||{}).filing||'2027-06-15')+' 2027')}
     </div>
-    <div class="card" style="margin-bottom:16px"><div class="mn-ch-head"><h3 style="margin:0">Net worth over time</h3><div class="bd-range">${[[30,'1M'],[90,'3M'],[365,'1Y']].map(([n,l])=>`<button data-mnr="${n}" class="${mnRange===n?'on':''}">${l}</button>`).join('')}</div></div>
-      ${nwPts.length>1?chart({kind:'line',pts:nwPts,dots:false,pad:Math.max(300,Math.round(Math.abs(d.net_worth_cad||1000)*.06)),fmt:v=>'$'+(Math.abs(v)>=1000?Math.round(v/1000)+'k':Math.round(v)),vfmt:v=>cad(v)}):'<div class="bd-empty">The line appears after a couple of daily snapshots.</div>'}</div>
-    <div class="grid g2">
-      <div class="card"><h3>Accounts <span class="h3sub">as of ${dateLbl(d.as_of)}</span></h3>
-        ${instOrder.map(inst=>`<div class="mn-inst">${esc(inst)}</div>${byInst[inst].sort((a,b)=>b.cad-a.cad).map(a=>`<div class="mn-acc ${['credit','loan'].includes(a.type)?'neg':''}"><div><div class="n">${esc(a.name)}</div><div class="i">${TYPE_LBL[a.type]||a.type}</div></div><div class="b">${['credit','loan'].includes(a.type)?'-':''}${a.currency!=='CAD'?a.currency+' '+nf(Math.round(a.balance)):cad(a.balance)}${a.currency!=='CAD'?`<small>${cad(a.cad)} CAD</small>`:''}</div></div>`).join('')}`).join('')}</div>
-      <div class="card"><h3>This month <span class="h3sub">${m.month?new Date(m.month+'-15').toLocaleDateString('en-US',{month:'long'}):''}</span></h3>
-        ${m.income_cad!=null||m.spent_cad!=null?`
-        <div class="mn-io"><div><span>In</span><b>${cad(m.income_cad)}</b></div><div><span>Out</span><b>${cad(m.spent_cad)}</b></div><div><span>Kept</span><b style="color:var(--good)">${kept!=null?cad(kept):'·'}</b></div></div>
-        <div class="mn-split"><b style="width:${outPct}%;background:var(--accent)"></b><b style="width:${100-outPct}%;background:var(--good)"></b></div>
-        <div class="bd-cap" style="margin-bottom:10px">${outPct}% spent, ${100-outPct}% kept</div>`:'<div class="bd-empty">Grok logs this month\'s income and spending from Plaid each morning.</div>'}
-        ${(m.top_spending||[]).length?`<div class="bd-cap" style="margin:8px 0 4px">Where it went</div>${m.top_spending.map(x=>`<div class="mn-cat"><span>${esc(x.category)}</span><span>${cad(x.cad)}</span></div>`).join('')}`:''}</div>
-    </div>`;
+    <div class="grid g2" style="margin-bottom:16px">
+      <div class="card"><h3>Where the ${cad(est.total)} goes</h3><div class="bd-rows">
+        <div class="r"><span class="d"></span><span>Federal income tax</span><span class="m">${cad(est.federal)}</span></div>
+        <div class="r"><span class="d"></span><span>Ontario income tax${est.surtax?' (incl. surtax)':''}</span><span class="m">${cad(est.ontario)}</span></div>
+        <div class="r"><span class="d"></span><span>Ontario health premium</span><span class="m">${cad(est.ohp)}</span></div>
+        <div class="r"><span class="d"></span><span>CPP, both halves since you're self-employed</span><span class="m">${cad(est.cpp)}</span></div>
+        ${tx.deductions_cad?`<div class="r"><span class="d"></span><span>After ${cad(tx.deductions_cad)} in business expenses</span><span class="m"></span></div>`:`<div class="r"><span class="d"></span><span style="color:var(--faint)">No business expenses counted yet. Tell Grok what you'll deduct (phone, laptop, home office, software) and this drops.</span><span class="m"></span></div>`}
+      </div></div>
+      <div class="card"><h3>Payouts <span class="h3sub">gross, converted on the day</span></h3><div class="bd-rows">${payRows||'<div class="bd-empty">None logged yet.</div>'}</div></div>
+    </div>
+
+    ${d.as_of?`<div class="card"><h3>Accounts <span class="h3sub">as of ${dateLbl(d.as_of)}</span></h3>
+      <div class="mn-cols">${instOrder.map(inst=>`<div><div class="mn-inst">${esc(inst)}</div>${byInst[inst].sort((a,b)=>b.cad-a.cad).map(a=>`<div class="mn-acc ${['credit','loan'].includes(a.type)?'neg':''}"><div><div class="n">${esc(a.name)}</div><div class="i">${TYPE_LBL[a.type]||a.type}</div></div><div class="b">${['credit','loan'].includes(a.type)?'-':''}${a.currency!=='CAD'?a.currency+' '+nf(Math.round(a.balance)):cad(a.balance)}${a.currency!=='CAD'?`<small>${cad(a.cad)} CAD</small>`:''}</div></div>`).join('')}</div>`).join('')}</div></div>`:''}`;
 }
 function renderMoney(){
-  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Money</h2><p class="sec-sub">Net worth, runway and this month. Grok updates it from Plaid every morning.</p></div></div><div id="mn"><div class="bd-empty">Loading…</div></div></div>`;
+  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Money</h2><p class="sec-sub">Net worth, tax and your accounts. Grok updates balances every morning.</p></div></div><div id="mn"><div class="bd-empty">Loading…</div></div></div>`;
   const paint=(d)=>{const el=document.getElementById('mn');if(!el||currentView!=='money')return;
     if(d&&d.needsUnlock){el.innerHTML=`<div class="tday-connect" style="margin:0"><span>Confirm your PIN once on this device to see your money.</span><button class="btn btn-sm" id="mn-connect">Connect</button></div>`;el.querySelector('#mn-connect').onclick=async()=>{await ensureMediaSecret();renderMoney();};return;}
-    el.innerHTML=moneyHTML(d);wireCharts(el);el.querySelectorAll('[data-mnr]').forEach(b=>b.onclick=()=>{mnRange=+b.dataset.mnr;paint(d);});};
+    el.innerHTML=moneyHTML(d);};
   if(_life.money)paint(_life.money.data);
   lifeData('money').then(paint);
 }
