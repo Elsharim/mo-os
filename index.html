@@ -4765,7 +4765,7 @@ function sessionsSince(d,days){const s=new Date(Date.now()-days*864e5).toISOStri
 
 function bodyOverview(d){
   const sl7=(d.sleep||[]).slice(-7),rc7=(d.recovery||[]).slice(-7);
-  const avgH=r1(avg(sl7.map(x=>x.hours))),avgR=avg(rc7.map(x=>x.score));
+  const avgH=r1(avg(sl7.map(x=>x.hours))),avgR0=avg(rc7.map(x=>x.score)),avgR=avgR0==null?null:Math.round(avgR0);
   const bed=avgClock(sl7.map(x=>x.bed),12*60);
   const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null,goal=d.goal_lb||170;
   const g14=sessionsSince(d,14);
@@ -4812,8 +4812,8 @@ function bodyTraining(d){
   const ws=d.workouts||[];
   const weeks=[];for(let i=7;i>=0;i--){const end=Date.now()-i*7*864e5,start=end-7*864e5;const s=new Date(start).toISOString().slice(0,10),e=new Date(end).toISOString().slice(0,10);weeks.push({n:ws.filter(w=>w.date>s&&w.date<=e).length,l:dateLbl(new Date(start+864e5).toISOString().slice(0,10))});}
   return `<div class="bd-stats">
-      ${stat('This week',sessionsSince(d,7)+'<small>sessions</small>','Aim for 3 to 4')}
-      ${stat('Last 4 weeks',sessionsSince(d,28)+'<small>sessions</small>',r1(sessionsSince(d,28)/4)+' a week')}
+      ${stat('This week',sessionsSince(d,7)+'<small>'+(sessionsSince(d,7)===1?'session':'sessions')+'</small>','Aim for 3 to 4')}
+      ${stat('Last 4 weeks',sessionsSince(d,28)+'<small>'+(sessionsSince(d,28)===1?'session':'sessions')+'</small>',r1(sessionsSince(d,28)/4)+' a week')}
       ${stat('Avg session',(ws.length?Math.round(avg(ws.slice(0,8).map(w=>Math.min(w.minutes,150)))):0)+'<small>min</small>','Last 8 workouts')}
       ${stat('Last workout',ws[0]?esc(ws[0].title):'·',ws[0]?dateLbl(ws[0].date)+', '+Math.round((Date.now()-new Date(ws[0].date+'T12:00'))/864e5)+' days ago':'')}
     </div>
