@@ -1,5 +1,31 @@
-// Mo's calendar via Google's private iCal link (env CAL_ICS_URL, comma-separated
-// for several calendars). Read-only, no login flow.
+// Mo's calendar. Preferred: a Google Apps Script in his account pushes the next
+// ~36h of events here every 15 min (handles recurring events). Fallback: Google's
+// private iCal link (env CAL_ICS_URL), which only sees one-off events.
+import { webcrypto, createHash } from 'crypto';
+const subtle = (globalThis.crypto || webcrypto).subtle;
+const API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyCYCt9-opphzCOSInAaPnrGIBN8M6kWW-Y';
+const DOC_URL = 'https://firestore.googleapis.com/v1/projects/poppy-sales/databases/(default)/documents/poppy/oscal:Mo';
+const ckey = () => subtle.importKey('raw', createHash('sha256').update('cal:' + (process.env.WHOOP_STORE_SECRET || '')).digest(), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+
+export async function storePushed(events) {
+  const clean = (Array.isArray(events) ? events : []).slice(0, 200).map((e) => ({
+    title: String(e.title || 'Busy').slice(0, 200), start: String(e.start || ''), end: String(e.end || ''), cal: String(e.cal || '').slice(0, 80)
+  })).filter((e) => !isNaN(Date.parse(e.start)));
+  const iv = (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(12));
+  const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, await ckey(), new TextEncoder().encode(JSON.stringify({ at: Date.now(), events: clean })));
+  const v = Buffer.from(iv).toString('base64') + ':' + Buffer.from(new Uint8Array(ct)).toString('base64');
+  const r = await fetch(`${DOC_URL}?key=${API_KEY}&updateMask.fieldPaths=v`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { v: { stringValue: v } } }) });
+  if (!r.ok) throw new Error('store write ' + r.status);
+  return clean.length;
+}
+async function loadPushed() {
+  const r = await fetch(`${DOC_URL}?key=${API_KEY}`);
+  if (!r.ok) return null;
+  const v = (((await r.json()).fields || {}).v || {}).stringValue;
+  if (!v) return null;
+  const [iv, ct] = v.split(':').map((x) => new Uint8Array(Buffer.from(x, 'base64')));
+  return JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name: 'AES-GCM', iv }, await ckey(), ct)));
+}
 
 function zonedToUtc(y, mo, d, h, mi, s, tz) {
   // Treat the wall time as UTC, then correct by the zone's offset at that moment.
@@ -52,15 +78,21 @@ const hhmm = (ms, off) => new Date(ms + offMin(off) * 6e4).toISOString().slice(1
 
 // Events in Mo's "day": local 5am today to 5am tomorrow (his calls run late).
 export async function calendarToday(tzOffset) {
+  const pushed = await loadPushed().catch(() => null);
   const urls = String(process.env.CAL_ICS_URL || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (!urls.length) return null;
-  const texts = await Promise.all(urls.map((u) => fetch(u).then((r) => (r.ok ? r.text() : '')).catch(() => '')));
+  if (!pushed && !urls.length) return null;
+  let raw;
+  if (pushed) raw = pushed.events.map((e) => ({ title: e.title, start: { ms: Date.parse(e.start) }, end: e.end ? { ms: Date.parse(e.end) } : null }));
+  else {
+    const texts = await Promise.all(urls.map((u) => fetch(u).then((r) => (r.ok ? r.text() : '')).catch(() => '')));
+    raw = texts.flatMap(parseIcs);
+  }
   const now = Date.now(), om = offMin(tzOffset) * 6e4;
   const localNow = new Date(now + om);
   let dayStart = Date.UTC(localNow.getUTCFullYear(), localNow.getUTCMonth(), localNow.getUTCDate(), 5) - om;
   if (now < dayStart) dayStart -= 864e5;
   const dayEnd = dayStart + 864e5;
-  const events = texts.flatMap(parseIcs)
+  const events = raw
     .filter((e) => !e.start.allDay && e.start.ms >= dayStart && e.start.ms < dayEnd)
     .sort((a, b) => a.start.ms - b.start.ms)
     .map((e) => ({
@@ -68,5 +100,5 @@ export async function calendarToday(tzOffset) {
       start_iso: new Date(e.start.ms).toISOString(), past: (e.end ? e.end.ms : e.start.ms + 18e5) < now
     }));
   const next = events.find((e) => !e.past) || null;
-  return { events, next };
+  return { events, next, synced_at: pushed ? new Date(pushed.at).toISOString() : null };
 }

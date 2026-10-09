@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { whoopSummary } from './_whoop.js';
 import { healthSummary } from './_health.js';
 import { hevySummary } from './_hevy.js';
-import { calendarToday } from './_cal.js';
+import { calendarToday, storePushed } from './_cal.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -18,6 +18,16 @@ function authed(req) {
 const safe = (p) => p.catch((e) => ({ error: String((e && e.message) || e) }));
 
 export default async function handler(req, res) {
+  if (req.method === 'POST' && req.query.view === 'calendar') {
+    // pushed by the Google Apps Script in Mo's account
+    const h = String(req.headers.authorization || '');
+    if (!eq(h.startsWith('Bearer ') ? h.slice(7).trim() : String(req.query.key || ''), process.env.CAL_PUSH_TOKEN)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    let body = req.body;
+    if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
+    try { res.status(200).json({ ok: true, saved: await storePushed((body || {}).events) }); }
+    catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+    return;
+  }
   if (!authed(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
   const view = req.query.view || 'today';
   res.setHeader('Cache-Control', 'no-store');
