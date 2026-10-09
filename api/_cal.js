@@ -97,8 +97,39 @@ export async function calendarToday(tzOffset) {
     .sort((a, b) => a.start.ms - b.start.ms)
     .map((e) => ({
       title: e.title || 'Busy', start: hhmm(e.start.ms, tzOffset), end: e.end ? hhmm(e.end.ms, tzOffset) : null,
-      start_iso: new Date(e.start.ms).toISOString(), past: (e.end ? e.end.ms : e.start.ms + 18e5) < now
+      start_iso: new Date(e.start.ms).toISOString(), end_iso: e.end ? new Date(e.end.ms).toISOString() : null, past: (e.end ? e.end.ms : e.start.ms + 18e5) < now
     }));
   const next = events.find((e) => !e.past) || null;
   return { events, next, synced_at: pushed ? new Date(pushed.at).toISOString() : null };
+}
+
+/* Queue of calendar writes (create / delete) that the Apps Script in Mo's account
+   applies on its next run, then acks. Stored encrypted like the pushed events. */
+const Q_URL = 'https://firestore.googleapis.com/v1/projects/poppy-sales/databases/(default)/documents/poppy/oscalq:Mo';
+async function qLoad() {
+  const r = await fetch(`${Q_URL}?key=${API_KEY}`);
+  if (!r.ok) return [];
+  const v = (((await r.json()).fields || {}).v || {}).stringValue;
+  if (!v) return [];
+  const [iv, ct] = v.split(':').map((x) => new Uint8Array(Buffer.from(x, 'base64')));
+  try { return JSON.parse(new TextDecoder().decode(await subtle.decrypt({ name: 'AES-GCM', iv }, await ckey(), ct))); } catch (_) { return []; }
+}
+async function qSave(list) {
+  const iv = (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(12));
+  const ct = await subtle.encrypt({ name: 'AES-GCM', iv }, await ckey(), new TextEncoder().encode(JSON.stringify(list)));
+  const v = Buffer.from(iv).toString('base64') + ':' + Buffer.from(new Uint8Array(ct)).toString('base64');
+  const r = await fetch(`${Q_URL}?key=${API_KEY}&updateMask.fieldPaths=v`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields: { v: { stringValue: v } } }) });
+  if (!r.ok) throw new Error('queue write ' + r.status);
+}
+export async function queueAdd(item) {
+  const list = await qLoad();
+  const it = { id: 'q' + Date.now() + Math.random().toString(36).slice(2, 7), at: Date.now(), ...item };
+  list.push(it);
+  await qSave(list.slice(-100));
+  return it;
+}
+export const queuePending = () => qLoad();
+export async function queueAck(ids) {
+  const list = await qLoad();
+  await qSave(list.filter((x) => !ids.includes(x.id)));
 }

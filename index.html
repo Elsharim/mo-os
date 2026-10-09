@@ -2397,6 +2397,38 @@
   .macro-k{display:flex;gap:16px;font-size:12px;color:var(--muted)}
   .macro-k i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
   @media (max-width:900px){.bd-stats{grid-template-columns:1fr 1fr}.bd-mini{grid-template-columns:1fr}.bd-rows .r{grid-template-columns:84px 1fr auto}}
+  /* TASKS + DAY TIMELINE */
+  .tk-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start}
+  @media (max-width:980px){.tk-layout{grid-template-columns:1fr}}
+  .tl{position:sticky;top:12px}
+  @media (max-width:980px){.tl{position:static}}
+  .tl-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .tl-head h3{font-family:var(--display);font-size:16px;font-weight:600;margin:0;letter-spacing:-.015em}
+  .tl-hint{font-size:12px;color:var(--faint);margin-bottom:10px;line-height:1.5}
+  .tl-pick{font-size:12.5px;color:var(--text);background:rgba(255,122,71,.12);border:1px solid rgba(255,122,71,.35);border-radius:10px;padding:8px 10px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .tl-scroll{max-height:70vh;overflow:auto;border:1px solid var(--hair);border-radius:16px;background:var(--surface);padding:8px 0}
+  .tl-scroll.picking{border-color:rgba(255,122,71,.45)}
+  .tl-body{position:relative;margin-left:56px;margin-right:4px}
+  .tl-hour{position:absolute;left:0;right:0;border-top:1px solid var(--hair);pointer-events:none}
+  .tl-hour span{position:absolute;left:-52px;top:-7px;font-size:10.5px;color:var(--faint);font-family:var(--mono);width:44px;text-align:right}
+  .tl-slot{position:absolute;left:0;right:0;z-index:1}
+  .tl-slot.over,.picking .tl-slot:hover{background:rgba(255,122,71,.14);border-radius:6px}
+  .tl-ev{position:absolute;z-index:2;border-radius:8px;padding:4px 8px;font-size:12px;line-height:1.35;background:rgba(45,212,191,.13);border-left:3px solid var(--teal);overflow:hidden;color:var(--text);box-sizing:border-box}
+  .tl-ev.past{opacity:.42}
+  .tl-ev.task{background:rgba(255,122,71,.15);border-left-color:var(--accent);padding-right:22px}
+  .tl-ev.task.pending{background:rgba(255,122,71,.08);border:1px dashed rgba(255,122,71,.55);border-left:3px solid var(--accent)}
+  .tl-ev-t{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-right:3px}
+  .tl-ev-x{position:absolute;top:2px;right:4px;background:none;border:none;color:var(--faint);font-size:14px;cursor:pointer;padding:2px 4px}
+  .tl-ev-x:hover{color:var(--text)}
+  .tl-now{position:absolute;left:-6px;right:0;border-top:2px solid #f87171;z-index:3;pointer-events:none}
+  .tl-now::before{content:'';position:absolute;left:-4px;top:-5px;width:8px;height:8px;border-radius:50%;background:#f87171}
+  .tk-row[draggable]{cursor:grab}
+  .tk-row.dragging{opacity:.4}
+  .tk-when{font-size:11px;color:var(--accent);background:rgba(255,122,71,.12);border-radius:6px;padding:2px 7px;margin-left:8px;white-space:nowrap;cursor:pointer}
+  .tk-when.pending{border:1px dashed rgba(255,122,71,.5);background:none}
+  .tk-clock{background:none;border:none;color:var(--faint);cursor:pointer;font-size:13px;padding:4px 5px;border-radius:7px}
+  .tk-clock:hover{color:var(--text);background:var(--surface-hi)}
+  .tk-clock.on{color:var(--accent)}
 </style>
 </head>
 <body>
@@ -3078,10 +3110,12 @@ function hubTaskRow(t){
   const proj=taskProject(t);
   const inTop=top3Ids().includes(t.id);
   const dc=proj?execProjColor(proj.id):'var(--border-2)';
-  return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}">
+  const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
+  return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-    <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}</div></div>
+    <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}${whenChip}</div></div>
     <div class="et-actions tk-acts">
+      ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
       <button class="tk-dot" data-dot="${t.id}" style="--dc:${dc}" title="${proj?esc(proj.name):'Set area'}"></button>
       <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of today':'Focus today'}">${inTop?'★':'☆'}</button>
       <button class="rm" data-del="${t.id}">×</button>
@@ -3102,6 +3136,7 @@ function renderTasks(){
 
   main.innerHTML=`<div class="view">
     <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
+    <div class="tk-layout"><div>
 
     <div class="tk-capture">
       <input id="tk-add" placeholder="What needs doing?" autocomplete="off" autofocus>
@@ -3144,15 +3179,20 @@ function renderTasks(){
       <button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
       ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>`<div class="et-row completed" data-id="${t.id}"><span class="box et-complete done" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span><div class="et-main"><div class="et-name">${esc(t.name)}</div></div><div class="et-actions"><button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button></div></div>`).join('')}</div>`:''}
     </div>`:''}
+    </div><div id="tl-wrap">${timelineHTML()}</div></div>
   </div>`;
   wireTasks();
+  wireTimeline();
 }
 function wireTasks(){
   const E=execData();
   const inp=document.getElementById('tk-add');
   const add=()=>{
     const v=inp.value.trim();if(!v)return;
-    addTask(v,{projectId:taskArea==='all'?null:taskArea});save();renderTasks();
+    const pt=parseTimeTail(v);
+    const t=addTask(pt?pt.name:v,{projectId:taskArea==='all'?null:taskArea});save();
+    if(pt){scheduleTask(t.id,slotDate(pt.mins));return;}
+    renderTasks();
     const i=document.getElementById('tk-add');if(i){i.focus();i.value='';}
   };
   document.getElementById('tk-add-btn').onclick=add;
@@ -3174,7 +3214,7 @@ function wireTasks(){
     etToast('Done: '+clip(name,30),'undo',()=>{uncompleteTask(id);save();renderTasks();});
   });
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
-  main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{deleteTask(b.dataset.del);save();renderTasks();});
+  main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const t=E.tasks[b.dataset.del];if(t&&t.when)unscheduleTask(t.id,true);deleteTask(b.dataset.del);save();renderTasks();});
   main.querySelectorAll('[data-keep]').forEach(b=>b.onclick=()=>{touchTask(b.dataset.keep);save();renderTasks();});
   main.querySelectorAll('[data-star]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.star);save();renderTasks();});
   main.querySelectorAll('[data-dot]').forEach(b=>b.onclick=e=>{e.stopPropagation();openAreaPicker(b.dataset.dot,b);});
@@ -5037,6 +5077,93 @@ function renderBody(){
   const key='body&days='+rangeDays();
   if(_life[key])paint(_life[key].data);
   bodyData().then(paint);
+}
+
+/* DAY TIMELINE on Tasks: today's calendar, drag a task onto a time to put it on Google Calendar */
+const TL_START=7,TL_END=26,TL_HPX=52; // 7am to 2am, 52px per hour
+let tlPick=null,_tlTimer=null;
+const tlMins=d=>{const x=new Date(d);let m=x.getHours()*60+x.getMinutes();if(m<TL_START*60)m+=1440;return m;};
+const tlTop=d=>(tlMins(d)-TL_START*60)/60*TL_HPX;
+const tlFmt=d=>{const x=new Date(d);return fmt12(String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0'));};
+const sameEvent=(t,e)=>e&&t.when&&Math.abs(Date.parse(e.start_iso)-Date.parse(t.when))<120e3&&(e.title||'').trim().toLowerCase()===t.name.trim().toLowerCase();
+function slotDate(mins){const d=new Date();d.setHours(0,0,0,0);if(mins>=1440){d.setDate(d.getDate()+1);mins-=1440;}d.setHours(Math.floor(mins/60),mins%60,0,0);return d;}
+function parseTimeTail(text){
+  const m=/\s(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)$/i.exec(text);
+  if(!m)return null;
+  let h=+m[1]%12;if(m[3].toLowerCase()==='pm')h+=12;
+  return {name:text.slice(0,m.index).trim(),mins:h*60+(+m[2]||0)};
+}
+async function scheduleTask(id,when){
+  const t=execData().tasks[id];if(!t)return;
+  const start=new Date(when);const end=new Date(start.getTime()+30*6e4);
+  t.when=start.toISOString();t.dur=30;t.calPending=true;touchTask(id);save();
+  tlPick=null;renderTasks();
+  const sec=mediaSecret();
+  if(!sec){etToast('Confirm your PIN once (Body page) so this can reach your calendar');return;}
+  try{
+    const r=await fetch('/api/life?view=schedule',{method:'POST',headers:{'Content-Type':'application/json','x-moos-secret':sec},body:JSON.stringify({title:t.name,start_iso:start.toISOString(),end_iso:end.toISOString()})});
+    if(!r.ok)throw new Error();
+    etToast(clip(t.name,28)+' at '+tlFmt(start)+'. On your Google Calendar in a few minutes.');
+  }catch(_){etToast('Saved here, but could not reach your calendar. It will show in MO OS only.');}
+}
+async function unscheduleTask(id,quiet){
+  const t=execData().tasks[id];if(!t||!t.when)return;
+  const when=t.when;t.when=null;t.calPending=false;save();
+  if(!quiet)renderTasks();
+  const sec=mediaSecret();if(!sec)return;
+  fetch('/api/life?view=schedule',{method:'POST',headers:{'Content-Type':'application/json','x-moos-secret':sec},body:JSON.stringify({action:'delete',title:t.name,start_iso:when})}).catch(()=>{});
+}
+function timelineHTML(){
+  const d=_life.today&&_life.today.data;
+  const cal=d&&d.calendar;
+  const E=execData();
+  const todayK=todayKey();
+  const tasks=Object.values(E.tasks).filter(t=>t.when&&t.status!=='completed'&&isoDay(new Date(t.when))===todayK);
+  const events=(cal?cal.events:[]).filter(e=>e.start_iso).map(e=>({title:e.title,start:e.start_iso,end:e.end_iso||new Date(Date.parse(e.start_iso)+30*6e4).toISOString(),kind:'cal',past:e.past}));
+  const items=[...events];
+  tasks.forEach(t=>{if(!events.some(e=>sameEvent(t,e)))items.push({title:t.name,start:t.when,end:new Date(Date.parse(t.when)+(t.dur||30)*6e4).toISOString(),kind:'task',pending:true,id:t.id});
+    else{const e=events.find(e=>sameEvent(t,e));e.kind='task';e.id=t.id;}});
+  items.sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));
+  // simple overlap columns
+  items.forEach((it,i)=>{it.col=0;it.cols=1;for(let j=0;j<i;j++){const o=items[j];if(Date.parse(it.start)<Date.parse(o.end)&&Date.parse(it.end)>Date.parse(o.start)){it.col=o.col+1;o.cols=it.cols=Math.max(o.cols,it.col+1);}}});
+  const H=(TL_END-TL_START)*TL_HPX;
+  const hours=[];for(let h=TL_START;h<TL_END;h++){const lbl=fmt12(String(h%24).padStart(2,'0')+':00');hours.push(`<div class="tl-hour" style="top:${(h-TL_START)*TL_HPX}px"><span>${lbl}</span></div>`);}
+  const slots=[];for(let m=TL_START*60;m<TL_END*60;m+=30)slots.push(`<div class="tl-slot" data-slot="${m}" style="top:${(m-TL_START*60)/60*TL_HPX}px;height:${TL_HPX/2}px"></div>`);
+  const nowM=tlMins(new Date());const showNow=nowM>=TL_START*60&&nowM<TL_END*60;
+  const blocks=items.map(it=>{
+    const top=tlTop(it.start),h=Math.max(22,(Date.parse(it.end)-Date.parse(it.start))/36e5*TL_HPX-2);
+    const w=100/it.cols,left=it.col*w;
+    return `<div class="tl-ev ${it.kind} ${it.pending?'pending':''} ${it.past?'past':''}" style="top:${top}px;height:${h}px;left:calc(${left}% + 4px);width:calc(${w}% - 10px)" title="${esc(it.title)}">
+      <span class="tl-ev-t">${tlFmt(it.start)}</span> ${esc(it.title)}${it.id?`<button class="tl-ev-x" data-unsched="${it.id}" title="Take off the calendar">×</button>`:''}</div>`;
+  }).join('');
+  const pickName=tlPick&&E.tasks[tlPick]?E.tasks[tlPick].name:'';
+  return `<div class="tl">
+    <div class="tl-head"><h3>Today</h3><span class="h3sub">${cal?cal.events.length+' on your calendar':(d?'Calendar not linked':'Loading…')}</span></div>
+    ${tlPick?`<div class="tl-pick">Tap a time for <b>${esc(pickName)}</b> <button class="btn btn-sm" id="tl-pick-cancel">Cancel</button></div>`:`<div class="tl-hint">Drag a task onto a time, or tap ⏱ on a task. It goes on your Google Calendar.</div>`}
+    <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"></div>`:''}</div></div>
+  </div>`;
+}
+function wireTimeline(){
+  const sc=document.getElementById('tl-scroll');if(!sc)return;
+  const nowM=tlMins(new Date());
+  if(!sc.dataset.scrolled){sc.scrollTop=Math.max(0,(nowM-TL_START*60)/60*TL_HPX-140);sc.dataset.scrolled='1';}
+  sc.querySelectorAll('.tl-slot').forEach(sl=>{
+    sl.ondragover=e=>{e.preventDefault();sl.classList.add('over');};
+    sl.ondragleave=()=>sl.classList.remove('over');
+    sl.ondrop=e=>{e.preventDefault();sl.classList.remove('over');const id=e.dataTransfer.getData('text/plain');if(id)scheduleTask(id,slotDate(+sl.dataset.slot));};
+    sl.onclick=()=>{if(tlPick)scheduleTask(tlPick,slotDate(+sl.dataset.slot));};
+  });
+  sc.querySelectorAll('[data-unsched]').forEach(b=>b.onclick=e=>{e.stopPropagation();unscheduleTask(b.dataset.unsched);});
+  const cancel=document.getElementById('tl-pick-cancel');if(cancel)cancel.onclick=()=>{tlPick=null;renderTasks();};
+  main.querySelectorAll('.tk-row[draggable]').forEach(r=>{
+    r.ondragstart=e=>{e.dataTransfer.setData('text/plain',r.dataset.id);e.dataTransfer.effectAllowed='move';r.classList.add('dragging');};
+    r.ondragend=()=>r.classList.remove('dragging');
+  });
+  main.querySelectorAll('[data-clock]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=execData().tasks[b.dataset.clock];if(t&&t.when){unscheduleTask(t.id);return;}tlPick=b.dataset.clock;renderTasks();document.getElementById('tl-scroll')?.scrollIntoView({behavior:'smooth',block:'nearest'});});
+  // keep the calendar side fresh while this page is open
+  clearInterval(_tlTimer);
+  _tlTimer=setInterval(async()=>{if(currentView!=='tasks'){clearInterval(_tlTimer);return;}const d=await lifeData('today',true);if(currentView==='tasks'&&d&&!d.needsUnlock){const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}}},60e3);
+  if(!_life.today)lifeData('today').then(()=>{if(currentView==='tasks'){const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}}});
 }
 
 /* boot */

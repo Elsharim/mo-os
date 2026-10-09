@@ -5,7 +5,7 @@ import { createHmac, timingSafeEqual } from 'crypto';
 import { whoopSummary } from './_whoop.js';
 import { healthSummary } from './_health.js';
 import { hevySummary } from './_hevy.js';
-import { calendarToday, storePushed } from './_cal.js';
+import { calendarToday, storePushed, queueAdd, queuePending, queueAck } from './_cal.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -18,6 +18,35 @@ function authed(req) {
 const safe = (p) => p.catch((e) => ({ error: String((e && e.message) || e) }));
 
 export default async function handler(req, res) {
+  const view0 = req.query.view;
+  // Apps Script side: fetch pending calendar writes / ack them
+  if (view0 === 'calendar_queue' || view0 === 'calendar_ack') {
+    const h = String(req.headers.authorization || '');
+    if (!eq(h.startsWith('Bearer ') ? h.slice(7).trim() : String(req.query.key || ''), process.env.CAL_PUSH_TOKEN)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    try {
+      if (view0 === 'calendar_queue') { res.status(200).json({ items: await queuePending() }); return; }
+      let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
+      await queueAck(Array.isArray(body && body.ids) ? body.ids : []);
+      res.status(200).json({ ok: true });
+    } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+    return;
+  }
+  // App side: schedule a task (create) or unschedule it (delete)
+  if (req.method === 'POST' && view0 === 'schedule') {
+    if (!authed(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
+    body = body || {};
+    try {
+      const title = String(body.title || '').trim().slice(0, 200);
+      const start = Date.parse(body.start_iso), end = Date.parse(body.end_iso);
+      if (!title || isNaN(start)) { res.status(400).json({ error: 'title and start_iso needed' }); return; }
+      const item = await queueAdd(body.action === 'delete'
+        ? { action: 'delete', title, start_iso: new Date(start).toISOString() }
+        : { action: 'create', title, start_iso: new Date(start).toISOString(), end_iso: new Date(isNaN(end) ? start + 30 * 6e4 : end).toISOString() });
+      res.status(200).json({ ok: true, id: item.id });
+    } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+    return;
+  }
   if (req.method === 'POST' && req.query.view === 'calendar') {
     // pushed by the Google Apps Script in Mo's account
     const h = String(req.headers.authorization || '');
