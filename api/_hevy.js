@@ -48,6 +48,7 @@ export async function hevySummary(n = 10) {
     return {
       exercise: title, sessions: sess.length, last_date: last.date, last_routine: last.workout,
       last_sets_lb: fmtSets(last.sets), est_1rm_lb: best ? Math.round(best * LB) : null,
+      history: sess.map((x) => ({ date: x.date, e1rm_lb: Math.round(Math.max(0, ...x.sets.map((y) => (y.weight_kg || 0) * (1 + (y.reps || 0) / 30))) * LB) })),
       next: nextTarget(title, last.sets)
     };
   });

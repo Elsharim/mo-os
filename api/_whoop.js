@@ -113,19 +113,24 @@ export async function whoopSummary(days = 7) {
   const tok = await accessToken();
   if (!tok) return null;
   const start = new Date(Date.now() - (days + 1) * 864e5).toISOString();
-  const limit = String(Math.min(25, days + 2));
+  const all = async (path) => {
+    const out = []; let next = null;
+    for (let i = 0; i < 4; i++) {
+      const d = await get(tok, path, { start, limit: '25', ...(next ? { nextToken: next } : {}) });
+      out.push(...(d.records || [])); next = d.next_token;
+      if (!next) break;
+    }
+    return { records: out };
+  };
   const [rec, slp, cyc, wo, body] = await Promise.all([
-    get(tok, '/v2/recovery', { start, limit }),
-    get(tok, '/v2/activity/sleep', { start, limit: '25' }),
-    get(tok, '/v2/cycle', { start, limit }),
-    get(tok, '/v2/activity/workout', { start, limit: '25' }),
+    all('/v2/recovery'), all('/v2/activity/sleep'), all('/v2/cycle'), all('/v2/activity/workout'),
     get(tok, '/v2/user/measurement/body').catch(() => null)
   ]);
   const sleeps = (slp.records || []).filter((s) => !s.nap && s.score_state === 'SCORED').map((s) => {
     const st = (s.score && s.score.stage_summary) || {};
     const asleep = (st.total_in_bed_time_milli || 0) - (st.total_awake_time_milli || 0);
     return {
-      id: s.id, bed: local(s.start, s.timezone_offset), woke: local(s.end, s.timezone_offset),
+      id: s.id, tz_offset: s.timezone_offset || null, bed: local(s.start, s.timezone_offset), woke: local(s.end, s.timezone_offset),
       asleep_h: hrs(asleep), in_bed_h: hrs(st.total_in_bed_time_milli),
       deep_h: hrs(st.total_slow_wave_sleep_time_milli), rem_h: hrs(st.total_rem_sleep_time_milli),
       performance: s.score && s.score.sleep_performance_percentage, consistency: s.score && s.score.sleep_consistency_percentage
@@ -141,6 +146,7 @@ export async function whoopSummary(days = 7) {
     minutes: Math.round((Date.parse(w.end) - Date.parse(w.start)) / 6e4), strain: Math.round(w.score.strain * 10) / 10
   }));
   return {
+    tz_offset: (sleeps[0] && sleeps[0].tz_offset) || ((cyc.records || [])[0] || {}).timezone_offset || null,
     today: { recovery: recovery[0] || null, sleep: sleeps[0] || null, strain: strain[0] || null, workouts_today: workouts.filter((w) => strain[0] && w.date === strain[0].date) },
     recovery, sleep: sleeps, strain, workouts,
     weight_kg: body && body.weight_kilogram ? Math.round(body.weight_kilogram * 10) / 10 : null
