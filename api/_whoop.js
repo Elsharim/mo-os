@@ -115,7 +115,7 @@ export async function whoopSummary(days = 7) {
   const start = new Date(Date.now() - (days + 1) * 864e5).toISOString();
   const all = async (path) => {
     const out = []; let next = null;
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < Math.min(16, Math.ceil((days + 2) / 25) + 1); i++) {
       const d = await get(tok, path, { start, limit: '25', ...(next ? { nextToken: next } : {}) });
       out.push(...(d.records || [])); next = d.next_token;
       if (!next) break;

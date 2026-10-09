@@ -12,7 +12,7 @@ export const getWorkout = (id) => get('/workouts/' + encodeURIComponent(id));
 
 async function recentWorkouts(n) {
   const out = [];
-  for (let page = 1; out.length < n && page <= 5; page++) {
+  for (let page = 1; out.length < n && page <= 40; page++) {
     const d = await get(`/workouts?page=${page}&pageSize=10`);
     out.push(...(d.workouts || []));
     if (page >= (d.page_count || 1)) break;
@@ -35,7 +35,7 @@ function nextTarget(title, sets) {
 const fmtSets = (sets) => sets.filter((s) => s.type !== 'warmup').map((s) => (s.weight_kg ? `${lb(s.weight_kg)}x${s.reps}` : `${s.reps || s.duration_seconds + 's'}`)).join(', ');
 
 export async function hevySummary(n = 10) {
-  const ws = await recentWorkouts(Math.min(30, Math.max(1, n)));
+  const ws = await recentWorkouts(Math.min(400, Math.max(1, n)));
   const history = {};
   for (const w of ws.slice().reverse()) {
     for (const e of w.exercises || []) {
@@ -48,7 +48,11 @@ export async function hevySummary(n = 10) {
     return {
       exercise: title, sessions: sess.length, last_date: last.date, last_routine: last.workout,
       last_sets_lb: fmtSets(last.sets), est_1rm_lb: best ? Math.round(best * LB) : null,
-      history: sess.map((x) => ({ date: x.date, e1rm_lb: Math.round(Math.max(0, ...x.sets.map((y) => (y.weight_kg || 0) * (1 + (y.reps || 0) / 30))) * LB) })),
+      history: sess.map((x) => {
+        const work = x.sets.filter((y) => y.type !== 'warmup');
+        const top = work.reduce((b, y) => ((y.weight_kg || 0) > (b.weight_kg || 0) || ((y.weight_kg || 0) === (b.weight_kg || 0) && (y.reps || 0) > (b.reps || 0)) ? y : b), work[0] || {});
+        return { date: x.date, e1rm_lb: Math.round(Math.max(0, ...x.sets.map((y) => (y.weight_kg || 0) * (1 + (y.reps || 0) / 30))) * LB), top_lb: lb(top.weight_kg), top_reps: top.reps || null, sets: fmtSets(x.sets) };
+      }),
       next: nextTarget(title, last.sets)
     };
   });
