@@ -2303,7 +2303,7 @@
   .tday-date{font-size:12.5px;color:var(--faint)}
   .tday-say{font-size:16px;line-height:1.6;color:var(--text);margin:8px 0 0;max-width:780px;letter-spacing:-.005em}
   .tday-say b{font-weight:600}
-  .tday-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:22px 0 0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+  .tday-stats{display:grid;grid-template-columns:repeat(4,1fr);margin:14px 0 0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
   .ts{padding:16px 18px 15px;border-left:1px solid var(--hair);min-width:0}
   .ts:first-child{border-left:none;padding-left:0}
   .ts-k{font-size:11.5px;color:var(--faint)}
@@ -4691,7 +4691,6 @@ function todayCard(d){
     :`<div class="tday-empty">No Top 3 yet. <a class="link" id="t3-pick" style="color:var(--accent);cursor:pointer">Pick them in Tasks</a> or tell Grok.</div>`;
   return `<div class="card tday">
     <div class="tday-date">${dateStr}</div>
-    <p class="tday-say">${d?todaySay(d)||'Here\'s your day.':'Loading your day…'}</p>
     <div class="tday-stats">${stats}</div>
     <div class="tday-cols">
       <div><div class="tday-cap"><span>Schedule</span></div>${sched}</div>
