@@ -4786,16 +4786,17 @@ function rangeDays(){return RANGES[bodyRange].days;}
 function bodyData(){return lifeData('body&days='+rangeDays());}
 
 /* buckets for the current range: day / week / month */
-function buckets(){
+function buckets(startKey){
   const R=RANGES[bodyRange],out=[],t=todayKey();
-  if(R.by==='day'){for(let i=R.days-1;i>=0;i--){const k=addD(t,-i);out.push({from:k,to:k,label:R.days<=7?dayLbl(k):dateLbl(k),tip:dayLbl(k)+' '+dateLbl(k)});}}
-  else if(R.by==='week'){for(let i=12;i>=0;i--){const to=addD(t,-i*7),from=addD(to,-6);out.push({from,to,label:dateLbl(from),tip:'Week of '+dateLbl(from)});}}
-  else{for(let i=11;i>=0;i--){const n=new Date();n.setDate(1);n.setMonth(n.getMonth()-i);const from=isoDay(n);const e=new Date(n);e.setMonth(e.getMonth()+1);e.setDate(0);out.push({from,to:isoDay(e),label:monLbl(from),tip:new Date(from+'T12:00').toLocaleDateString('en-US',{month:'long',year:'numeric'})});}}
+  const lo=startKey&&startKey>since(R.days)?startKey:since(R.days);
+  if(R.by==='day'){for(let k=lo;k<=t;k=addD(k,1))out.push({from:k,to:k,label:R.days<=7?dayLbl(k):dateLbl(k),tip:dayLbl(k)+' '+dateLbl(k)});}
+  else if(R.by==='week'){for(let i=12;i>=0;i--){const to=addD(t,-i*7),from=addD(to,-6);if(to<lo)continue;out.push({from,to,label:dateLbl(from),tip:'Week of '+dateLbl(from)});}}
+  else{for(let i=11;i>=0;i--){const n=new Date();n.setDate(1);n.setMonth(n.getMonth()-i);const from=isoDay(n);const e=new Date(n);e.setMonth(e.getMonth()+1);e.setDate(0);if(isoDay(e)<lo)continue;out.push({from,to:isoDay(e),label:monLbl(from),tip:new Date(from+'T12:00').toLocaleDateString('en-US',{month:'long',year:'numeric'})});}}
   return out;
 }
 const inB=(k,b)=>k>=b.from&&k<=b.to;
-function bucketAvg(list,key,val){return buckets().map(b=>{const xs=list.filter(x=>inB(x[key],b)).map(val).filter(v=>v!=null);return {b,v:xs.length?avg(xs):null,n:xs.length};});}
-function bucketCount(list,key){return buckets().map(b=>({b,v:list.filter(x=>inB(x[key],b)).length}));}
+function bucketAvg(list,key,val,startKey){return buckets(startKey).map(b=>{const xs=list.filter(x=>inB(x[key],b)).map(val).filter(v=>v!=null);return {b,v:xs.length?avg(xs):null,n:xs.length};});}
+function bucketCount(list,key,startKey){return buckets(startKey).map(b=>({b,v:list.filter(x=>inB(x[key],b)).length}));}
 
 /* chart with axis, target line, average line, tooltips */
 function niceStep(x){const p=Math.pow(10,Math.floor(Math.log10(x||1)));const f=x/p;return (f<=1?1:f<=2?2:f<=2.5?2.5:f<=5?5:10)*p;}
@@ -4809,7 +4810,7 @@ function chart(o){
   const step=niceStep((hi-lo)/3);
   const ticks=[];for(let v=Math.ceil(lo/step)*step;v<=hi;v+=step)ticks.push(v);
   const fmt=o.fmt||(v=>nf(Math.round(v)));
-  const bw=(W-L-Rr)/n,x=i=>L+i*bw+bw/2;
+  const bw=(W-L-Rr)/Math.max(n,o.kind==='line'?n:7),x=i=>L+i*bw+bw/2;
   const every=Math.ceil(n/8);
   let body='';
   if(o.kind==='line'){
@@ -4850,21 +4851,20 @@ function weekStart(){const t=new Date();const d=(t.getDay()+6)%7;return addD(tod
 
 /* series builders */
 function sleepPts(d){const sl=(d.sleep||[]).filter(x=>x.date);return bucketAvg(sl,'date',x=>x.hours).map(({b,v,n})=>({label:b.label,v:v==null?null:r1(v),tip:`<b>${r1(v)}h</b><small>${b.tip}${n>1?' · avg of '+n+' nights':''}</small>`}));}
-function calPts(d,key,unit){const fd=(d.food||[]);return bucketAvg(fd,'date',x=>x[key]).map(({b,v,n})=>({label:b.label,v:v==null?null:Math.round(v),tip:`<b>${nf(Math.round(v))}${unit}</b><small>${b.tip}${n>1?' · avg of '+n+' days':''}</small>`}));}
+function calPts(d,key,unit){const fd=(d.food||[]);return bucketAvg(fd,'date',x=>x[key],trackFrom()).map(({b,v,n})=>({label:b.label,v:v==null?null:Math.round(v),tip:`<b>${nf(Math.round(v))}${unit}</b><small>${b.tip}${n>1?' · avg of '+n+' days':''}</small>`}));}
 function workoutPts(d){
   const ws=d.workouts||[];
   if(RANGES[bodyRange].by==='day'){
-    // per week within the range, so a daily range still reads as sessions per week
+    // sessions per week, only weeks since tracking started
     const out=[];const t=todayKey();const weeks=bodyRange==='week'?1:5;
-    for(let i=weeks-1;i>=0;i--){const to=addD(t,-i*7),from=addD(to,-6);if(to<_trackFrom){out.push({label:dateLbl(from),v:null});continue;}const n=ws.filter(w=>w.date>=from&&w.date<=to).length;out.push({label:dateLbl(from),v:n,tip:`<b>${n} session${n===1?'':'s'}</b><small>Week of ${dateLbl(from)}</small>`});}
+    for(let i=weeks-1;i>=0;i--){const to=addD(t,-i*7),from=addD(to,-6);if(to<trackFrom())continue;const n=ws.filter(w=>w.date>=from&&w.date<=to).length;out.push({label:dateLbl(from),v:n,tip:`<b>${n} session${n===1?'':'s'}</b><small>Week of ${dateLbl(from)}</small>`});}
     return out;
   }
-  const B=buckets();
-  return bucketCount(ws,'date').map(({b,v})=>{if(b.to<_trackFrom)return {label:b.label,v:null};const weeks=RANGES[bodyRange].by==='month'?4.33:1;return {label:b.label,v:RANGES[bodyRange].by==='month'?r1(v/weeks):v,tip:`<b>${v} session${v===1?'':'s'}</b><small>${b.tip}${RANGES[bodyRange].by==='month'?' · '+r1(v/weeks)+' a week':''}</small>`};});
+  return bucketCount(ws,'date',trackFrom()).map(({b,v})=>{const weeks=RANGES[bodyRange].by==='month'?4.33:1;return {label:b.label,v:RANGES[bodyRange].by==='month'?r1(v/weeks):v,tip:`<b>${v} session${v===1?'':'s'}</b><small>${b.tip}${RANGES[bodyRange].by==='month'?' · '+r1(v/weeks)+' a week':''}</small>`};});
 }
 function weightPts(d){const w=(d.weights||[]).filter(x=>inRange(x.date));
   if(RANGES[bodyRange].by==='day')return w.map(x=>({label:dateLbl(x.date),v:x.lb,tip:`<b>${x.lb} lbs</b><small>${dayLbl(x.date)} ${dateLbl(x.date)}</small>`}));
-  return bucketAvg(w,'date',x=>x.lb).filter(x=>x.v!=null).map(({b,v,n})=>({label:b.label,v:r1(v),tip:`<b>${r1(v)} lbs</b><small>${b.tip} · avg of ${n}</small>`}));}
+  return bucketAvg(w,'date',x=>x.lb,trackFrom()).filter(x=>x.v!=null).map(({b,v,n})=>({label:b.label,v:r1(v),tip:`<b>${r1(v)} lbs</b><small>${b.tip} · avg of ${n}</small>`}));}
 
 /* OVERVIEW */
 function bodyOverview(d){
