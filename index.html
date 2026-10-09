@@ -5323,7 +5323,7 @@ function moneyHTML(d){
     </div>
     <div class="bd-stats" style="grid-template-columns:repeat(3,1fr)">
       ${stat('Runway',d.runway_months!=null?d.runway_months+'<small>months</small>':'<small>unknown</small>',d.burn_cad?'How long your cash lasts at '+cad(d.burn_cad)+' a month'+(d.burn_from==='avg'?', your average spend':''):'Tell Grok what a normal month costs you')}
-      ${stat('Kept this month',kept!=null?cad(kept)+'<small>'+(m.saved_pct!=null?m.saved_pct+'%':'')+'</small>':'·',kept!=null?cad(m.income_cad)+' in, '+cad(m.spent_cad)+' out':'Grok logs income and spending each morning')}
+      ${m.income_cad?stat('Kept this month',cad(kept)+'<small>'+(m.saved_pct!=null?m.saved_pct+'%':'')+'</small>',cad(m.income_cad)+' in, '+cad(m.spent_cad)+' out'):stat('Spent so far this month',m.spent_cad!=null?cad(m.spent_cad):'·',m.spent_cad!=null?'No income landed yet this month':'Grok logs income and spending each morning')}
       ${stat('Tax reserve',cad(d.tax_reserve_cad||0),d.tax_set_aside_cad?'This month adds '+cad(d.tax_set_aside_cad)+' ('+Math.round((set.tax_rate||0)*100)+'% of income)':Math.round((set.tax_rate||0)*100)+'% of each month\'s income goes here')}
     </div>
     <div class="card" style="margin-bottom:16px"><div class="mn-ch-head"><h3 style="margin:0">Net worth over time</h3><div class="bd-range">${[[30,'1M'],[90,'3M'],[365,'1Y']].map(([n,l])=>`<button data-mnr="${n}" class="${mnRange===n?'on':''}">${l}</button>`).join('')}</div></div>
