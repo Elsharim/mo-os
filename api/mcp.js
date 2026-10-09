@@ -6,6 +6,7 @@ import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets } from './_health.js';
+import { logMoney, moneySummary, setMoneySettings } from './_money.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -76,13 +77,35 @@ const TOOLS = [{
   description: 'Change his daily calorie and protein targets (and goal weight or weekly gain rate). Only when he asks, or in the Sunday review after he agrees to an adjustment.',
   inputSchema: { type: 'object', properties: { calories: { type: 'number' }, protein: { type: 'number' }, workouts_per_week: { type: 'number' }, goal_weight_lb: { type: 'number' }, weekly_gain_lb: { type: 'number' }, tracking_since: { type: 'string', description: 'YYYY-MM-DD, the day he started tracking properly; averages for gym, food and weight only count from here' } } }
 }, {
+  name: 'log_money',
+  description: "Save today's account balances to MO OS (run this every morning from Mo's Plaid connection, and whenever he asks). Pass every account with its balance and currency; types: cash, savings, investment, crypto, credit, loan. Credit and loan balances are what he owes (positive number). Optionally pass this month's income and spending in CAD and top spending categories. MO OS converts to CAD and tracks net worth over time.",
+  inputSchema: { type: 'object', properties: {
+    date: { type: 'string', description: 'YYYY-MM-DD in his local time, default today' },
+    accounts: { type: 'array', items: { type: 'object', properties: {
+      name: { type: 'string' }, institution: { type: 'string' }, type: { type: 'string', enum: ['cash', 'savings', 'investment', 'crypto', 'credit', 'loan', 'other'] },
+      currency: { type: 'string', description: 'CAD, USD, EUR...' }, balance: { type: 'number' }
+    }, required: ['name', 'balance'] } },
+    income_month_cad: { type: 'number', description: 'Money in this month so far, CAD' },
+    spent_month_cad: { type: 'number', description: 'Spending this month so far, CAD (not transfers between his own accounts)' },
+    top_spending: { type: 'array', items: { type: 'object', properties: { category: { type: 'string' }, cad: { type: 'number' } } } },
+    note: { type: 'string' }
+  }, required: ['accounts'] }
+}, {
+  name: 'money',
+  description: "Mo's money from MO OS: net worth in CAD and its 30 day change, every account balance, cash vs investments, runway in months, this month's income, spending, saved %, top spending, and tax to set aside. Use it for money questions and in the night check-in / Sunday review.",
+  inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'History length for net worth, default 90' } } }
+}, {
+  name: 'set_money_settings',
+  description: 'Change money assumptions: monthly_burn_cad (what a normal month costs him), tax_rate (0.3 = 30%), runway_goal_months. Only when he asks.',
+  inputSchema: { type: 'object', properties: { monthly_burn_cad: { type: 'number' }, tax_rate: { type: 'number' }, runway_goal_months: { type: 'number' } } }
+}, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
   inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets.",
+  "MO OS is Mo's personal operating system. Tools: add_tasks, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
   "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, pick the 3 that matter most and add them with today=true.",
   "FOOD COACH: Mo is bulking from about 147 to 170 lbs and his real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <target> cal\nProtein  <g so far> / <target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
@@ -179,11 +202,17 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
           ? await whoopSummary(Math.min(30, Math.max(1, Number(args.days) || 7))).then((d) => (d ? JSON.stringify(d) : NOT_CONNECTED))
+          : name === 'log_money'
+            ? JSON.stringify(await logMoney(args))
+          : name === 'money'
+            ? JSON.stringify(await moneySummary(Number(args.days) || 90))
+          : name === 'set_money_settings'
+            ? JSON.stringify(await setMoneySettings(args))
           : name === 'log_weight'
             ? JSON.stringify(await logWeight(args))
           : name === 'remove_food'

@@ -6,6 +6,7 @@ import { whoopSummary } from './_whoop.js';
 import { healthSummary } from './_health.js';
 import { hevySummary } from './_hevy.js';
 import { calendarToday, storePushed, queueAdd, queuePending, queueAck } from './_cal.js';
+import { moneySummary } from './_money.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -103,6 +104,7 @@ export default async function handler(req, res) {
       });
       return;
     }
+    if (view === 'money') { res.status(200).json(await moneySummary(Math.min(400, Number(req.query.days) || 90))); return; }
     res.status(404).json({ error: 'Unknown view' });
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
