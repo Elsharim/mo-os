@@ -4865,7 +4865,10 @@ function todayCard(d){
     `<div class="ts"><div class="ts-k">Sleep</div><div class="ts-v">${sl?sl.hours+'<small>h</small>':'·'}</div><div class="ts-s">${sl?fmt12(sl.bed)+' to '+fmt12(sl.woke):'No Whoop data yet'}</div></div>`,
     `<div class="ts ${recClass(rec)}"><div class="ts-k">Recovery</div><div class="ts-v">${rec!=null?rec+'<small>%</small>':'·'}</div><div class="ts-s">${rec!=null?(d.hrv?'HRV '+d.hrv:'')+(d.rhr?' · resting HR '+d.rhr:''):'Waiting on Whoop'}</div></div>`,
     `<div class="ts"><div class="ts-k">Food</div><div class="ts-v">${f?nf(f.calories)+'<small>/ '+nf(tc)+'</small>':'·'}</div><div class="ts-s">${f?(f.protein||0)+' / '+tp+'g protein':''}</div>${f?`<div class="ts-bar"><b style="width:${Math.min(100,Math.round((f.calories||0)/tc*100))}%"></b></div>`:''}</div>`,
-    `<div class="ts"><div class="ts-k">Calls</div><div class="ts-v">${cal?cal.events.length+'<small>today</small>':'·'}</div><div class="ts-s">${cal?(up[0]?'Next '+fmt12(up[0].start):(cal.events.length?'All done':'None booked')):'Calendar not linked yet'}</div></div>`
+    (()=>{const w=d&&d.calls,t=w&&w.today,wk=w&&w.week;
+      const main=t?t.showed+'<small>of '+t.booked+' showed</small>':(cal?cal.events.length+'<small>today</small>':'·');
+      const sub=t?(t.no_shows?t.no_shows+' no-show'+(t.no_shows>1?'s':''):'Everyone showed')+(wk&&wk.show_rate!=null?' · week '+wk.show_rate+'%':''):(cal?(up[0]?'Next '+fmt12(up[0].start):(cal.events.length?'All done':'None booked')):'Calendar not linked yet');
+      return `<div class="ts"><div class="ts-k">Calls</div><div class="ts-v">${main}</div><div class="ts-s">${sub}</div></div>`;})()
   ].join('');
   const sched=cal&&cal.events.length
     ?cal.events.slice(0,7).map(e=>`<div class="sch ${e.past?'past':''} ${up[0]===e?'next':''}"><span class="sch-t">${fmt12(e.start)}</span><span class="sch-n">${esc(e.title)}</span>${up[0]===e?'<span class="sch-b">next</span>':''}</div>`).join('')+(cal.events.length>7?`<div class="tday-empty">+${cal.events.length-7} more</div>`:'')

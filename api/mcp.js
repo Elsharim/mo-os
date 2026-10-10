@@ -7,6 +7,7 @@ import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout } from './_money.js';
+import { logCalls, callsSummary } from './_work.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -102,6 +103,21 @@ const TOOLS = [{
   name: 'set_money_settings',
   description: 'Change money assumptions: deductions_cad (business expenses he will deduct this year), monthly_burn_cad, tax_rate. Only when he asks.',
   inputSchema: { type: 'object', properties: { deductions_cad: { type: 'number' }, monthly_burn_cad: { type: 'number' }, tax_rate: { type: 'number' } } }
+}, {
+  name: 'log_calls',
+  description: "Log Mo's sales calls for a day: how many were booked on his calendar and how many actually happened (a Tactiq recording exists = showed). Run it every night for today, or when he asks for a past day. Optional: closed count, cash collected (USD), and the per-call list with who / showed / result. Logging the same date again replaces it.",
+  inputSchema: { type: 'object', properties: {
+    date: { type: 'string', description: 'YYYY-MM-DD in his local time' },
+    booked: { type: 'number', description: 'Sales calls on the calendar that day (demos, closes, follow-ups; not team meetings or coaching)' },
+    showed: { type: 'number', description: 'How many of those actually happened' },
+    closed: { type: 'number' }, cash_usd: { type: 'number' },
+    calls: { type: 'array', items: { type: 'object', properties: { who: { type: 'string' }, showed: { type: 'boolean' }, kind: { type: 'string' }, result: { type: 'string' } } } },
+    note: { type: 'string' }
+  }, required: ['date', 'booked', 'showed'] }
+}, {
+  name: 'calls',
+  description: "Mo's call stats from MO OS: today, yesterday, this week and last 30 days (booked, showed, no-shows, show rate, closes, close rate, cash), plus recent days. Use for the night check-in, Sunday review and any question about shows or no-shows.",
+  inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days to list, default 30' } } }
 }, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
@@ -206,7 +222,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -215,6 +231,10 @@ async function handle(msg) {
             ? JSON.stringify(await logMoney(args))
           : name === 'money'
             ? JSON.stringify(await moneySummary(Number(args.days) || 90))
+          : name === 'log_calls'
+            ? JSON.stringify(await logCalls(args))
+          : name === 'calls'
+            ? JSON.stringify(await callsSummary(Number(args.days) || 30))
           : name === 'log_payout'
             ? JSON.stringify(args.remove ? await removePayout(args.date) : await logPayout(args))
           : name === 'set_money_settings'

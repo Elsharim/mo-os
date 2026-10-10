@@ -7,6 +7,7 @@ import { healthSummary } from './_health.js';
 import { hevySummary } from './_hevy.js';
 import { calendarToday, storePushed, queueAdd, queuePending, queueAck } from './_cal.js';
 import { moneySummary } from './_money.js';
+import { callsSummary } from './_work.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -63,7 +64,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   try {
     if (view === 'today') {
-      const [whoop, food] = await Promise.all([safe(whoopSummary(2)), safe(healthSummary(1))]);
+      const [whoop, food, work] = await Promise.all([safe(whoopSummary(2)), safe(healthSummary(1)), safe(callsSummary(7))]);
       const tz = (whoop && whoop.tz_offset) || null;
       const cal = await safe(calendarToday(tz));
       const t = whoop && whoop.today;
@@ -76,6 +77,7 @@ export default async function handler(req, res) {
         rhr: t && t.recovery ? t.recovery.rhr : null,
         calendar: cal && !cal.error ? cal : null,
         food: food && !food.error ? { date: todayFood && todayFood.date, calories: (todayFood && todayFood.calories) || 0, protein: (todayFood && todayFood.protein) || 0, targets: food.targets } : null,
+        calls: work && !work.error ? { today: work.today, yesterday: work.yesterday, week: work.this_week } : null,
         whoop_connected: !!(whoop && !whoop.error)
       });
       return;
