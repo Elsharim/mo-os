@@ -2527,6 +2527,22 @@
 
   .mn-link{cursor:pointer;transition:border-color .15s}.mn-link:hover{border-color:var(--hair-2)}
   .mn-cols .card{margin:0}
+
+  /* TASKS: quieter rows */
+  .tk-adot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--dc);margin-right:9px;vertical-align:middle;flex:none}
+  .tk-row .tk-acts{opacity:0}
+  .tk-row:hover .tk-acts,.tk-row.top .tk-acts{opacity:1}
+  .tk-row.top .tk-acts .tk-more,.tk-row.top .tk-acts .tk-clock{opacity:0}
+  .tk-row.top:hover .tk-acts .tk-more,.tk-row.top:hover .tk-acts .tk-clock{opacity:1}
+  @media (hover:none){.tk-row .tk-acts,.tk-row.top .tk-acts .tk-more,.tk-row.top .tk-acts .tk-clock{opacity:1}}
+  .tk-more,.tk-star,.tk-clock{background:none;border:none;color:var(--faint);cursor:pointer;font-size:14px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;padding:0}
+  .tk-more:hover,.tk-star:hover,.tk-clock:hover{color:var(--text);background:var(--surface-hi)}
+  .tk-star.on{color:var(--gold)}
+  .tk-top3-line{font-size:13px;color:var(--faint);margin:0 0 22px 4px}
+  .ap-danger{color:#f87171}
+  .tk-filter{margin-bottom:10px}
+  .tk-fchip{padding:5px 11px;font-size:12px}
+  .tl-head{margin-bottom:10px}
 </style>
 </head>
 <body>
@@ -3210,14 +3226,13 @@ function hubTaskRow(t){
   const inTop=top3Ids().includes(t.id);
   const dc=proj?execProjColor(proj.id):'var(--border-2)';
   const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
-  return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
+  return `<div class="et-row tk-row ${done?'completed':''} ${inTop?'top':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-    <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}${whenChip}</div></div>
+    <div class="et-main"><div class="et-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:''}${esc(t.name)}${whenChip}</div></div>
     <div class="et-actions tk-acts">
       ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
-      <button class="tk-dot" data-dot="${t.id}" style="--dc:${dc}" title="${proj?esc(proj.name):'Set area'}"></button>
-      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of today':'Focus today'}">${inTop?'★':'☆'}</button>
-      <button class="rm" data-del="${t.id}">×</button>
+      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of Top 3':'Top 3'}">${inTop?'★':'☆'}</button>
+      <button class="tk-more" data-dot="${t.id}" title="Area, delete">⋯</button>
     </div>
   </div>`;
 }
@@ -3240,13 +3255,12 @@ function renderTasks(){
     <div class="tk-layout"><div>
 
     <div class="tk-capture">
-      <input id="tk-add" placeholder="What needs doing?" autocomplete="off" autofocus>
+      <input id="tk-add" placeholder="What needs doing? Try: call Clinton 3pm" autocomplete="off" autofocus>
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
-    <div class="tk-hint">Try <b>call Clinton 3pm</b> · <b>gym tomorrow 6pm</b> · <b>@sales</b> for an area · end with <b>!</b> for Top 3</div>
 
-    <div class="tk-today">
-      <div class="tk-today-h">Today <span>your 3 to focus on</span></div>
+    ${t3.length?`<div class="tk-today">
+      <div class="tk-today-h">Top 3 today</div>
       <div class="tk-top3-grid">
         ${[0,1,2].map(i=>{const t=t3[i];
           return t?`<div class="tk-top3-card" data-id="${t.id}">
@@ -3257,7 +3271,7 @@ function renderTasks(){
           :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star one below</span></div>`;
         }).join('')}
       </div>
-    </div>
+    </div>`:`<div class="tk-top3-line">No Top 3 yet. Star up to 3 tasks below, or tell Grok.</div>`}
 
     <div class="tk-filter">
       <button class="tk-fchip ${taskArea==='all'?'on':''}" data-area="all">All${open.length?` <i>${open.length}</i>`:''}</button>
@@ -3350,8 +3364,11 @@ function openAreaPicker(taskId,anchorEl){
     <div class="ap-head">Area</div>
     <button class="ap-row ${!t.projectId?'on':''}" data-set=""><span class="ap-dot" style="--dc:var(--border-2)"></span>None</button>
     ${E.projects.map(p=>`<button class="ap-row ${t.projectId===p.id?'on':''}" data-set="${p.id}"><span class="ap-dot" style="--dc:${execProjColor(p.id)}"></span>${esc(p.name)}<span class="ap-edit"><span class="ap-ren" data-ren="${p.id}" title="Rename">✎</span><span class="ap-del" data-adel="${p.id}" title="Delete area">×</span></span></button>`).join('')}
-    <button class="ap-row ap-new" id="ap-new">+ New area</button>`;
+    <button class="ap-row ap-new" id="ap-new">+ New area</button>
+    <div class="ap-head" style="margin-top:6px">Task</div>
+    <button class="ap-row ap-danger" id="ap-deltask">Delete task</button>`;
   document.body.appendChild(pop);
+  pop.querySelector('#ap-deltask').onclick=()=>{if(t.when)unscheduleTask(t.id,true);deleteTask(t.id);save();closeAreaPicker();renderTasks();};
   const r=anchorEl.getBoundingClientRect();const w=220,h=Math.min(pop.offsetHeight||300,window.innerHeight-24);
   let left=r.right-w, top=r.bottom+6;
   if(left<12)left=12; if(top+h>window.innerHeight-12)top=Math.max(12,r.top-h-6);
@@ -5278,9 +5295,9 @@ function timelineHTML(){
   }).join('');
   const pickName=tlPick&&E.tasks[tlPick]?E.tasks[tlPick].name:'';
   return `<div class="tl ${window.__tlCollapsed?'collapsed':''}">
-    <div class="tl-head"><h3>Today</h3><span class="h3sub">${cal?cal.events.length+' on your calendar':(d?'Calendar not linked':'Loading…')}</span></div>
+    <div class="tl-head"><h3>Today</h3><span class="h3sub">${cal?(cal.events.length?cal.events.length+' on your calendar':'Nothing booked'):(d?'Calendar not linked':'Loading…')}</span></div>
     <button class="btn btn-sm tl-toggle" id="tl-toggle">${window.__tlCollapsed?'Show calendar':'Hide calendar'}</button>
-    ${tlPick?`<div class="tl-pick">Tap a time for <b>${esc(pickName)}</b> <button class="btn btn-sm" id="tl-pick-cancel">Cancel</button></div>`:`<div class="tl-hint">Drag a task onto a time, or tap ⏱ on a task. It goes on your Google Calendar.</div>`}
+    ${tlPick?`<div class="tl-pick">Tap a time for <b>${esc(pickName)}</b> <button class="btn btn-sm" id="tl-pick-cancel">Cancel</button></div>`:''}
     <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"><span>${tlFmt(new Date())}</span></div>`:''}</div></div>
   </div>`;
 }
