@@ -76,7 +76,13 @@ export default async function handler(req, res) {
         hrv: t && t.recovery ? t.recovery.hrv : null,
         rhr: t && t.recovery ? t.recovery.rhr : null,
         calendar: cal && !cal.error ? cal : null,
-        food: food && !food.error ? { date: todayFood && todayFood.date, calories: (todayFood && todayFood.calories) || 0, protein: (todayFood && todayFood.protein) || 0, targets: food.targets } : null,
+        food: food && !food.error ? {
+          date: (food.food_plan && food.food_plan.as_of) || (todayFood && todayFood.date),
+          calories: food.food_plan ? food.food_plan.today.calories : ((todayFood && todayFood.calories) || 0),
+          protein: food.food_plan ? food.food_plan.today.protein : ((todayFood && todayFood.protein) || 0),
+          targets: food.targets,
+          plan: food.food_plan || null
+        } : null,
         calls: work && !work.error ? { today: work.today, yesterday: work.yesterday, week: work.this_week } : null,
         whoop_connected: !!(whoop && !whoop.error)
       });
@@ -99,6 +105,7 @@ export default async function handler(req, res) {
         food_today: days[0] && days[0].foods ? { date: days[0].date, items: days[0].foods.slice(-20) } : null,
         saved_meals: food.saved_meals || [],
         targets: food.targets || null,
+        food_plan: food.food_plan || null,
         lifts: hevy && hevy.exercises ? hevy.exercises.filter((e) => e.sessions >= 2 && e.est_1rm_lb >= 40).sort((a, b) => b.last_date.localeCompare(a.last_date) || b.sessions - a.sessions).slice(0, 24)
           .map((e) => ({ exercise: e.exercise, sessions: e.sessions, history: e.history, last: e.last_sets_lb, last_date: e.last_date, est_1rm_lb: e.est_1rm_lb, next: e.next })) : [],
         workouts: hevy && hevy.workouts ? hevy.workouts.map((w) => ({ date: w.date, title: w.title, minutes: w.minutes, exercises: w.exercises })) : [],

@@ -2345,6 +2345,17 @@
   .bd-range button:hover{color:var(--text)}
   .bd-range button.on{background:var(--surface-hi);color:var(--text)}
   .bd-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .food-h{font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:-.015em;margin:20px 0 10px}
+  .food-h:first-child{margin-top:0}
+  .food-h span{font-family:var(--sans);font-size:12.5px;font-weight:400;color:var(--faint);margin-left:8px}
+  .food-today{grid-template-columns:1fr 1fr}
+  .bd-note{font-size:13px;color:var(--text);background:var(--warn-soft);border:1px solid rgba(251,191,36,.28);border-radius:12px;padding:12px 14px;margin:0 0 16px;line-height:1.5}
+  .est{font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--warn);border:1px solid rgba(251,191,36,.35);border-radius:99px;padding:1px 6px;margin-left:6px;vertical-align:1px}
+  .bd-rows .r.unlogged,.bd-rows .r.future{color:var(--faint)}
+  .bd-rows .r.partial .d{color:var(--text)}
+  .bd-rows .r.logged,.bd-rows .r.partial,.bd-rows .r.unlogged,.bd-rows .r.future{grid-template-columns:68px minmax(0,1fr) auto;align-items:start}
+  .bd-rows .r.logged .m,.bd-rows .r.partial .m,.bd-rows .r.unlogged .m,.bd-rows .r.future .m{white-space:normal}
+  .bd-rows .r.logged > span:nth-child(2),.bd-rows .r.partial > span:nth-child(2){min-width:0}
   .bd-big{font-family:var(--display);font-size:30px;font-weight:600;letter-spacing:-.035em;line-height:1.05;margin-top:6px;color:var(--tv,var(--text))}
   .bd-big small{font-size:14px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:4px}
   .bd-cap{font-size:12px;color:var(--faint)}
@@ -2398,6 +2409,7 @@
   .macro-k{display:flex;gap:16px;font-size:12px;color:var(--muted)}
   .macro-k i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
   @media (max-width:900px){.bd-stats{grid-template-columns:1fr 1fr}.bd-mini{grid-template-columns:1fr}.bd-rows .r{grid-template-columns:84px 1fr auto}}
+  @media (max-width:700px){.food-today{grid-template-columns:1fr}}
   /* TASKS + DAY TIMELINE */
   .tk-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:26px;align-items:start}
   @media (max-width:980px){.tk-layout{grid-template-columns:1fr}}
@@ -4862,10 +4874,21 @@ function todaySay(d){
     }
   }
   if(f){
-    const tc=(f.targets&&f.targets.calories)||3000,tp=(f.targets&&f.targets.protein)||150;
-    if(!f.calories)out.push('No food logged yet. Send Grok a photo of your first meal.');
-    else if(f.calories<tc)out.push(`You're at ${nf(f.calories)} calories, ${nf(tc-f.calories)} to go, and ${Math.max(0,tp-(f.protein||0))}g of protein left.`);
-    else out.push(`Calories done for the day${(f.protein||0)<tp?`, just ${tp-f.protein}g of protein left`:', protein too'}. Nice.`);
+    const plan=f.plan&&f.plan.today;
+    const tc=plan?plan.adjusted_daily_target:((f.targets&&f.targets.calories)||3000);
+    const tp=plan?plan.protein_target:((f.targets&&f.targets.protein)||150);
+    const cal=plan?plan.calories:(f.calories||0);
+    const protein=plan?plan.protein:(f.protein||0);
+    const logged=plan?plan.logged:!!f.calories;
+    if(!logged)out.push('No food logged yet. Send Grok a photo of your first meal.');
+    else if(cal<tc){
+      let line=`You're at ${nf(cal)} of ${nf(tc)} calories`;
+      if(plan&&plan.base_target!==plan.adjusted_daily_target)line+=` (base ${nf(plan.base_target)})`;
+      line+=`, ${nf(tc-cal)} to go, and ${Math.max(0,tp-protein)}g of protein left.`;
+      if(plan&&plan.clamped)line+=' Today\'s target is capped so the rest of the gap stays spread out.';
+      out.push(line);
+    }
+    else out.push(`Calories done for the day${protein<tp?`, just ${tp-protein}g of protein left`:', protein too'}. Nice.`);
   }
   return out.join(' ');
 }
@@ -4876,12 +4899,14 @@ function todayCard(d){
   const sl=d&&d.sleep,rec=d&&d.recovery,cal=d&&d.calendar,f=d&&d.food;
   const now=new Date();
   const dateStr=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
-  const tc=(f&&f.targets&&f.targets.calories)||3000,tp=(f&&f.targets&&f.targets.protein)||150;
+  const plan=f&&f.plan&&f.plan.today;
+  const tc=plan?plan.adjusted_daily_target:((f&&f.targets&&f.targets.calories)||3000),tp=plan?plan.protein_target:((f&&f.targets&&f.targets.protein)||150);
+  const eaten=plan?plan.calories:(f?f.calories:0),prot=plan?plan.protein:(f?(f.protein||0):0);
   const up=cal?cal.events.filter(e=>!e.past):[];
   const stats=[
     `<div class="ts"><div class="ts-k">Sleep</div><div class="ts-v">${sl?sl.hours+'<small>h</small>':'·'}</div><div class="ts-s">${sl?fmt12(sl.bed)+' to '+fmt12(sl.woke):'No Whoop data yet'}</div></div>`,
     `<div class="ts ${recClass(rec)}"><div class="ts-k">Recovery</div><div class="ts-v">${rec!=null?rec+'<small>%</small>':'·'}</div><div class="ts-s">${rec!=null?(d.hrv?'HRV '+d.hrv:'')+(d.rhr?' · resting HR '+d.rhr:''):'Waiting on Whoop'}</div></div>`,
-    `<div class="ts"><div class="ts-k">Food</div><div class="ts-v">${f?nf(f.calories)+'<small>/ '+nf(tc)+'</small>':'·'}</div><div class="ts-s">${f?(f.protein||0)+' / '+tp+'g protein':''}</div>${f?`<div class="ts-bar"><b style="width:${Math.min(100,Math.round((f.calories||0)/tc*100))}%"></b></div>`:''}</div>`,
+    `<div class="ts"><div class="ts-k">Food</div><div class="ts-v">${f?nf(eaten)+'<small>/ '+nf(tc)+'</small>':'·'}</div><div class="ts-s">${f?prot+' / '+tp+'g protein'+(plan&&plan.base_target?' · base '+nf(plan.base_target):'')+(plan&&plan.estimated?' · estimate':''):''}</div>${f?`<div class="ts-bar"><b style="width:${Math.min(100,Math.round((eaten||0)/(tc||1)*100))}%"></b></div>`:''}</div>`,
     (()=>{const w=d&&d.calls,t=w&&w.today,wk=w&&w.week;
       const main=t?t.showed+'<small>'+(t.showed===1?'call':'calls')+' taken</small>':(cal?cal.events.length+'<small>today</small>':'·');
       const sub=t?'of '+t.booked+' booked'+(wk&&wk.showed?' · '+wk.showed+' this week':''):(cal?(up[0]?'Next '+fmt12(up[0].start):(cal.events.length?'All done':'None booked')):'Calendar not linked yet');
@@ -4952,7 +4977,7 @@ const per=()=>RANGES[bodyRange].label;
 const perSleep=()=>bodyRange==='today'?'last night':per();
 function periodLine(){const R=RANGES[bodyRange],t=todayKey();if(bodyRange==='today')return 'Today, '+dateLbl(t);const from=since(R.days);return (bodyRange==='week'?'This week':bodyRange==='month'?'Last 30 days':bodyRange==='3mo'?'Last 3 months':'Last year')+' · '+dateLbl(from)+' to today';}
 const ifCharts=h=>bodyRange==='today'?'':h;
-function targetsOf(d){return Object.assign({calories:3000,protein:150,workouts_per_week:5,goal_weight_lb:170,weekly_gain_lb:0.4,tracking_since:'2026-10-09'},d.targets||{});}
+function targetsOf(d){const t=Object.assign({calories:3000,protein:150,workouts_per_week:5,goal_weight_lb:170,start_weight_lb:145,weekly_gain_lb:0.4,tracking_since:'2026-10-09'},d.targets||{});if(t.weekly_calories==null)t.weekly_calories=Math.round(t.calories)*7;return t;}
 /* gym, food and weight only count from the day Mo started tracking properly */
 let _trackFrom='2026-10-09';
 const trackFrom=()=>_trackFrom>since(rangeDays())?_trackFrom:since(rangeDays());
@@ -4988,6 +5013,7 @@ function chart(o){
   const pts=o.pts,n=pts.length;if(!n)return '<div class="bd-empty">Nothing here yet.</div>';
   const W=380,h=o.h||124,L=44,Rr=46,T=16;
   const vals=pts.map(p=>p.v).filter(v=>v!=null);
+  const avgVals=pts.filter(p=>p.v!=null&&!p.partial).map(p=>p.v);
   const isLine=o.kind==='line';
   const hi=(Math.max(o.max||0,(o.target||0)*1.12,...vals)||1)*1.04;
   const lo=isLine?Math.min(o.min??Infinity,o.target??Infinity,...vals)-(o.pad||1):0;
@@ -5014,7 +5040,7 @@ function chart(o){
         (showVals?`<text class="val" x="${x(i)}" y="${y(p.v)-5}" text-anchor="middle">${vf(p.v)}</text>`:'');
     }).join('');
   }
-  const a=o.avg!=null?o.avg:(o.showAvg&&vals.length>1?avg(vals):null);
+  const a=o.avg!=null?o.avg:(o.showAvg&&avgVals.length>1?avg(avgVals):null);
   return `<div class="ch"><svg viewBox="0 0 ${W} ${h+20}">
     <g class="grid">${ticks.map(v=>`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${fmt(v)}</text>`).join('')}</g>
     ${o.target!=null?`<line class="tgt" x1="${L}" x2="${W-Rr}" y1="${y(o.target)}" y2="${y(o.target)}"/><text class="lbl" x="${W-Rr+5}" y="${y(o.target)+3}">goal ${fmt(o.target)}</text>`:''}
@@ -5044,7 +5070,7 @@ function weekStart(){const t=new Date();const d=(t.getDay()+6)%7;return addD(tod
 
 /* series builders */
 function sleepPts(d){const sl=(d.sleep||[]).filter(x=>x.date);return bucketAvg(sl,'date',x=>x.hours).map(({b,v,n})=>({label:b.label,today:b.today,future:b.future,v:v==null?null:r1(v),tip:`<b>${r1(v)}h</b><small>${b.tip}${n>1?' · avg of '+n+' nights':''}</small>`}));}
-function calPts(d,key,unit){const fd=(d.food||[]);return bucketAvg(fd,'date',x=>x[key],trackFrom()).map(({b,v,n})=>({label:b.label,today:b.today,future:b.future,v:v==null?null:Math.round(v),tip:`<b>${nf(Math.round(v))}${unit}</b><small>${b.tip}${n>1?' · avg of '+n+' days':''}</small>`}));}
+function calPts(d,key,unit){const fd=(d.food||[]);return bucketAvg(fd,'date',x=>x[key],trackFrom()).map(({b,v,n})=>({label:b.label,today:b.today,future:b.future,partial:!!b.today,v:v==null?null:Math.round(v),tip:`<b>${nf(Math.round(v))}${unit}</b><small>${b.tip}${b.today?' · so far':''}${n>1?' · avg of '+n+' days':''}</small>`}));}
 function workoutPts(d){
   const ws=d.workouts||[];
   if(RANGES[bodyRange].by==='day'){
@@ -5067,10 +5093,17 @@ function bodyOverview(d){
   const wkStart=weekStart(),thisWeek=ws.filter(w=>w.date>=wkStart).length;
   const gymAvg=r1(ws.filter(w=>tracked(w.date)).length/trackedWeeks());
   const w=d.weights||[],wNow=w.length?w[w.length-1].lb:null;
+  const pt=d.food_plan&&d.food_plan.today;
+  const calCard=bodyRange==='today'&&pt
+    ?goalCard('Calories today',pt.logged?pt.calories:0,pt.adjusted_daily_target,'',(pt.logged?(pt.calories<pt.adjusted_daily_target?nf(pt.adjusted_daily_target-pt.calories)+' to go':'Target hit'):'Nothing logged yet')+' · base '+nf(pt.base_target)+(pt.estimated?' · estimate':''),'var(--accent)')
+    :goalCard(bodyRange==='today'?'Calories today':'Calories, avg per day '+sinceNote(),fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${sinceNote()}`:'Nothing logged yet','var(--accent)');
+  const proCard=bodyRange==='today'&&pt
+    ?goalCard('Protein today',pt.protein,pt.protein_target,'g',(pt.protein_hit?'Hit: yes':'Hit: no')+(pt.protein_hit?'':' · '+pt.protein_remaining+'g left'),'var(--teal)')
+    :goalCard(bodyRange==='today'?'Protein today':'Protein, avg per day',fd.length?avg(fd.map(x=>x.protein)):null,T.protein,'g','','var(--teal)');
   return `<div class="bd-stats">
       ${bodyRange==='today'?stat('Gym today',ws.some(w=>w.date===todayKey())?'Done':'Not yet',thisWeek+' of '+T.workouts_per_week+' this week'):goalCard('Gym this week',thisWeek,T.workouts_per_week,'',bodyRange==='week'||trackedDays()<7?'':`Averaging ${gymAvg} a week ${sinceNote()}`,'var(--good)')}
-      ${goalCard(bodyRange==='today'?'Calories today':'Calories, avg per day '+sinceNote(),fd.length?avg(fd.map(x=>x.calories)):null,T.calories,'',fd.length?`${fd.length} day${fd.length===1?'':'s'} logged ${sinceNote()}`:'Nothing logged yet','var(--accent)')}
-      ${goalCard(bodyRange==='today'?'Protein today':'Protein, avg per day',fd.length?avg(fd.map(x=>x.protein)):null,T.protein,'g','','var(--teal)')}
+      ${calCard}
+      ${proCard}
       ${goalCard(bodyRange==='today'?'Last night':'Sleep, avg per night',sl.length?r1(avg(sl.map(x=>x.hours))):null,8,'h',sl.length?'In bed around '+fmt12(avgClock(sl.slice(-7).map(x=>x.bed),12*60)):'','var(--gold)')}
     </div>
     ${ifCharts(`    <div class="bd-mini">
@@ -5141,48 +5174,71 @@ function bodyTraining(d){
     <div class="card"><h3>Workouts <span class="h3sub">${bodyRange==='today'?'today':sinceNote()}</span></h3><div class="bd-rows">${ws.filter(w=>inRange(w.date)).slice(0,12).map(w=>`<div class="r"><span class="d">${dayLbl(w.date)} ${dateLbl(w.date)}</span><div><div>${esc(w.title)}</div><div class="x">${(w.exercises||[]).map(e=>esc(shortLift(e))).join('<br>')}</div></div><span class="m">${w.minutes} min</span></div>`).join('')||'<div class="bd-empty">No workouts in this range.</div>'}</div></div>`;
 }
 /* FOOD */
+function foodDayLine(day, proteinTarget){
+  const when=day.weekday+' '+dateLbl(day.date);
+  if(day.status==='future') return `<div class="r future"><span class="d">${when}</span><span>Still to come</span><span class="m"></span></div>`;
+  if(day.status==='unlogged') return `<div class="r unlogged"><span class="d">${when}</span><span>Unlogged</span><span class="m">Not counted as zero</span></div>`;
+  if(!day.logged) return `<div class="r partial"><span class="d">${when}</span><span>Today, nothing logged yet</span><span class="m">Partial</span></div>`;
+  const est=day.estimated?' <span class="est">estimate</span>':'';
+  const hit=day.status==='partial'?day.protein>=proteinTarget:!!day.protein_hit;
+  return `<div class="r ${day.status}"><span class="d">${when}</span><span>${nf(day.calories)} cal · ${day.protein||0}g protein · hit: ${hit?'yes':'no'}${est}</span><span class="m">${day.status==='partial'?'Partial':'Logged'}</span></div>`;
+}
+function foodBudgetHTML(plan){
+  const t=plan.today,w=plan.week,b=plan.bulk;
+  const paceWord=w.pace==='ahead'?'Ahead':w.pace==='behind'?'Behind':w.pace==='on_pace'?'On pace':'·';
+  const todaySub=[
+    t.logged?(Math.max(0,t.adjusted_daily_target-t.calories)?nf(Math.max(0,t.adjusted_daily_target-t.calories))+' to go':'Target hit'):'Nothing logged yet',
+    'Base '+nf(t.base_target),
+    t.estimated?'Estimate':''
+  ].filter(Boolean).join(' · ');
+  const weekSub=(w.over?nf(w.over)+' over':nf(w.remaining)+' left')+(w.unlogged_days?' · '+w.unlogged_days+' unlogged':'');
+  const gained=b.gained_lb==null?'':(b.gained_lb>0?'+':'')+b.gained_lb+' lbs from '+b.start_weight_lb;
+  const pct=b.progress_pct==null?0:Math.max(0,Math.min(100,b.progress_pct));
+  const toGo=b.remaining_lb==null?'':(b.remaining_lb<0?Math.abs(b.remaining_lb)+' lbs past the goal':b.remaining_lb+' lbs to go');
+  const past=(plan.recent_weeks||[]).filter(x=>!x.current).slice(0,8);
+  return `<div class="food-h">Today <span>${dateLbl(t.date)} · partial</span></div>
+    <div class="bd-stats food-today">
+      ${goalCard('Calories',t.logged?t.calories:0,t.adjusted_daily_target,'',todaySub,'var(--accent)')}
+      ${goalCard('Protein',t.protein,t.protein_target,'g',(t.protein_hit?'Hit: yes':'Hit: no')+(t.protein_remaining?' · '+t.protein_remaining+'g left':' · daily, not weekly'),'var(--teal)')}
+    </div>
+    ${t.note?`<div class="bd-note">${esc(t.note)}</div>`:''}
+    <div class="food-h">This week <span>${dateLbl(w.week_start)} to ${dateLbl(w.week_end)}</span></div>
+    <div class="bd-stats">
+      ${goalCard('Calories',w.calories,w.weekly_goal,'',weekSub,'var(--accent)')}
+      ${stat('Avg on logged days',w.avg_daily_calories==null?'·':nf(w.avg_daily_calories)+'<small>cal</small>',w.completed_logged_days?w.completed_logged_days+' completed day'+(w.completed_logged_days===1?'':'s')+' · today stays separate':'No completed days yet')}
+      ${stat('Adjusted daily',w.adjusted_daily_target==null?'·':nf(w.adjusted_daily_target)+'<small>cal</small>',w.clamped?'Capped from '+nf(w.adjusted_daily_target_raw)+'. Spread the gap.':'For the days left, including today')}
+      ${stat('Pace',paceWord,esc(w.pace_note))}
+    </div>
+    <div class="card" style="margin-bottom:16px"><h3>Days <span class="h3sub">protein is daily, a high day does not cover a low one</span></h3>
+      <div class="bd-rows">${w.days.map(day=>foodDayLine(day,plan.targets.protein)).join('')}</div></div>
+    <div class="food-h">Bulk <span>${b.start_weight_lb} to ${b.goal_weight_lb} lbs</span></div>
+    <div class="bd-stats" style="grid-template-columns:1fr 1fr">
+      ${stat(b.latest_weight_date?'Latest · '+dateLbl(b.latest_weight_date):'Latest weight',b.latest_weight_lb==null?'·':b.latest_weight_lb+'<small>lbs</small>',b.latest_weight_lb==null?'No weigh-in yet':'Morning weigh-in')}
+      <div class="card bd-goal" style="--gc:var(--accent)"><div class="bd-cap">Toward ${b.goal_weight_lb}</div><div class="bd-big">${b.progress_pct==null?'·':b.progress_pct+'<small>%</small>'}</div><div class="pct">${toGo}</div><div class="bar"><b style="width:${pct}%"></b></div><div class="bd-sub" style="grid-column:1/-1">${b.latest_weight_lb==null?'Starting point '+b.start_weight_lb+' lbs.':gained}</div></div>
+    </div>
+    ${past.length?`<div class="card" style="margin-bottom:16px"><h3>Earlier weeks</h3><div class="bd-rows">${past.map(x=>`<div class="r"><span class="d">${dateLbl(x.week_start)}</span><span>${nf(x.calories)} / ${nf(x.weekly_goal)} cal · ${x.avg_daily_calories==null?'no logged days':nf(x.avg_daily_calories)+' avg'}${x.unlogged_days?' · '+x.unlogged_days+' unlogged':''}</span><span class="m">${x.pace==='ahead'?'Ahead':x.pace==='behind'?'Behind':x.pace==='on_pace'?'On pace':'·'}</span></div>`).join('')}</div></div>`:''}`;
+}
 function bodyFood(d){
-  const T=targetsOf(d);_trackFrom=T.tracking_since||_trackFrom;const fd=(d.food||[]).filter(x=>tracked(x.date)),today=d.food_today;
-  const items=today&&today.date===todayKey()?today.items:[];
+  const T=targetsOf(d);_trackFrom=T.tracking_since||_trackFrom;
+  const asOf=d.food_plan&&d.food_plan.as_of||todayKey();
+  const today=d.food_today;
+  const items=today&&today.date===asOf?today.items:[];
   const tot=items.reduce((a,x)=>({c:a.c+(x.calories||0),p:a.p+(x.protein||0),cb:a.cb+(x.carbs||0),f:a.f+(x.fat||0)}),{c:0,p:0,cb:0,f:0});
-  let streak=0;{let k=todayKey();if(!(d.food||[]).some(x=>x.date===k&&x.calories))k=addD(k,-1);while((d.food||[]).some(x=>x.date===k&&x.calories)){streak++;k=addD(k,-1);}}
-  const onT=fd.filter(x=>x.calories>=T.calories*.9).length,onP=fd.filter(x=>x.protein>=T.protein*.9).length;
   const kc={p:tot.p*4,cb:tot.cb*4,f:tot.f*9};const kt=kc.p+kc.cb+kc.f||1;
-  if(bodyRange==='today'){
-    const y=(d.food||[]).find(x=>x.date===addD(todayKey(),-1));
-    const leftC=Math.max(0,T.calories-tot.c),leftP=Math.max(0,T.protein-tot.p);
-    const hrs=new Date().getHours();
-    const when=hrs<12?'before your first call':hrs<18?'by tonight':'before bed';
-    const mealRows=items.length?items.slice().reverse().map(x=>`<div class="r meal"><span class="d">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</span><div><div>${esc(x.name)}</div><div class="x">${x.protein||0}g protein · ${x.carbs||0}g carbs · ${x.fat||0}g fat</div></div><span class="m"><b>${nf(x.calories)}</b> cal</span></div>`).join(''):'<div class="bd-empty">Nothing yet today. Send Grok a photo or text it what you ate.</div>';
-    return `<div class="bd-stats">
-      ${goalCard('Calories today',tot.c,T.calories,'',tot.c?(leftC?nf(leftC)+' to go':'Target hit'):'Nothing logged yet','var(--accent)')}
-      ${goalCard('Protein today',tot.p,T.protein,'g',tot.p?(leftP?leftP+'g to go':'Target hit'):'','var(--teal)')}
-      ${stat('Still to eat',leftC||leftP?nf(leftC)+'<small>cal · '+leftP+'g</small>':'Done<small>for today</small>',leftC||leftP?(leftC>=1200?'About 3 more meals '+when:leftC>=600?'A proper meal plus a shake '+when:leftC>0?'One more snack or a shake '+when:'Just protein left, a shake covers it'):'Nice, both targets hit')}
-      ${stat('Yesterday',y?nf(y.calories)+'<small>cal · '+(y.protein||0)+'g</small>':'·',y?(y.calories>=T.calories*.9?'Hit the target':nf(T.calories-y.calories)+' short'):'Nothing logged yesterday')}
-    </div>
-    <div class="card" style="margin-bottom:16px"><h3>Meals today <span class="h3sub">${items.length?items.length+' logged · '+nf(tot.c)+' cal':''}</span></h3>
-      ${items.length?`<div class="macro"><b style="width:${kc.p/kt*100}%;background:var(--teal)"></b><b style="width:${kc.cb/kt*100}%;background:var(--gold)"></b><b style="width:${kc.f/kt*100}%;background:var(--accent)"></b></div>
-      <div class="macro-k"><span><i style="background:var(--teal)"></i>Protein ${tot.p}g · ${Math.round(kc.p/kt*100)}%</span><span><i style="background:var(--gold)"></i>Carbs ${tot.cb}g · ${Math.round(kc.cb/kt*100)}%</span><span><i style="background:var(--accent)"></i>Fat ${tot.f}g · ${Math.round(kc.f/kt*100)}%</span></div>`:''}
-      <div class="bd-rows" style="margin-top:14px">${mealRows}</div></div>
-    ${(d.saved_meals||[]).length?`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-rows">${d.saved_meals.map(m=>`<div class="r"><span class="d"></span><span>${esc(m.name)}</span><span class="m">${nf(m.calories)} cal · ${m.protein}g</span></div>`).join('')}</div></div>`:''}`;
-  }
-  return `<div class="bd-stats">
-      ${goalCard('Today',tot.c,T.calories,'',tot.c?(Math.max(0,T.calories-tot.c)?nf(T.calories-tot.c)+' to go':'Target hit'):'Nothing logged yet','var(--accent)')}
-      ${goalCard('Protein today',tot.p,T.protein,'g',tot.p?(Math.max(0,T.protein-tot.p)?(T.protein-tot.p)+'g to go':'Target hit'):'','var(--teal)')}
-      ${bodyRange==='today'?stat('Meals logged today',items.length+'<small>item'+(items.length===1?'':'s')+'</small>',''):stat('Avg per day, '+sinceNote(),fd.length?nf(Math.round(avg(fd.map(x=>x.calories))))+'<small>cal</small>':'·',fd.length?fd.length+' day'+(fd.length===1?'':'s')+' logged':'No days logged')}
-      ${stat('Days on target, '+sinceNote(),fd.length?onT+'<small>of '+fd.length+'</small>':'·',fd.length?'Protein '+onP+' of '+fd.length:'')}
-    </div>
-    ${ifCharts(`    <div class="grid g2" style="margin-bottom:16px">
-      <div class="card"><h3>Calories <span class="h3sub">${RANGES[bodyRange].by==='day'?'per day':'avg per day, by '+RANGES[bodyRange].by}</span></h3>${chart({pts:calPts(d,'calories',' cal'),target:T.calories,showAvg:true,color:v=>v>=T.calories*.9?'var(--good)':'var(--accent)',fmt:v=>nf(Math.round(v))})}</div>
-      <div class="card"><h3>Protein <span class="h3sub">grams</span></h3>${chart({pts:calPts(d,'protein','g'),target:T.protein,showAvg:true,color:v=>v>=T.protein*.9?'var(--good)':'var(--teal)',fmt:v=>Math.round(v)+'g'})}</div>
-    </div>
-`)}
+  const mealRows=items.length?items.slice().reverse().map(x=>`<div class="r meal"><span class="d">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</span><div><div>${esc(x.name)}${x.estimated?' <span class="est">estimate</span>':''}</div><div class="x">${x.protein||0}g protein · ${x.carbs||0}g carbs · ${x.fat||0}g fat</div></div><span class="m"><b>${nf(x.calories)}</b> cal</span></div>`).join(''):'<div class="bd-empty">'+(d.food_plan&&d.food_plan.today&&d.food_plan.today.logged?'The day total is logged. Meals show up here when you send them to Grok.':'Nothing yet today. Send Grok a photo or text it what you ate.')+'</div>';
+  const budget=d.food_plan?foodBudgetHTML(d.food_plan):'<div class="bd-note">The weekly budget shows up once today\'s numbers include the food plan.</div>';
+  const saved=(d.saved_meals||[]).length?`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-rows">${d.saved_meals.map(m=>`<div class="r"><span class="d"></span><span>${esc(m.name)}</span><span class="m">${nf(m.calories)} cal · ${m.protein}g</span></div>`).join('')}</div></div>`:`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-empty">None yet. After a meal you eat a lot, tell Grok "save this as" and a name.</div></div>`;
+  return `${budget}
+    ${ifCharts(`<div class="grid g2" style="margin-bottom:16px">
+      <div class="card"><h3>Calories <span class="h3sub">${RANGES[bodyRange].by==='day'?'per day':'avg per day, by '+RANGES[bodyRange].by} · base ${nf(T.calories)}</span></h3>${chart({pts:calPts(d,'calories',' cal'),target:T.calories,showAvg:true,color:v=>v>=T.calories*.9?'var(--good)':'var(--accent)',fmt:v=>nf(Math.round(v))})}</div>
+      <div class="card"><h3>Protein <span class="h3sub">grams, each day on its own</span></h3>${chart({pts:calPts(d,'protein','g'),target:T.protein,showAvg:true,color:v=>v>=T.protein*.9?'var(--good)':'var(--teal)',fmt:v=>Math.round(v)+'g'})}</div>
+    </div>`)}
     <div class="grid g2">
-      <div class="card"><h3>Eaten today <span class="h3sub">${items.length?nf(tot.c)+' cal':''}</span></h3>
+      <div class="card"><h3>Meals today <span class="h3sub">${items.length?items.length+' logged · '+nf(tot.c)+' cal':''}</span></h3>
         ${items.length?`<div class="macro"><b style="width:${kc.p/kt*100}%;background:var(--teal)"></b><b style="width:${kc.cb/kt*100}%;background:var(--gold)"></b><b style="width:${kc.f/kt*100}%;background:var(--accent)"></b></div>
-        <div class="macro-k"><span><i style="background:var(--teal)"></i>Protein ${tot.p}g</span><span><i style="background:var(--gold)"></i>Carbs ${tot.cb}g</span><span><i style="background:var(--accent)"></i>Fat ${tot.f}g</span></div>`:''}
-        <div class="bd-rows" style="margin-top:12px">${items.length?items.slice().reverse().map(x=>`<div class="r"><span class="d">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</span><span>${esc(x.name)}</span><span class="m">${nf(x.calories)} cal · ${x.protein}g</span></div>`).join(''):'<div class="bd-empty">Nothing yet today. Send Grok a photo or text it what you ate.</div>'}</div></div>
-      <div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-rows">${(d.saved_meals||[]).length?d.saved_meals.map(m=>`<div class="r"><span class="d"></span><span>${esc(m.name)}</span><span class="m">${nf(m.calories)} cal · ${m.protein}g</span></div>`).join(''):'<div class="bd-empty">None yet. After a meal you eat a lot, tell Grok "save this as" and a name.</div>'}</div></div>
+        <div class="macro-k"><span><i style="background:var(--teal)"></i>Protein ${tot.p}g · ${Math.round(kc.p/kt*100)}%</span><span><i style="background:var(--gold)"></i>Carbs ${tot.cb}g · ${Math.round(kc.cb/kt*100)}%</span><span><i style="background:var(--accent)"></i>Fat ${tot.f}g · ${Math.round(kc.f/kt*100)}%</span></div>`:''}
+        <div class="bd-rows" style="margin-top:14px">${mealRows}</div></div>
+      ${saved}
     </div>`;
 }
 /* WEIGHT */
