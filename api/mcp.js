@@ -6,6 +6,7 @@ import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
 import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets } from './_health.js';
+import { appleSummary, appleSetup } from './_apple.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout } from './_money.js';
 import { logCalls, callsSummary } from './_work.js';
 
@@ -122,10 +123,18 @@ const TOOLS = [{
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
   inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
+}, {
+  name: 'health',
+  description: "Mo's Apple Health data synced from his iPhone (Health Auto Export): per day, steps, active energy (kcal), walking/running distance (km), and resting heart rate, plus 7-day averages and last_sync. days is 1 to 90, default 7. Call with setup:true to get the exact URL, header name, and ingest key for the phone app. Do not invent the key.",
+  inputSchema: { type: 'object', properties: {
+    days: { type: 'number', description: 'How many recent days, 1 to 90. Default 7.' },
+    setup: { type: 'boolean', description: 'If true, return the Health Auto Export URL, x-api-key header, and key. No health data.' }
+  } }
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "MO OS is Mo's personal operating system. Tools: add_tasks, write_journal, whoop (sleep/recovery), health (Apple Health steps, active energy, distance, resting HR), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "APPLE HEALTH: health reads the iPhone sync. It returns each day, 7-day averages, and last_sync. If last_sync is null or he asks how to connect it, call health with setup:true and give him the url, the header name, and the key to paste into Health Auto Export. Do not invent a key.",
   "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, pick the 3 that matter most and add them with today=true.",
   "FOOD COACH: Mo is bulking from about 147 to 170 lbs and his real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <target> cal\nProtein  <g so far> / <target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
@@ -214,7 +223,7 @@ async function handle(msg) {
       return ok(id, {
         protocolVersion: VERSIONS.includes(v) ? v : VERSIONS[0],
         capabilities: { tools: { listChanged: false } },
-        serverInfo: { name: 'mo-os', version: '1.1.0' },
+        serverInfo: { name: 'mo-os', version: '1.2.0' },
         instructions: INSTRUCTIONS
       });
     }
@@ -222,7 +231,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'health'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -253,6 +262,8 @@ async function handle(msg) {
             ? await writeJournal(args)
           : name === 'hevy'
             ? JSON.stringify(await hevySummary(Number(args.workouts) || 10))
+          : name === 'health'
+            ? JSON.stringify(args.setup === true ? appleSetup() : await appleSummary(args.days))
             : await addTasks(args);
         return ok(id, { content: [{ type: 'text', text }] });
       } catch (e) {

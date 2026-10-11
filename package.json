@@ -1,6 +1,9 @@
 {
   "private": true,
   "type": "module",
+  "scripts": {
+    "test:health": "node scripts/health-roundtrip.js"
+  },
   "dependencies": {
     "@vercel/blob": "^2.8.0"
   }
