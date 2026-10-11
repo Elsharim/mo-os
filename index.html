@@ -2658,6 +2658,34 @@
   .tl-now{left:-8px}
   .tl-ev{border-radius:9px}
   @media (max-width:980px){.tl{position:static;max-height:none;overflow:visible}}
+
+  /* AGENDA (replaces the hour grid) */
+  .ag{padding:6px 6px 8px;margin:0}
+  .ag.over{box-shadow:inset 0 0 0 2px rgba(255,122,71,.45)}
+  .ag-row{display:grid;grid-template-columns:52px 3px 1fr auto;gap:12px;align-items:center;padding:11px 10px;border-radius:12px;transition:background .12s}
+  .ag-row:hover{background:var(--surface)}
+  .ag-t{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right}
+  .ag-bar{height:30px;border-radius:3px;background:var(--teal);opacity:.8}
+  .ag-row.task .ag-bar{background:var(--accent)}
+  .ag-row.pending .ag-bar{background:repeating-linear-gradient(180deg,var(--accent) 0 4px,transparent 4px 7px)}
+  .ag-n{font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ag-n small{display:block;font-size:11px;color:var(--faint);margin-top:2px}
+  .ag-row.past{opacity:.42}
+  .ag-x{background:none;border:none;color:var(--faint);cursor:pointer;font-size:15px;padding:4px 6px;border-radius:7px;opacity:0}
+  .ag-row:hover .ag-x{opacity:1}.ag-x:hover{color:var(--text);background:var(--surface-hi)}
+  .ag-now{display:flex;align-items:center;gap:10px;padding:4px 10px}
+  .ag-now::before,.ag-now::after{content:'';flex:1;border-top:1px solid rgba(248,113,113,.55)}
+  .ag-now span{font-family:var(--mono);font-size:10.5px;color:#f87171}
+  .ag-empty{padding:34px 20px;text-align:center;color:var(--muted);font-size:13.5px;line-height:1.6}
+  .ag-empty small{display:block;color:var(--faint);font-size:12px;margin-top:4px}
+  .tp-pop{width:270px;padding:12px}
+  .tp-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 12px}
+  .tp-chip{background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:6px 11px;font-size:12.5px;color:var(--text);cursor:pointer}
+  .tp-chip:hover{background:var(--surface-hi);border-color:var(--hair-2)}
+  .tp-exact{display:flex;align-items:center;gap:8px;border-top:1px solid var(--hair);padding-top:10px}
+  .tp-exact input[type=time]{background:var(--surface);border:1px solid var(--hair);border-radius:8px;color:var(--text);padding:6px 8px;font-size:13px;color-scheme:dark}
+  .tp-exact label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;flex:1}
+  .tl{position:sticky;top:12px;max-height:none;overflow:visible}
 </style>
 </head>
 <body>
@@ -5502,63 +5530,83 @@ async function unscheduleTask(id,quiet){
   const sec=mediaSecret();if(!sec)return;
   fetch('/api/life?view=schedule',{method:'POST',headers:{'Content-Type':'application/json','x-moos-secret':sec},body:JSON.stringify({action:'delete',title:t.name,start_iso:when})}).catch(()=>{});
 }
-function timelineHTML(){
+function agendaItems(){
   const d=_life.today&&_life.today.data;
   const cal=d&&d.calendar;
   const E=execData();
   const todayK=todayKey();
-  const tasks=Object.values(E.tasks).filter(t=>t.when&&t.status!=='completed'&&isoDay(new Date(t.when))===todayK);
   const tidy=x=>String(x||'').replace(/\s*with Mohamed Elsharif/i,'').replace(/^[\p{Extended_Pictographic}\s]+/u,'').replace(/Poppy AI Group Onboarding/i,'Group onboarding').trim()||x;
+  const tasks=Object.values(E.tasks).filter(t=>t.when&&t.status!=='completed'&&isoDay(new Date(t.when))===todayK);
   const events=(cal?cal.events:[]).filter(e=>e.start_iso).map(e=>({title:tidy(e.title),start:e.start_iso,end:e.end_iso||new Date(Date.parse(e.start_iso)+30*6e4).toISOString(),kind:'cal',past:e.past}));
   const items=[...events];
-  tasks.forEach(t=>{if(!events.some(e=>sameEvent(t,e)))items.push({title:t.name,start:t.when,end:new Date(Date.parse(t.when)+(t.dur||30)*6e4).toISOString(),kind:'task',pending:true,id:t.id});
-    else{const e=events.find(e=>sameEvent(t,e));e.kind='task';e.id=t.id;}});
+  tasks.forEach(t=>{const e=events.find(e=>sameEvent(t,e));if(e){e.kind='task';e.id=t.id;}else items.push({title:t.name,start:t.when,end:new Date(Date.parse(t.when)+(t.dur||30)*6e4).toISOString(),kind:'task',pending:true,id:t.id,past:Date.parse(t.when)+(t.dur||30)*6e4<Date.now()});});
   items.sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));
-  // simple overlap columns
-  items.forEach((it,i)=>{it.col=0;it.cols=1;for(let j=0;j<i;j++){const o=items[j];if(Date.parse(it.start)<Date.parse(o.end)&&Date.parse(it.end)>Date.parse(o.start)){it.col=o.col+1;o.cols=it.cols=Math.max(o.cols,it.col+1);}}});
-  const H=(TL_END-TL_START)*TL_HPX;
-  const curH=Math.floor(tlMins(new Date())/60);
-  const hours=[];for(let h=TL_START;h<TL_END;h++){const lbl=fmt12(String(h%24).padStart(2,'0')+':00');hours.push(`<div class="tl-hour ${h===curH?'cur':''}" style="top:${(h-TL_START)*TL_HPX}px;height:${TL_HPX}px"><span>${lbl}</span></div>`);}
-  const slots=[];for(let m=TL_START*60;m<TL_END*60;m+=30)slots.push(`<div class="tl-slot" data-slot="${m}" style="top:${(m-TL_START*60)/60*TL_HPX}px;height:${TL_HPX/2}px"></div>`);
-  const nowM=tlMins(new Date());const showNow=nowM>=TL_START*60&&nowM<TL_END*60;
-  const blocks=items.map(it=>{
-    const top=tlTop(it.start),h=Math.max(22,(Date.parse(it.end)-Date.parse(it.start))/36e5*TL_HPX-2);
-    const w=100/it.cols,left=it.col*w;
-    return `<div class="tl-ev ${it.kind} ${it.pending?'pending':''} ${it.past?'past':''}" style="top:${top}px;height:${h}px;left:calc(${left}% + 4px);width:calc(${w}% - 10px)" title="${esc(it.title)}">
-      <span class="tl-ev-t">${tlFmt(it.start)}</span> ${esc(it.title)}${it.id?`<button class="tl-ev-x" data-unsched="${it.id}" title="Take off the calendar">×</button>`:''}</div>`;
-  }).join('');
+  return {items,cal,d};
+}
+function timelineHTML(){
+  const {items,cal,d}=agendaItems();
+  const E=execData();
+  const now=Date.now();let nowDone=false;
+  const rows=[];
+  items.forEach(it=>{
+    if(!nowDone&&Date.parse(it.start)>now){rows.push(`<div class="ag-now"><span>now · ${tlFmt(new Date())}</span></div>`);nowDone=true;}
+    rows.push(`<div class="ag-row ${it.kind} ${it.pending?'pending':''} ${it.past?'past':''}">
+      <span class="ag-t">${tlFmt(it.start)}</span><span class="ag-bar"></span>
+      <span class="ag-n">${esc(it.title)}<small>${tlFmt(it.start)} to ${tlFmt(it.end)}${it.pending?' · adding to calendar':''}</small></span>
+      ${it.id?`<button class="ag-x" data-unsched="${it.id}" title="Take off the calendar">×</button>`:''}</div>`);
+  });
+  if(!nowDone&&items.length)rows.push(`<div class="ag-now"><span>now · ${tlFmt(new Date())}</span></div>`);
   const pickName=tlPick&&E.tasks[tlPick]?E.tasks[tlPick].name:'';
   return `<div class="tl ${window.__tlCollapsed?'collapsed':''}">
-    <div class="tl-head"><h3>Today</h3><span class="h3sub">${cal?(cal.events.length?cal.events.length+' on your calendar':'Nothing booked'):(d?'Calendar not linked':'Loading…')}</span></div>
+    <div class="tl-head"><h3>Today</h3><span class="h3sub">${new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></div>
     <button class="btn btn-sm tl-toggle" id="tl-toggle">${window.__tlCollapsed?'Show calendar':'Hide calendar'}</button>
-    ${tlPick?`<div class="tl-pick">Tap a time for <b>${esc(pickName)}</b> <button class="btn btn-sm" id="tl-pick-cancel">Cancel</button></div>`:''}
-    <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"><span>${tlFmt(new Date())}</span></div>`:''}${!items.length?`<div class="tl-empty">Nothing booked today.<br>Drop a task on a time to put it on your calendar.</div>`:''}</div></div>
+    <div class="ag card" id="tl-scroll">
+      ${rows.length?rows.join(''):`<div class="ag-empty">${cal?'Nothing on the calendar today.':(d?'Calendar not linked yet.':'Loading…')}<small>Tap ⏱ on a task to put it on your calendar.</small></div>`}
+    </div>
   </div>`;
 }
+/* time picker for a task: a few quick chips plus an exact time */
+function openTimePick(taskId,anchor){
+  closeTimePick();
+  const t=execData().tasks[taskId];if(!t)return;
+  const pop=document.createElement('div');pop.className='area-pop tp-pop';pop.id='tp-pop';
+  const now=new Date();const roundUp=m=>{const d=new Date(now.getTime()+m*6e4);d.setMinutes(Math.ceil(d.getMinutes()/15)*15,0,0);return d;};
+  const chips=[['In 30 min',roundUp(30)],['In 1 hour',roundUp(60)],['In 2 hours',roundUp(120)]];
+  [[12,'Noon'],[15,'3pm'],[18,'6pm'],[21,'9pm']].forEach(([h,l])=>{const d=new Date();d.setHours(h,0,0,0);if(d>now)chips.push([l,d]);});
+  const tmrw=new Date();tmrw.setDate(tmrw.getDate()+1);tmrw.setHours(10,0,0,0);chips.push(['Tomorrow 10am',tmrw]);
+  pop.innerHTML=`<div class="ap-head">When</div>
+    <div class="tp-chips">${chips.map((c,i)=>`<button class="tp-chip" data-i="${i}">${c[0]}</button>`).join('')}</div>
+    <div class="tp-exact"><input type="time" id="tp-time" value="${String(roundUp(60).getHours()).padStart(2,'0')}:${String(roundUp(60).getMinutes()).padStart(2,'0')}"><label><input type="checkbox" id="tp-tmrw"> tomorrow</label><button class="btn btn-sm solid" id="tp-set">Set</button></div>`;
+  document.body.appendChild(pop);
+  const r=anchor.getBoundingClientRect();const w=270,h=pop.offsetHeight||220;
+  let left=r.right-w,top=r.bottom+6;if(left<12)left=12;if(top+h>window.innerHeight-12)top=Math.max(12,r.top-h-6);
+  pop.style.left=left+'px';pop.style.top=top+'px';
+  pop.querySelectorAll('.tp-chip').forEach(b=>b.onclick=()=>{scheduleTask(taskId,chips[+b.dataset.i][1]);closeTimePick();});
+  pop.querySelector('#tp-set').onclick=()=>{const v=pop.querySelector('#tp-time').value;if(!v)return;const [hh,mm]=v.split(':').map(Number);const d=new Date();if(pop.querySelector('#tp-tmrw').checked)d.setDate(d.getDate()+1);d.setHours(hh,mm,0,0);scheduleTask(taskId,d);closeTimePick();};
+  pop.onclick=e=>e.stopPropagation();
+  setTimeout(()=>{document.addEventListener('click',closeTimePick,{once:true});},0);
+}
+function closeTimePick(){const p=document.getElementById('tp-pop');if(p)p.remove();}
 function wireTimeline(){
-  const sc=document.getElementById('tl-scroll');if(!sc)return;
-  const nowM=tlMins(new Date());
-  if(!sc.dataset.scrolled){sc.scrollTop=Math.max(0,(nowM-TL_START*60)/60*TL_HPX-180);sc.dataset.scrolled='1';}
-  sc.querySelectorAll('.tl-slot').forEach(sl=>{
-    sl.ondragover=e=>{e.preventDefault();sl.classList.add('over');};
-    sl.ondragleave=()=>sl.classList.remove('over');
-    sl.ondrop=e=>{e.preventDefault();sl.classList.remove('over');const id=e.dataTransfer.getData('text/plain');if(id)scheduleTask(id,slotDate(+sl.dataset.slot));};
-    sl.onclick=()=>{if(tlPick)scheduleTask(tlPick,slotDate(+sl.dataset.slot));};
-  });
-  sc.querySelectorAll('[data-unsched]').forEach(b=>b.onclick=e=>{e.stopPropagation();unscheduleTask(b.dataset.unsched);});
-  const cancel=document.getElementById('tl-pick-cancel');if(cancel)cancel.onclick=()=>{tlPick=null;renderTasks();};
+  const sc=document.getElementById('tl-scroll');
+  if(sc){
+    sc.ondragover=e=>{e.preventDefault();sc.classList.add('over');};
+    sc.ondragleave=()=>sc.classList.remove('over');
+    sc.ondrop=e=>{e.preventDefault();sc.classList.remove('over');const id=e.dataTransfer.getData('text/plain');if(!id)return;const btn=main.querySelector(`[data-clock="${id}"]`)||sc;openTimePick(id,btn);};
+    sc.querySelectorAll('[data-unsched]').forEach(b=>b.onclick=e=>{e.stopPropagation();unscheduleTask(b.dataset.unsched);});
+  }
   const tg=document.getElementById('tl-toggle');if(tg)tg.onclick=()=>{window.__tlCollapsed=!window.__tlCollapsed;renderTasks();};
-  if(!window.__tlEsc){window.__tlEsc=true;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&tlPick&&currentView==='tasks'){tlPick=null;renderTasks();}});}
   main.querySelectorAll('.tk-row[draggable]').forEach(r=>{
     r.ondragstart=e=>{e.dataTransfer.setData('text/plain',r.dataset.id);e.dataTransfer.effectAllowed='move';r.classList.add('dragging');};
     r.ondragend=()=>r.classList.remove('dragging');
   });
-  main.querySelectorAll('[data-clock]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=execData().tasks[b.dataset.clock];if(t&&t.when){unscheduleTask(t.id);return;}tlPick=b.dataset.clock;renderTasks();document.getElementById('tl-scroll')?.scrollIntoView({behavior:'smooth',block:'nearest'});});
-  // keep the calendar side fresh while this page is open
+  main.querySelectorAll('[data-clock]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=execData().tasks[b.dataset.clock];if(t&&t.when){unscheduleTask(t.id);return;}openTimePick(b.dataset.clock,b);});
+  if(!window.__tpEsc){window.__tpEsc=true;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTimePick();});}
   clearInterval(_tlTimer);
   _tlTimer=setInterval(async()=>{if(currentView!=='tasks'){clearInterval(_tlTimer);return;}const d=await lifeData('today',true);if(currentView==='tasks'&&d&&!d.needsUnlock){const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}}},60e3);
   if(!_life.today)lifeData('today').then(()=>{if(currentView==='tasks'){const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}}});
 }
+
 
 
 /* MONEY page: balances Grok logs from Plaid, net worth over time, month, runway */
