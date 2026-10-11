@@ -5217,39 +5217,36 @@ function bodyTraining(d){
 function foodDayLine(day, proteinTarget){
   const when=day.weekday+' '+dateLbl(day.date);
   if(day.status==='future') return `<div class="r future"><span class="d">${when}</span><span>Still to come</span><span class="m"></span></div>`;
-  if(day.status==='unlogged') return `<div class="r unlogged"><span class="d">${when}</span><span>Unlogged</span><span class="m">Not counted as zero</span></div>`;
-  if(!day.logged) return `<div class="r partial"><span class="d">${when}</span><span>Today, nothing logged yet</span><span class="m">Partial</span></div>`;
+  if(day.status==='unlogged') return `<div class="r unlogged"><span class="d">${when}</span><span style="color:var(--faint)">Not logged</span><span class="m"></span></div>`;
+  if(!day.logged) return `<div class="r partial"><span class="d">${when}</span><span style="color:var(--faint)">Nothing yet today</span><span class="m"></span></div>`;
   const est=day.estimated?' <span class="est">estimate</span>':'';
   const hit=day.status==='partial'?day.protein>=proteinTarget:!!day.protein_hit;
-  return `<div class="r ${day.status}"><span class="d">${when}</span><span>${nf(day.calories)} cal · ${day.protein||0}g protein · hit: ${hit?'yes':'no'}${est}</span><span class="m">${day.status==='partial'?'Partial':'Logged'}</span></div>`;
+  return `<div class="r ${day.status}"><span class="d">${when}</span><span>${nf(day.calories)} cal · <span style="color:${hit?'var(--good)':'var(--muted)'}">${day.protein||0}g</span></span><span class="m">${day.status==='partial'?'Partial':'Logged'}</span></div>`;
 }
 function foodBudgetHTML(plan){
   const t=plan.today,w=plan.week,b=plan.bulk;
   const paceWord=w.pace==='ahead'?'Ahead':w.pace==='behind'?'Behind':w.pace==='on_pace'?'On pace':'·';
   const todaySub=[
     t.logged?(Math.max(0,t.adjusted_daily_target-t.calories)?nf(Math.max(0,t.adjusted_daily_target-t.calories))+' to go':'Target hit'):'Nothing logged yet',
-    'Base '+nf(t.base_target),
-    t.estimated?'Estimate':''
   ].filter(Boolean).join(' · ');
-  const weekSub=(w.over?nf(w.over)+' over':nf(w.remaining)+' left')+(w.unlogged_days?' · '+w.unlogged_days+' unlogged':'');
+  const weekSub=w.over?nf(w.over)+' over':nf(w.remaining)+' left';
   const gained=b.gained_lb==null?'':(b.gained_lb>0?'+':'')+b.gained_lb+' lbs from '+b.start_weight_lb;
   const pct=b.progress_pct==null?0:Math.max(0,Math.min(100,b.progress_pct));
   const toGo=b.remaining_lb==null?'':(b.remaining_lb<0?Math.abs(b.remaining_lb)+' lbs past the goal':b.remaining_lb+' lbs to go');
   const past=(plan.recent_weeks||[]).filter(x=>!x.current).slice(0,8);
-  return `<div class="food-h">Today <span>${dateLbl(t.date)} · partial</span></div>
+  return `<div class="food-h">Today <span>${dateLbl(t.date)}</span></div>
     <div class="bd-stats food-today">
       ${goalCard('Calories',t.logged?t.calories:0,t.adjusted_daily_target,'',todaySub,'var(--accent)')}
       ${goalCard('Protein',t.protein,t.protein_target,'g',(t.protein_hit?'Hit: yes':'Hit: no')+(t.protein_remaining?' · '+t.protein_remaining+'g left':' · daily, not weekly'),'var(--teal)')}
     </div>
-    ${t.note?`<div class="bd-note">${esc(t.note)}</div>`:''}
     <div class="food-h">This week <span>${dateLbl(w.week_start)} to ${dateLbl(w.week_end)}</span></div>
     <div class="bd-stats">
       ${goalCard('Calories',w.calories,w.weekly_goal,'',weekSub,'var(--accent)')}
-      ${stat('Avg on logged days',w.avg_daily_calories==null?'·':nf(w.avg_daily_calories)+'<small>cal</small>',w.completed_logged_days?w.completed_logged_days+' completed day'+(w.completed_logged_days===1?'':'s')+' · today stays separate':'No completed days yet')}
-      ${stat('Adjusted daily',w.adjusted_daily_target==null?'·':nf(w.adjusted_daily_target)+'<small>cal</small>',w.clamped?'Capped from '+nf(w.adjusted_daily_target_raw)+'. Spread the gap.':'For the days left, including today')}
-      ${stat('Pace',paceWord,esc(w.pace_note))}
+      ${stat('Avg per logged day',w.avg_daily_calories==null?'·':nf(w.avg_daily_calories)+'<small>cal</small>',(w.completed_logged_days||0)+' day'+(w.completed_logged_days===1?'':'s')+' logged')}
+      ${stat('Eat per day to finish',w.adjusted_daily_target==null?'·':nf(w.adjusted_daily_target)+'<small>cal</small>','')}
+      ${stat('Pace',paceWord,'')}
     </div>
-    <div class="card" style="margin-bottom:16px"><h3>Days <span class="h3sub">protein is daily, a high day does not cover a low one</span></h3>
+    <div class="card" style="margin-bottom:16px"><h3>Days</h3>
       <div class="bd-rows">${w.days.map(day=>foodDayLine(day,plan.targets.protein)).join('')}</div></div>
     <div class="food-h">Bulk <span>${b.start_weight_lb} to ${b.goal_weight_lb} lbs</span></div>
     <div class="bd-stats" style="grid-template-columns:1fr 1fr">
