@@ -928,7 +928,7 @@
   .tk-area-delete{color:var(--muted)}
   .tk-area-delete:hover{border-color:var(--bad)!important;color:var(--bad)!important;background:none!important}
   .tk-row .et-main{display:flex;align-items:center;flex-wrap:wrap;gap:2px 0;min-width:0}
-  .tk-acts{opacity:1!important;display:flex;align-items:center;gap:4px}
+  .tk-acts{display:flex;align-items:center;gap:4px}
   .tk-star{background:none;border:none;color:var(--faint);font-size:17px;cursor:pointer;padding:2px 4px;opacity:.45;transition:.13s;line-height:1}
   .et-row:hover .tk-star{opacity:.85}
   .tk-star:hover{opacity:1;color:var(--accent)}
@@ -2630,6 +2630,34 @@
   .seg button:hover{color:var(--text)}
   .seg button.on{background:var(--surface-hi);color:var(--text);box-shadow:inset 0 0 0 1px var(--hair-2)}
   @media (max-width:760px){.bd-head{flex-direction:column;align-items:flex-start;gap:12px}.bd-head>div:last-child{align-self:stretch}.seg{width:100%;justify-content:space-between}.seg button{flex:1;padding:7px 6px}.bd-tabs-u .bd-tab{padding:9px 10px 11px;font-size:13px}}
+
+  /* TASKS: breathing room, clean rows, quiet timeline */
+  .tk-layout{gap:34px}
+  .tk-capture{margin-bottom:16px}
+  .tk-top3-line{margin-bottom:18px}
+  .tk-filter{margin-bottom:14px}
+  .tk-row{padding:12px 12px!important;gap:14px}
+  .tk-row .tk-name{display:flex;flex-wrap:nowrap;align-items:flex-start;gap:11px}
+  .tk-adot{margin:7px 0 0;flex:none}
+  .tk-adot.none{background:var(--hair-2)}
+  .tk-txt{flex:1;min-width:0;line-height:1.5;font-size:14.5px}
+  .tk-when{align-self:center;margin-left:0}
+  .tk-row .tk-acts{opacity:0;transition:opacity .13s}
+  .tk-row:hover .tk-acts,.tk-row.top .tk-acts{opacity:1}
+  .tk-row.top .tk-acts .tk-more,.tk-row.top .tk-acts .tk-clock{opacity:0}
+  .tk-row.top:hover .tk-acts .tk-more,.tk-row.top:hover .tk-acts .tk-clock{opacity:1}
+  @media (hover:none){.tk-row .tk-acts,.tk-row.top .tk-acts .tk-more,.tk-row.top .tk-acts .tk-clock{opacity:1}}
+  .tl{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto;padding-right:2px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+  .tl::-webkit-scrollbar{width:6px}.tl::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:6px}.tl::-webkit-scrollbar-track{background:transparent}
+  .tl-scroll{max-height:none;overflow:visible;padding:10px 0 14px;border-radius:18px}
+  .tl-body{margin-left:58px;margin-right:10px}
+  .tl-hour{border-top:1px solid rgba(255,255,255,.045)}
+  .tl-hour span{font-size:10px;color:rgba(255,255,255,.3)}
+  .tl-hour.cur{background:rgba(255,122,71,.05)}
+  .tl-empty{position:absolute;left:0;right:0;top:38%;text-align:center;font-size:12.5px;color:var(--faint);line-height:1.6;pointer-events:none;padding:0 20px}
+  .tl-now{left:-8px}
+  .tl-ev{border-radius:9px}
+  @media (max-width:980px){.tl{position:static;max-height:none;overflow:visible}}
 </style>
 </head>
 <body>
@@ -3315,7 +3343,7 @@ function hubTaskRow(t){
   const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
   return `<div class="et-row tk-row ${done?'completed':''} ${inTop?'top':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-    <div class="et-main"><div class="et-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:''}${esc(t.name)}${whenChip}</div></div>
+    <div class="et-main"><div class="et-name tk-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:'<i class="tk-adot none"></i>'}<span class="tk-txt">${esc(t.name)}</span>${whenChip}</div></div>
     <div class="et-actions tk-acts">
       ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
       <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of Top 3':'Top 3'}">${inTop?'★':'☆'}</button>
@@ -5429,7 +5457,7 @@ function renderBody(){
 }
 
 /* DAY TIMELINE on Tasks: today's calendar, drag a task onto a time to put it on Google Calendar */
-const TL_START=7,TL_END=26,TL_HPX=52; // 7am to 2am, 52px per hour
+const TL_START=7,TL_END=25,TL_HPX=40; // 7am to 1am, 40px per hour
 let tlPick=null,_tlTimer=null;
 const tlMins=d=>{const x=new Date(d);let m=x.getHours()*60+x.getMinutes();if(m<TL_START*60)m+=1440;return m;};
 const tlTop=d=>(tlMins(d)-TL_START*60)/60*TL_HPX;
@@ -5500,13 +5528,13 @@ function timelineHTML(){
     <div class="tl-head"><h3>Today</h3><span class="h3sub">${cal?(cal.events.length?cal.events.length+' on your calendar':'Nothing booked'):(d?'Calendar not linked':'Loading…')}</span></div>
     <button class="btn btn-sm tl-toggle" id="tl-toggle">${window.__tlCollapsed?'Show calendar':'Hide calendar'}</button>
     ${tlPick?`<div class="tl-pick">Tap a time for <b>${esc(pickName)}</b> <button class="btn btn-sm" id="tl-pick-cancel">Cancel</button></div>`:''}
-    <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"><span>${tlFmt(new Date())}</span></div>`:''}</div></div>
+    <div class="tl-scroll ${tlPick?'picking':''}" id="tl-scroll"><div class="tl-body" style="height:${H}px">${hours.join('')}${slots.join('')}${blocks}${showNow?`<div class="tl-now" style="top:${(nowM-TL_START*60)/60*TL_HPX}px"><span>${tlFmt(new Date())}</span></div>`:''}${!items.length?`<div class="tl-empty">Nothing booked today.<br>Drop a task on a time to put it on your calendar.</div>`:''}</div></div>
   </div>`;
 }
 function wireTimeline(){
   const sc=document.getElementById('tl-scroll');if(!sc)return;
   const nowM=tlMins(new Date());
-  if(!sc.dataset.scrolled){sc.scrollTop=Math.max(0,(nowM-TL_START*60)/60*TL_HPX-140);sc.dataset.scrolled='1';}
+  if(!sc.dataset.scrolled){sc.scrollTop=Math.max(0,(nowM-TL_START*60)/60*TL_HPX-180);sc.dataset.scrolled='1';}
   sc.querySelectorAll('.tl-slot').forEach(sl=>{
     sl.ondragover=e=>{e.preventDefault();sl.classList.add('over');};
     sl.ondragleave=()=>sl.classList.remove('over');
