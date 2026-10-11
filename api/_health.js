@@ -104,7 +104,7 @@ export async function healthSummary(days = 7) {
   const recent = keys.slice(0, Math.min(90, days)).map((k) => ({ date: k, ...s.days[k] }));
   const weights = keys.map((k) => ({ date: k, lb: s.days[k].weight_lb })).filter((x) => x.lb);
   const trend = weights.length >= 2 ? r1(weights[0].lb - weights[Math.min(weights.length - 1, 7)].lb) : null;
-  const targets = { ...DEFAULT_TARGETS, ...(s.targets || {}) };
+  const targets = resolveTargets(s.targets);
   const avg = (arr) => (arr.length ? r1(arr.reduce((a, b) => a + b, 0) / arr.length) : null);
   const w7 = avg(weights.slice(0, 7).map((x) => x.lb)), wPrev7 = avg(weights.slice(7, 14).map((x) => x.lb));
   return {
@@ -114,6 +114,7 @@ export async function healthSummary(days = 7) {
     days: recent,
     latest_weight_lb: weights[0] ? weights[0].lb : null,
     weight_change_last_7_entries_lb: trend,
+    food_plan: buildFoodPlan(s.days, targets, localDateISO()),
     note: recent.length ? undefined : 'Nothing logged yet. Mo logs food and weight by messaging Grok (log_food, log_weight).'
   };
 }
@@ -131,8 +132,10 @@ export async function logFood({ date, items, save_as }) {
   for (const it of Array.isArray(items) ? items : []) {
     const saved = s.meals[mkey(it.name)];
     const m = { name: String(it.name || 'food').slice(0, 120) };
+    const usedSaved = !!(saved && MACROS.every((k) => num(it[k]) == null));
     for (const k of MACROS) m[k] = Math.round(num(it[k]) ?? (saved ? saved[k] : 0) ?? 0);
     if (!m.calories && !saved) throw new Error(`No numbers for "${m.name}" and it is not a saved meal. Estimate calories, protein, carbs and fat.`);
+    m.estimated = !usedSaved;
     list.push(m);
   }
   if (!list.length) throw new Error('No food items given.');
@@ -148,7 +151,7 @@ export async function logFood({ date, items, save_as }) {
   }
   d.updated = new Date().toISOString();
   await save(s);
-  return { date, added: list, day_totals: { calories: d.calories, protein: d.protein, carbs: d.carbs, fat: d.fat } };
+  return { date, added: list, day_totals: { calories: d.calories, protein: d.protein, carbs: d.carbs, fat: d.fat }, food_plan: buildFoodPlan(s.days, s.targets, localDateISO()) };
 }
 
 export async function savedMeals() {
@@ -156,16 +159,17 @@ export async function savedMeals() {
   return Object.values(s.meals || {});
 }
 
-export const DEFAULT_TARGETS = { calories: 3000, protein: 150, workouts_per_week: 5, goal_weight_lb: 170, weekly_gain_lb: 0.4, tracking_since: '2026-10-09' };
+export const DEFAULT_TARGETS = { calories: 3000, protein: 150, workouts_per_week: 5, goal_weight_lb: 170, start_weight_lb: 145, weekly_gain_lb: 0.4, tracking_since: '2026-10-09' };
 
 export async function setTargets(t) {
   const s = await load();
   s.targets = { ...DEFAULT_TARGETS, ...(s.targets || {}) };
-  for (const k of ['calories', 'protein', 'workouts_per_week', 'goal_weight_lb', 'weekly_gain_lb']) if (num(t[k]) != null) s.targets[k] = num(t[k]);
+  for (const k of ['calories', 'protein', 'workouts_per_week', 'goal_weight_lb', 'weekly_gain_lb', 'start_weight_lb']) if (num(t[k]) != null) s.targets[k] = num(t[k]);
+  if (num(t.weekly_calories) != null) s.targets.weekly_calories = Math.round(num(t.weekly_calories));
   if (/^\d{4}-\d{2}-\d{2}$/.test(t.tracking_since || '')) s.targets.tracking_since = t.tracking_since;
   s.targets.changed = new Date().toISOString().slice(0, 10);
   await save(s);
-  return s.targets;
+  return resolveTargets(s.targets);
 }
 
 export async function logWeight({ date, lb, kg }) {
@@ -186,5 +190,242 @@ export async function removeFood({ date, name }) {
   const [gone] = d.foods.splice(i, 1);
   for (const k of MACROS) d[k] = Math.max(0, (d[k] || 0) - (gone[k] || 0));
   await save(s);
-  return { removed: gone, day_totals: { calories: d.calories, protein: d.protein, carbs: d.carbs, fat: d.fat } };
+  return { removed: gone, day_totals: { calories: d.calories, protein: d.protein, carbs: d.carbs, fat: d.fat }, food_plan: buildFoodPlan(s.days, s.targets, localDateISO()) };
+}
+
+// Weekly calorie budget. Weeks are Monday–Sunday on Mo's calendar (Europe/Sarajevo).
+// The adjusted daily target uses food logged before today only, so eating today
+// does not shrink today's target. Missing days stay unlogged, not zero.
+export const FOOD_TZ = 'Europe/Sarajevo';
+export const ADJUST_HEADROOM = 700;
+const HISTORY_WEEKS = 26;
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const fmtCal = (n) => Math.round(n).toLocaleString('en-US');
+
+export function localDateISO(now = new Date(), timeZone = FOOD_TZ) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone, year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(now);
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+export function addIsoDays(iso, n) {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+export function mondayOf(iso) {
+  const [y, m, d] = String(iso).split('-').map(Number);
+  const dow = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return addIsoDays(iso, -((dow + 6) % 7));
+}
+
+export function resolveTargets(stored) {
+  const t = { ...DEFAULT_TARGETS, ...(stored || {}) };
+  if (num(t.calories) == null) t.calories = 3000;
+  if (num(t.protein) == null) t.protein = 150;
+  if (num(t.goal_weight_lb) == null) t.goal_weight_lb = 170;
+  if (num(t.start_weight_lb) == null) t.start_weight_lb = 145;
+  if (num(t.weekly_calories) == null) t.weekly_calories = Math.round(num(t.calories) || 3000) * 7;
+  else t.weekly_calories = Math.round(num(t.weekly_calories));
+  return t;
+}
+
+function foodLogged(entry) {
+  if (!entry) return false;
+  if (Array.isArray(entry.foods) && entry.foods.length > 0) return true;
+  return entry.calories != null;
+}
+
+function dayEstimated(entry) {
+  if (!entry || !Array.isArray(entry.foods) || !entry.foods.length) return false;
+  return entry.foods.some((f) => f.estimated !== false);
+}
+
+function adjustedNote({ raw, recommended, minRec, maxRec, remainingDays, unlogged }) {
+  const notes = [];
+  if (raw > maxRec) {
+    notes.push(remainingDays === 1
+      ? `Finishing the week today would take ${fmtCal(raw)} cal. Eat about ${fmtCal(recommended)} instead of cramming the gap into one day.`
+      : `Finishing the week would take ${fmtCal(raw)} cal a day. Eat about ${fmtCal(recommended)} today and spread the rest across the remaining days instead of cramming.`);
+  } else if (raw < minRec - 50) {
+    notes.push(`You're ahead of the weekly budget (the uncapped target would be ${fmtCal(raw)}). Today's recommendation stays at your ${fmtCal(minRec)} base.`);
+  }
+  if (unlogged.length) {
+    const n = unlogged.length;
+    notes.push(`${n} day${n === 1 ? '' : 's'} this week ${n === 1 ? 'is' : 'are'} unlogged, not counted as zero, and left out of the average.`);
+  }
+  return notes.length ? notes.join(' ') : null;
+}
+
+function summarizeWeek(daysMap, weekStart, today, T) {
+  const base = Math.round(num(T.calories) || 3000);
+  const weekly = Math.round(num(T.weekly_calories) || base * 7);
+  const minRec = base;
+  const maxRec = base + ADJUST_HEADROOM;
+  const weekEnd = addIsoDays(weekStart, 6);
+  const current = today >= weekStart && today <= weekEnd;
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const date = addIsoDays(weekStart, i);
+    const entry = daysMap ? daysMap[date] : null;
+    const logged = foodLogged(entry);
+    let status = 'unlogged';
+    if (date > today) status = 'future';
+    else if (date === today) status = 'partial';
+    else if (logged) status = 'logged';
+    const calories = logged ? Math.round(Number(entry.calories) || 0) : null;
+    const protein = logged ? Math.round(Number(entry.protein) || 0) : null;
+    days.push({
+      date,
+      weekday: WEEKDAYS[i],
+      status,
+      logged: status === 'future' ? false : logged,
+      calories,
+      protein,
+      protein_hit: status === 'logged' ? protein >= T.protein : null,
+      estimated: !!(logged && dayEstimated(entry))
+    });
+  }
+  const completed = days.filter((d) => d.status === 'logged');
+  const unlogged = days.filter((d) => d.status === 'unlogged');
+  const eatenBefore = completed.reduce((a, d) => a + d.calories, 0);
+  const todayDay = days.find((d) => d.date === today) || null;
+  const todayCalories = todayDay && todayDay.logged ? todayDay.calories : 0;
+  const consumed = current ? eatenBefore + (todayDay && todayDay.logged ? todayDay.calories : 0) : eatenBefore;
+  const remainingDays = current ? days.filter((d) => d.date >= today).length : 0;
+  let raw = null;
+  let recommended = null;
+  let clamped = false;
+  let note = null;
+  if (current && remainingDays > 0) {
+    raw = Math.round((weekly - eatenBefore) / remainingDays);
+    recommended = Math.min(maxRec, Math.max(minRec, raw));
+    clamped = recommended !== raw;
+    note = adjustedNote({ raw, recommended, minRec, maxRec, remainingDays, unlogged });
+  }
+  const avg = completed.length ? Math.round(eatenBefore / completed.length) : null;
+  const delta = completed.length ? eatenBefore - base * completed.length : null;
+  const band = 100 * completed.length;
+  let pace = 'no_completed_days';
+  let pace_note = 'No completed logged days yet. Today is still partial.';
+  if (completed.length) {
+    if (delta > band) pace = 'ahead';
+    else if (delta < -band) pace = 'behind';
+    else pace = 'on_pace';
+    const gap = Math.abs(delta).toLocaleString('en-US');
+    pace_note = pace === 'ahead'
+      ? `${gap} cal ahead of the ${fmtCal(base)} base, across ${completed.length} logged day${completed.length === 1 ? '' : 's'}.`
+      : pace === 'behind'
+        ? `${gap} cal behind the ${fmtCal(base)} base, across ${completed.length} logged day${completed.length === 1 ? '' : 's'}.`
+        : `On pace with the ${fmtCal(base)} base across logged days.`;
+    if (unlogged.length) pace_note += ` ${unlogged.length} unlogged day${unlogged.length === 1 ? '' : 's'} not counted as zero.`;
+  } else if (unlogged.length) {
+    pace_note += ` ${unlogged.length} unlogged day${unlogged.length === 1 ? '' : 's'} not counted as zero.`;
+  }
+  const todayView = current ? {
+    date: today,
+    status: 'partial',
+    logged: !!(todayDay && todayDay.logged),
+    calories: todayCalories,
+    estimated: !!(todayDay && todayDay.estimated),
+    adjusted_daily_target: recommended,
+    adjusted_daily_target_raw: raw,
+    base_target: base,
+    clamped,
+    clamp_min: minRec,
+    clamp_max: maxRec,
+    note,
+    protein: todayDay && todayDay.logged ? todayDay.protein : 0,
+    protein_target: T.protein,
+    protein_remaining: Math.max(0, T.protein - (todayDay && todayDay.logged ? todayDay.protein : 0)),
+    protein_hit: !!(todayDay && todayDay.logged && todayDay.protein >= T.protein)
+  } : null;
+  return {
+    week_start: weekStart,
+    week_end: weekEnd,
+    current,
+    weekly_goal: weekly,
+    calories: consumed,
+    remaining: Math.max(0, weekly - consumed),
+    over: Math.max(0, consumed - weekly),
+    eaten_before_today: current ? eatenBefore : null,
+    completed_logged_days: completed.length,
+    unlogged_days: unlogged.length,
+    unlogged_dates: unlogged.map((d) => d.date),
+    avg_daily_calories: avg,
+    adjusted_daily_target: recommended,
+    adjusted_daily_target_raw: raw,
+    clamped,
+    adjusted_note: note,
+    pace,
+    pace_delta_cal: delta,
+    pace_note,
+    days,
+    today: todayView
+  };
+}
+
+function buildBulk(daysMap, T) {
+  const weights = Object.keys(daysMap || {})
+    .filter((k) => daysMap[k] && daysMap[k].weight_lb != null)
+    .sort()
+    .map((k) => ({ date: k, lb: daysMap[k].weight_lb }));
+  const latest = weights.length ? weights[weights.length - 1] : null;
+  const start = num(T.start_weight_lb) ?? 145;
+  const goal = num(T.goal_weight_lb) ?? 170;
+  const latestLb = latest ? latest.lb : null;
+  const span = goal - start;
+  const progress = latestLb != null && span > 0
+    ? Math.round(Math.max(0, Math.min(1, (latestLb - start) / span)) * 1000) / 10
+    : null;
+  return {
+    latest_weight_lb: latestLb,
+    latest_weight_date: latest ? latest.date : null,
+    start_weight_lb: start,
+    goal_weight_lb: goal,
+    gained_lb: latestLb != null ? r1(latestLb - start) : null,
+    remaining_lb: latestLb != null ? r1(goal - latestLb) : null,
+    progress_pct: progress
+  };
+}
+
+export function buildFoodPlan(daysMap, targets, today) {
+  const T = resolveTargets(targets);
+  const thisMonday = mondayOf(today);
+  let earliest = thisMonday;
+  for (const k of Object.keys(daysMap || {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !foodLogged(daysMap[k])) continue;
+    const m = mondayOf(k);
+    if (m < earliest) earliest = m;
+  }
+  const cap = addIsoDays(thisMonday, -7 * (HISTORY_WEEKS - 1));
+  if (earliest < cap) earliest = cap;
+  const weeks = [];
+  for (let start = thisMonday; start >= earliest; start = addIsoDays(start, -7)) {
+    const week = summarizeWeek(daysMap, start, today, T);
+    // Empty past weeks stay in the day store. They are not listed as a 0-calorie week.
+    if (week.current || week.completed_logged_days > 0) weeks.push(week);
+  }
+  const current = weeks[0];
+  const todayView = current.today;
+  for (const w of weeks) delete w.today;
+  return {
+    timezone: FOOD_TZ,
+    as_of: today,
+    adjusted_basis: 'Weekly goal minus calories logged before today, divided by days left including today, then capped between the daily base and the base plus 700. Calories eaten today do not change today\'s target.',
+    protein_note: 'Protein is a daily target. A high day does not offset a low day.',
+    targets: {
+      calories: T.calories,
+      protein: T.protein,
+      weekly_calories: T.weekly_calories,
+      start_weight_lb: T.start_weight_lb,
+      goal_weight_lb: T.goal_weight_lb
+    },
+    today: todayView,
+    week: current,
+    recent_weeks: weeks,
+    bulk: buildBulk(daysMap, T)
+  };
 }
