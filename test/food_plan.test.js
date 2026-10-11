@@ -32,7 +32,7 @@ test('weeks start Monday', () => {
   assert.equal(mondayOf('2026-10-12'), '2026-10-12');
 });
 
-test('adjusted target ignores today, skips unlogged in the average, and caps a binge', () => {
+test('adjusted target ignores today and prorates when a completed day is unlogged', () => {
   const days = {
     '2026-10-05': food(2800, 140),
     '2026-10-06': food(3200, 160),
@@ -49,18 +49,23 @@ test('adjusted target ignores today, skips unlogged in the average, and caps a b
   assert.equal(plan.today.protein_remaining, 110);
   assert.equal(plan.today.base_target, 3000);
   assert.equal(plan.week.eaten_before_today, 15000);
-  assert.equal(plan.today.adjusted_daily_target_raw, 6000);
-  assert.equal(plan.today.adjusted_daily_target, 3000 + ADJUST_HEADROOM);
-  assert.equal(plan.today.clamped, true);
-  assert.match(plan.today.note, /cramming/);
-  assert.match(plan.today.note, /unlogged/);
+  assert.equal(plan.today.provisional, true);
+  assert.equal(plan.week.provisional, true);
+  assert.equal(plan.week.weekly_goal, 21000);
+  assert.equal(plan.week.budget, 18000);
+  assert.equal(plan.today.budget, 18000);
+  assert.equal(plan.today.adjusted_daily_target_raw, 3000);
+  assert.equal(plan.today.adjusted_daily_target, 3000);
+  assert.equal(plan.today.clamped, false);
+  assert.match(plan.today.note, /1 day unlogged, target based on logged days only/);
   assert.equal(plan.week.avg_daily_calories, 3000);
   assert.equal(plan.week.completed_logged_days, 5);
   assert.equal(plan.week.unlogged_days, 1);
   assert.deepEqual(plan.week.unlogged_dates, ['2026-10-08']);
   assert.equal(plan.week.calories, 15900);
-  assert.equal(plan.week.remaining, 5100);
+  assert.equal(plan.week.remaining, 2100);
   assert.equal(plan.week.pace, 'on_pace');
+  assert.match(plan.week.pace_note, /pace based on logged days only/);
   const thu = plan.week.days.find((d) => d.date === '2026-10-08');
   assert.equal(thu.status, 'unlogged');
   assert.equal(thu.calories, null);
@@ -83,6 +88,8 @@ test('adjusted target ignores today, skips unlogged in the average, and caps a b
 
 test('a low completed day raises the next target, and a high day does not drop it under the base', () => {
   const behind = buildFoodPlan({ '2026-10-05': food(2000, 100) }, {}, '2026-10-06');
+  assert.equal(behind.today.provisional, false);
+  assert.equal(behind.week.budget, 21000);
   assert.equal(behind.today.adjusted_daily_target_raw, 3167);
   assert.equal(behind.today.adjusted_daily_target, 3167);
   assert.equal(behind.today.clamped, false);
@@ -90,6 +97,8 @@ test('a low completed day raises the next target, and a high day does not drop i
   assert.equal(behind.week.avg_daily_calories, 2000);
 
   const ahead = buildFoodPlan({ '2026-10-05': food(6000, 200) }, {}, '2026-10-06');
+  assert.equal(ahead.today.provisional, false);
+  assert.equal(ahead.week.budget, 21000);
   assert.equal(ahead.today.adjusted_daily_target_raw, 2500);
   assert.equal(ahead.today.adjusted_daily_target, 3000);
   assert.equal(ahead.today.clamped, true);
@@ -98,16 +107,70 @@ test('a low completed day raises the next target, and a high day does not drop i
   assert.equal(ahead.week.pace, 'ahead');
 });
 
+test('an all-logged binge still uses the full weekly goal and caps the day', () => {
+  const days = {};
+  for (let i = 0; i < 6; i++) days[addIsoDays('2026-10-05', i)] = food(1000, 40);
+  const plan = buildFoodPlan(days, {}, '2026-10-11');
+  assert.equal(plan.today.provisional, false);
+  assert.equal(plan.week.budget, 21000);
+  assert.equal(plan.week.weekly_goal, 21000);
+  assert.equal(plan.today.adjusted_daily_target_raw, 15000);
+  assert.equal(plan.today.adjusted_daily_target, 3000 + ADJUST_HEADROOM);
+  assert.equal(plan.today.clamped, true);
+  assert.match(plan.today.note, /cramming/);
+  assert.equal(plan.week.pace, 'behind');
+});
+
+test('unlogged Mon–Thu with 5,290 on Fri–Sat prorates Sunday instead of the full 21,000', () => {
+  const days = {
+    '2026-10-09': food(3000, 150),
+    '2026-10-10': food(2290, 110)
+  };
+  const plan = buildFoodPlan(days, {}, '2026-10-11');
+  assert.equal(plan.today.provisional, true);
+  assert.equal(plan.week.provisional, true);
+  assert.equal(plan.week.unlogged_days, 4);
+  assert.deepEqual(plan.week.unlogged_dates, ['2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08']);
+  assert.equal(plan.week.completed_logged_days, 2);
+  assert.equal(plan.week.eaten_before_today, 5290);
+  assert.equal(plan.week.weekly_goal, 21000);
+  assert.equal(plan.week.budget, 9000);
+  assert.equal(plan.today.budget, 9000);
+  assert.equal(plan.today.adjusted_daily_target_raw, 3710);
+  assert.equal(plan.today.adjusted_daily_target, 3700);
+  assert.equal(plan.today.clamped, true);
+  assert.match(plan.today.note, /4 days unlogged, target based on logged days only/);
+  assert.equal(plan.week.calories, 5290);
+  assert.equal(plan.week.remaining, 3710);
+  assert.equal(plan.week.over, 0);
+  assert.equal(plan.week.pace, 'behind');
+  assert.equal(plan.week.pace_delta_cal, -710);
+  assert.match(plan.week.pace_note, /pace based on logged days only/);
+
+  const eating = buildFoodPlan({ ...days, '2026-10-11': food(800, 30) }, {}, '2026-10-11');
+  assert.equal(eating.today.adjusted_daily_target_raw, 3710);
+  assert.equal(eating.today.adjusted_daily_target, 3700);
+  assert.equal(eating.week.calories, 6090);
+  assert.equal(eating.week.remaining, 2910);
+});
+
 test('Monday with nothing logged is the base, and last week is kept', () => {
   const days = { '2026-10-05': food(2800, 140), '2026-10-06': food(3200, 180) };
   const plan = buildFoodPlan(days, {}, '2026-10-12');
   assert.equal(plan.week.week_start, '2026-10-12');
+  assert.equal(plan.today.provisional, false);
   assert.equal(plan.today.adjusted_daily_target, 3000);
+  assert.equal(plan.week.budget, 21000);
   assert.equal(plan.week.pace, 'no_completed_days');
   assert.equal(plan.recent_weeks.length, 2);
   assert.equal(plan.recent_weeks[1].week_start, '2026-10-05');
   assert.equal(plan.recent_weeks[1].calories, 6000);
+  assert.equal(plan.recent_weeks[1].weekly_goal, 21000);
+  assert.equal(plan.recent_weeks[1].provisional, true);
+  assert.equal(plan.recent_weeks[1].budget, 6000);
+  assert.equal(plan.recent_weeks[1].remaining, 0);
   assert.equal(plan.recent_weeks[1].adjusted_daily_target, null);
+  assert.match(plan.recent_weeks[1].adjusted_note, /unlogged, target based on logged days only/);
   assert.equal(plan.recent_weeks[1].days.find((d) => d.date === '2026-10-05').protein_hit, false);
   assert.equal(plan.recent_weeks[1].days.find((d) => d.date === '2026-10-06').protein_hit, true);
 });
