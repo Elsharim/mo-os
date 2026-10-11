@@ -196,6 +196,8 @@ export async function removeFood({ date, name }) {
 // Weekly calorie budget. Weeks are Monday–Sunday on Mo's calendar (Europe/Sarajevo).
 // The adjusted daily target uses food logged before today only, so eating today
 // does not shrink today's target. Missing days stay unlogged, not zero.
+// If any completed day is unlogged, the target is provisional: it is prorated
+// over logged days plus the days still left, not the full weekly goal.
 export const FOOD_TZ = 'Europe/Sarajevo';
 export const ADJUST_HEADROOM = 700;
 const HISTORY_WEEKS = 26;
@@ -254,7 +256,7 @@ function adjustedNote({ raw, recommended, minRec, maxRec, remainingDays, unlogge
   }
   if (unlogged.length) {
     const n = unlogged.length;
-    notes.push(`${n} day${n === 1 ? '' : 's'} this week ${n === 1 ? 'is' : 'are'} unlogged, not counted as zero, and left out of the average.`);
+    notes.push(`${n} day${n === 1 ? '' : 's'} unlogged, target based on logged days only.`);
   }
   return notes.length ? notes.join(' ') : null;
 }
@@ -295,15 +297,23 @@ function summarizeWeek(daysMap, weekStart, today, T) {
   const todayCalories = todayDay && todayDay.logged ? todayDay.calories : 0;
   const consumed = current ? eatenBefore + (todayDay && todayDay.logged ? todayDay.calories : 0) : eatenBefore;
   const remainingDays = current ? days.filter((d) => d.date >= today).length : 0;
+  // Unlogged completed days are not a hole in the full 21,000. Cover only the
+  // days that were logged plus the days still left, including today.
+  const provisional = unlogged.length > 0;
+  const coveredDays = completed.length + remainingDays;
+  const budget = provisional ? base * coveredDays : weekly;
   let raw = null;
   let recommended = null;
   let clamped = false;
   let note = null;
   if (current && remainingDays > 0) {
-    raw = Math.round((weekly - eatenBefore) / remainingDays);
+    raw = Math.round((budget - eatenBefore) / remainingDays);
     recommended = Math.min(maxRec, Math.max(minRec, raw));
     clamped = recommended !== raw;
     note = adjustedNote({ raw, recommended, minRec, maxRec, remainingDays, unlogged });
+  } else if (provisional) {
+    const n = unlogged.length;
+    note = `${n} day${n === 1 ? '' : 's'} unlogged, target based on logged days only.`;
   }
   const avg = completed.length ? Math.round(eatenBefore / completed.length) : null;
   const delta = completed.length ? eatenBefore - base * completed.length : null;
@@ -320,9 +330,9 @@ function summarizeWeek(daysMap, weekStart, today, T) {
       : pace === 'behind'
         ? `${gap} cal behind the ${fmtCal(base)} base, across ${completed.length} logged day${completed.length === 1 ? '' : 's'}.`
         : `On pace with the ${fmtCal(base)} base across logged days.`;
-    if (unlogged.length) pace_note += ` ${unlogged.length} unlogged day${unlogged.length === 1 ? '' : 's'} not counted as zero.`;
+    if (unlogged.length) pace_note += ` ${unlogged.length} day${unlogged.length === 1 ? '' : 's'} unlogged, pace based on logged days only.`;
   } else if (unlogged.length) {
-    pace_note += ` ${unlogged.length} unlogged day${unlogged.length === 1 ? '' : 's'} not counted as zero.`;
+    pace_note += ` ${unlogged.length} day${unlogged.length === 1 ? '' : 's'} unlogged, pace based on logged days only.`;
   }
   const todayView = current ? {
     date: today,
@@ -333,6 +343,8 @@ function summarizeWeek(daysMap, weekStart, today, T) {
     adjusted_daily_target: recommended,
     adjusted_daily_target_raw: raw,
     base_target: base,
+    provisional,
+    budget,
     clamped,
     clamp_min: minRec,
     clamp_max: maxRec,
@@ -347,9 +359,11 @@ function summarizeWeek(daysMap, weekStart, today, T) {
     week_end: weekEnd,
     current,
     weekly_goal: weekly,
+    budget,
+    provisional,
     calories: consumed,
-    remaining: Math.max(0, weekly - consumed),
-    over: Math.max(0, consumed - weekly),
+    remaining: Math.max(0, budget - consumed),
+    over: Math.max(0, consumed - budget),
     eaten_before_today: current ? eatenBefore : null,
     completed_logged_days: completed.length,
     unlogged_days: unlogged.length,
@@ -414,7 +428,7 @@ export function buildFoodPlan(daysMap, targets, today) {
   return {
     timezone: FOOD_TZ,
     as_of: today,
-    adjusted_basis: 'Weekly goal minus calories logged before today, divided by days left including today, then capped between the daily base and the base plus 700. Calories eaten today do not change today\'s target.',
+    adjusted_basis: 'When every completed day is logged, the weekly goal minus calories logged before today, divided by days left including today. When any completed day is unlogged, the target is provisional: daily base times logged days plus days left, minus calories on those logged days, divided by days left. Then capped between the daily base and the base plus 700. Calories eaten today do not change today\'s target. Week remaining and pace use that same budget.',
     protein_note: 'Protein is a daily target. A high day does not offset a low day.',
     targets: {
       calories: T.calories,
