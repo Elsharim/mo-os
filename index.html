@@ -2555,6 +2555,46 @@
   .tk-filter{margin-bottom:10px}
   .tk-fchip{padding:5px 11px;font-size:12px}
   .tl-head{margin-bottom:10px}
+
+  /* FOOD polish */
+  .fd-hero{display:grid;grid-template-columns:auto 1fr;gap:28px;align-items:center;margin-bottom:16px;padding:24px 28px}
+  .fd-rings{display:flex;gap:22px}
+  .fd-ring{position:relative;width:118px;text-align:center}
+  .fd-ring svg{width:118px;height:118px;transform:rotate(-90deg)}
+  .fd-ring circle{fill:none;stroke-width:9;stroke-linecap:round}
+  .fd-ring .bg{stroke:rgba(255,255,255,.07)}
+  .fd-ring .fg{transition:stroke-dashoffset .6s ease}
+  .fd-ring-in{position:absolute;top:0;left:0;width:118px;height:118px;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  .fd-ring-in b{font-family:var(--display);font-size:22px;font-weight:600;letter-spacing:-.03em;line-height:1}
+  .fd-ring-in span{font-size:10.5px;color:var(--faint);margin-top:3px}
+  .fd-ring-l{font-size:12px;color:var(--muted);margin-top:6px}
+  .fd-side{min-width:0}
+  .fd-next-v{font-family:var(--display);font-size:24px;font-weight:600;letter-spacing:-.03em;margin:4px 0 4px}
+  .fd-next-v small{font-size:12px;color:var(--faint);font-weight:500;letter-spacing:0;margin-left:3px}
+  .fd-side .macro{margin:16px 0 8px}
+  .fd-yday{font-size:12.5px;color:var(--faint);margin-top:12px}
+  .fd-meals{display:flex;flex-direction:column}
+  .fd-meal{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:13px 0;border-top:1px solid var(--hair)}
+  .fd-meal:first-child{border-top:none;padding-top:2px}
+  .fd-meal-t{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+  .fd-meal-n{font-size:14px}
+  .fd-meal-x{font-size:12px;color:var(--muted);margin-top:3px}
+  .fd-meal-bar{height:3px;border-radius:3px;background:var(--hair);margin-top:8px;max-width:260px;overflow:hidden}
+  .fd-meal-bar b{display:block;height:100%;background:var(--accent);border-radius:3px}
+  .fd-meal-c{text-align:right}.fd-meal-c b{font-family:var(--display);font-size:17px;font-weight:600;letter-spacing:-.02em}.fd-meal-c span{font-size:11px;color:var(--faint);margin-left:3px}
+  .fd-pills{display:flex;flex-wrap:wrap;gap:8px}
+  .fd-pill{display:inline-flex;flex-direction:column;gap:2px;padding:9px 13px;border:1px solid var(--hair);border-radius:12px;font-size:12px;color:var(--muted)}
+  .fd-pill b{font-size:13.5px;color:var(--text);font-weight:500}
+  .fd-days{display:flex;flex-direction:column}
+  .fd-day{display:grid;grid-template-columns:92px 1fr auto;gap:14px;align-items:center;padding:10px 0;border-top:1px solid var(--hair);font-size:13px}
+  .fd-day:first-child{border-top:none}
+  .fd-day-d{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .fd-day.hit .fd-day-d{color:var(--good)}
+  .fd-day-bars{display:flex;flex-direction:column;gap:4px}
+  .fd-day-bar{height:5px;border-radius:5px;background:var(--hair);overflow:hidden}
+  .fd-day-bar b{display:block;height:100%;border-radius:5px}
+  .fd-day-v{font-size:12.5px;color:var(--muted);white-space:nowrap}
+  @media (max-width:760px){.fd-hero{grid-template-columns:1fr}.fd-rings{justify-content:center}.fd-meal{grid-template-columns:56px 1fr auto}.fd-day{grid-template-columns:80px 1fr auto}}
 </style>
 </head>
 <body>
@@ -5218,6 +5258,11 @@ function foodBudgetHTML(plan){
     </div>
     ${past.length?`<div class="card" style="margin-bottom:16px"><h3>Earlier weeks</h3><div class="bd-rows">${past.map(x=>`<div class="r"><span class="d">${dateLbl(x.week_start)}</span><span>${nf(x.calories)} / ${nf(x.weekly_goal)} cal · ${x.avg_daily_calories==null?'no logged days':nf(x.avg_daily_calories)+' avg'}${x.unlogged_days?' · '+x.unlogged_days+' unlogged':''}</span><span class="m">${x.pace==='ahead'?'Ahead':x.pace==='behind'?'Behind':x.pace==='on_pace'?'On pace':'·'}</span></div>`).join('')}</div></div>`:''}`;
 }
+function fdRing(val,target,color,label,unit){
+  const pct=target?Math.min(1,val/target):0,R=46,C=2*Math.PI*R;
+  return `<div class="fd-ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" class="bg"/><circle cx="60" cy="60" r="${R}" class="fg" style="stroke:${color};stroke-dasharray:${C};stroke-dashoffset:${C*(1-pct)}"/></svg>
+    <div class="fd-ring-in"><b>${nf(Math.round(val))}</b><span>of ${nf(target)}${unit||''}</span></div><div class="fd-ring-l">${label}</div></div>`;
+}
 function bodyFood(d){
   const T=targetsOf(d);_trackFrom=T.tracking_since||_trackFrom;
   const asOf=d.food_plan&&d.food_plan.as_of||todayKey();
@@ -5225,6 +5270,30 @@ function bodyFood(d){
   const items=today&&today.date===asOf?today.items:[];
   const tot=items.reduce((a,x)=>({c:a.c+(x.calories||0),p:a.p+(x.protein||0),cb:a.cb+(x.carbs||0),f:a.f+(x.fat||0)}),{c:0,p:0,cb:0,f:0});
   const kc={p:tot.p*4,cb:tot.cb*4,f:tot.f*9};const kt=kc.p+kc.cb+kc.f||1;
+  if(bodyRange==='today'){
+    const plan=d.food_plan,calTarget=(plan&&plan.today&&plan.today.adjusted_daily_target)||T.calories;
+    const y=(d.food||[]).find(x=>x.date===addD(todayKey(),-1));
+    const leftC=Math.max(0,calTarget-tot.c),leftP=Math.max(0,T.protein-tot.p);
+    const hrs=new Date().getHours();
+    const when=hrs<12?'before your first call':hrs<18?'by tonight':'before bed';
+    const next=leftC||leftP?(leftC>=1200?'About 3 more meals '+when:leftC>=600?'A real meal plus a shake '+when:leftC>0?'One more snack or a shake '+when:'Just protein left, a shake covers it'):'Both targets hit. Nice.';
+    const meals=items.slice().reverse().map(x=>`<div class="fd-meal">
+        <div class="fd-meal-t">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</div>
+        <div class="fd-meal-m"><div class="fd-meal-n">${esc(x.name)}</div><div class="fd-meal-x"><span style="color:var(--teal)">${x.protein||0}g</span> protein · ${x.carbs||0}g carbs · ${x.fat||0}g fat</div><div class="fd-meal-bar"><b style="width:${Math.min(100,Math.round((x.calories||0)/T.calories*100))}%"></b></div></div>
+        <div class="fd-meal-c"><b>${nf(x.calories)}</b><span>cal</span></div></div>`).join('');
+    return `<div class="card fd-hero">
+      <div class="fd-rings">${fdRing(tot.c,calTarget,'var(--accent)','Calories')}${fdRing(tot.p,T.protein,'var(--teal)','Protein','g')}</div>
+      <div class="fd-side">
+        <div class="fd-next"><div class="bd-cap">Still to eat</div><div class="fd-next-v">${leftC||leftP?nf(leftC)+'<small>cal</small> · '+leftP+'<small>g protein</small>':'Done<small>for today</small>'}</div><div class="bd-sub">${next}</div></div>
+        ${items.length?`<div class="macro"><b style="width:${kc.p/kt*100}%;background:var(--teal)"></b><b style="width:${kc.cb/kt*100}%;background:var(--gold)"></b><b style="width:${kc.f/kt*100}%;background:var(--accent)"></b></div>
+        <div class="macro-k"><span><i style="background:var(--teal)"></i>Protein ${Math.round(kc.p/kt*100)}%</span><span><i style="background:var(--gold)"></i>Carbs ${Math.round(kc.cb/kt*100)}%</span><span><i style="background:var(--accent)"></i>Fat ${Math.round(kc.f/kt*100)}%</span></div>`:''}
+        ${y?`<div class="fd-yday">Yesterday ${nf(y.calories)} cal · ${y.protein||0}g${y.calories>=T.calories*.9?' · hit it':' · '+nf(T.calories-y.calories)+' short'}</div>`:''}
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:16px"><h3>Meals today <span class="h3sub">${items.length?items.length+' logged':''}</span></h3>
+      ${items.length?`<div class="fd-meals">${meals}</div>`:'<div class="bd-empty">Nothing yet. Send Grok a photo or text it what you ate.</div>'}</div>
+    ${(d.saved_meals||[]).length?`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok</span></h3><div class="fd-pills">${d.saved_meals.map(m=>`<span class="fd-pill"><b>${esc(m.name)}</b>${nf(m.calories)} cal · ${m.protein}g</span>`).join('')}</div></div>`:''}`;
+  }
   const mealRows=items.length?items.slice().reverse().map(x=>`<div class="r meal"><span class="d">${x.at?new Date(x.at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}</span><div><div>${esc(x.name)}${x.estimated?' <span class="est">estimate</span>':''}</div><div class="x">${x.protein||0}g protein · ${x.carbs||0}g carbs · ${x.fat||0}g fat</div></div><span class="m"><b>${nf(x.calories)}</b> cal</span></div>`).join(''):'<div class="bd-empty">'+(d.food_plan&&d.food_plan.today&&d.food_plan.today.logged?'The day total is logged. Meals show up here when you send them to Grok.':'Nothing yet today. Send Grok a photo or text it what you ate.')+'</div>';
   const budget=d.food_plan?foodBudgetHTML(d.food_plan):'<div class="bd-note">The weekly budget shows up once today\'s numbers include the food plan.</div>';
   const saved=(d.saved_meals||[]).length?`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-rows">${d.saved_meals.map(m=>`<div class="r"><span class="d"></span><span>${esc(m.name)}</span><span class="m">${nf(m.calories)} cal · ${m.protein}g</span></div>`).join('')}</div></div>`:`<div class="card"><h3>Saved meals <span class="h3sub">say the name to Grok to log it</span></h3><div class="bd-empty">None yet. After a meal you eat a lot, tell Grok "save this as" and a name.</div></div>`;
