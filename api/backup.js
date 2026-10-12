@@ -3,6 +3,8 @@
 // so the backup is as unreadable as the original. Runs from Vercel Cron.
 import { put, list, del } from '@vercel/blob';
 import { timingSafeEqual } from 'crypto';
+import { calendarToday } from './_cal.js';
+import { leaveNote, readNotes } from './_notes.js';
 
 export const config = { maxDuration: 60 };
 
@@ -68,7 +70,19 @@ export default async function handler(req, res) {
       const old = blobs.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)).slice(KEEP);
       if (old.length) { await del(old.map((b) => b.url)); pruned = old.length; }
     }
-    res.status(200).json({ ok: true, healthy, docs: Object.keys(docs).length, bytes: body.length, pruned, path: out.pathname });
+    // health check: calendar sync gone quiet -> tell Grok so he tells Mo
+    let health = null;
+    try {
+      const cal = await calendarToday(null);
+      const at = cal && cal.synced_at ? Date.parse(cal.synced_at) : null;
+      const hours = at ? Math.round((Date.now() - at) / 36e5) : null;
+      if (hours == null || hours >= 2) {
+        const recent = (await readNotes({ to: 'grok', unread_only: false, limit: 50, mark_read: false })).some((n) => n.topic === 'calendar' && Date.now() - Date.parse(n.at) < 20 * 36e5);
+        if (!recent) await leaveNote({ from: 'claude', to: 'grok', topic: 'calendar', text: `Mo's calendar sync has been quiet for ${hours == null ? 'a while' : hours + ' hours'}. Tell him: open script.google.com, open the MO OS project, pick setup next to Run, press Run, allow the permission.` });
+        health = { calendar_stale_hours: hours };
+      }
+    } catch (_) {}
+    res.status(200).json({ ok: true, healthy, docs: Object.keys(docs).length, bytes: body.length, pruned, path: out.pathname, health });
   } catch (e) {
     res.status(500).json({ error: String((e && e.message) || e) });
   }

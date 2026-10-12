@@ -2686,6 +2686,8 @@
   .tp-exact input[type=time]{background:var(--surface);border:1px solid var(--hair);border-radius:8px;color:var(--text);padding:6px 8px;font-size:13px;color-scheme:dark}
   .tp-exact label{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px;flex:1}
   .tl{position:sticky;top:12px;max-height:none;overflow:visible}
+
+  .ag-stale{margin:4px 6px 8px;padding:9px 12px;border-radius:10px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);font-size:12.5px;color:#fca5a5;line-height:1.5}
 </style>
 </head>
 <body>
@@ -5561,6 +5563,7 @@ function timelineHTML(){
     <div class="tl-head"><h3>Today</h3><span class="h3sub">${new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></div>
     <button class="btn btn-sm tl-toggle" id="tl-toggle">${window.__tlCollapsed?'Show calendar':'Hide calendar'}</button>
     <div class="ag card" id="tl-scroll">
+      ${(()=>{const at=cal&&cal.synced_at?Date.parse(cal.synced_at):null;const h=at?Math.round((Date.now()-at)/36e5):null;return h!=null&&h>=1?`<div class="ag-stale">Calendar hasn't synced for ${h<48?h+' hour'+(h===1?'':'s'):Math.round(h/24)+' days'}. Open your Google script, run setup once.</div>`:'';})()}
       ${rows.length?rows.join(''):`<div class="ag-empty">${cal?'Nothing on the calendar today.':(d?'Calendar not linked yet.':'Loading…')}<small>Tap ⏱ on a task to put it on your calendar.</small></div>`}
     </div>
   </div>`;
