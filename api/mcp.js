@@ -8,6 +8,7 @@ import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout } from './_money.js';
 import { logCalls, callsSummary } from './_work.js';
+import { leaveNote, readNotes } from './_notes.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const rand = (n) => (globalThis.crypto || webcrypto).getRandomValues(new Uint8Array(n));
@@ -119,6 +120,14 @@ const TOOLS = [{
   description: "Mo's call stats from MO OS: today, yesterday, this week and last 30 days (booked, showed, no-shows, show rate, closes, close rate, cash), plus recent days. Use for the night check-in, Sunday review and any question about shows or no-shows.",
   inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days to list, default 30' } } }
 }, {
+  name: 'note_for_claude',
+  description: "Leave a note for Claude (Mo's other assistant, who builds MO OS and sees his email, calendar, Close and files). Use it when Mo says something Claude should know or act on, when you notice a problem with MO OS, or when you want Claude to do something. Claude reads these when Mo opens that chat.",
+  inputSchema: { type: 'object', properties: { text: { type: 'string' }, topic: { type: 'string', description: 'Short label, e.g. "calendar", "tax", "bug"' } }, required: ['text'] }
+}, {
+  name: 'notes_from_claude',
+  description: "Read notes Claude left for you. Call this at the start of every scheduled job and whenever Mo asks what Claude said. Notes are marked read once you fetch them.",
+  inputSchema: { type: 'object', properties: { unread_only: { type: 'boolean', description: 'Default true' } } }
+}, {
   name: 'hevy',
   description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
   inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
@@ -223,7 +232,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -232,6 +241,10 @@ async function handle(msg) {
             ? JSON.stringify(await logMoney(args))
           : name === 'money'
             ? JSON.stringify(await moneySummary(Number(args.days) || 90))
+          : name === 'note_for_claude'
+            ? JSON.stringify(await leaveNote({ from: 'grok', to: 'claude', text: args.text, topic: args.topic }))
+          : name === 'notes_from_claude'
+            ? JSON.stringify(await readNotes({ to: 'grok', unread_only: args.unread_only !== false }))
           : name === 'log_calls'
             ? JSON.stringify(await logCalls(args))
           : name === 'calls'

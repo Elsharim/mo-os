@@ -8,6 +8,7 @@ import { hevySummary } from './_hevy.js';
 import { calendarToday, storePushed, queueAdd, queuePending, queueAck } from './_cal.js';
 import { moneySummary } from './_money.js';
 import { callsSummary } from './_work.js';
+import { leaveNote, readNotes } from './_notes.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -112,6 +113,14 @@ export default async function handler(req, res) {
         whoop_workouts: ((whoop && whoop.workouts) || []).map((w) => ({ date: w.date, sport: w.sport, minutes: w.minutes, strain: w.strain }))
       });
       return;
+    }
+    if (view === 'notes') {
+      // Claude's side of the notepad (Bearer token only)
+      if (req.method === 'POST') {
+        let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
+        res.status(200).json(await leaveNote({ from: 'claude', to: 'grok', text: (body || {}).text, topic: (body || {}).topic })); return;
+      }
+      res.status(200).json({ notes: await readNotes({ to: 'claude', unread_only: req.query.all ? false : true, mark_read: !req.query.peek }) }); return;
     }
     if (view === 'money') { res.status(200).json(await moneySummary(Math.min(400, Number(req.query.days) || 90))); return; }
     res.status(404).json({ error: 'Unknown view' });
