@@ -45,15 +45,15 @@ async function docsWithPrefix(prefix) {
 export default async function handler(req, res) {
   if (!authed(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
   try {
-    const [main, photos, inbox] = await Promise.all([
-      docsWithPrefix('os:Mo'), docsWithPrefix('osimg:Mo:'), docsWithPrefix('osinbox:Mo')
+    const [main, photos, inbox, prev] = await Promise.all([
+      docsWithPrefix('os:Mo'), docsWithPrefix('osimg:Mo:'), docsWithPrefix('osinbox:Mo'), docsWithPrefix('osprev:Mo')
     ]);
     const state = main.find((d) => d.name.endsWith('/os:Mo'));
     const v = state && state.fields && state.fields.v && state.fields.v.stringValue;
     const healthy = typeof v === 'string' && v.startsWith('enc1:') && v.length > 1000;
 
     const docs = {};
-    for (const d of [state, ...photos, ...inbox].filter(Boolean)) {
+    for (const d of [state, ...photos, ...inbox, ...prev].filter(Boolean)) {
       docs[d.name.split('/').pop()] = { fields: d.fields || {}, updateTime: d.updateTime };
     }
     const day = new Date().toISOString().slice(0, 10);

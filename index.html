@@ -2805,7 +2805,20 @@ const store={
       if(cryptoKey)out=await encStr(v);
       else if(encAtRest){console.warn('locked, write skipped');return;}
       const db=await fbInit();
-      await db.collection(OS_DOC.collection).doc(OS_DOC.doc).set({[OS_DOC.field]:out});
+      const ref=db.collection(OS_DOC.collection).doc(OS_DOC.doc);
+      // Safety before overwriting: never put plaintext over an encrypted copy, never
+      // replace a big copy with a tiny one (a fresh default state), and keep the
+      // outgoing copy in osprev:Mo at most once an hour so one bad write is undoable.
+      const cur=await ref.get();
+      const curV=cur.exists?cur.data()[OS_DOC.field]:null;
+      if(curV!=null){
+        const cs=String(curV);
+        if(cs.startsWith(ENC)&&!cryptoKey){encAtRest=true;console.warn('cloud copy is encrypted and this device has no key, write skipped');setSyncStatus('error');return;}
+        if(cs.length>20000&&cs.length>String(out).length*4){console.warn('refusing to replace a much larger cloud copy');setSyncStatus('error');if(typeof etToast==='function')etToast('Not saved: the cloud copy is much bigger than this one. Reload to pick it up.');return;}
+        let at=0;try{at=+localStorage.getItem('os:prevAt')||0;}catch(_){}
+        if(Date.now()-at>36e5){await db.collection(OS_DOC.collection).doc('osprev:Mo').set({v:curV,at:Date.now()});try{localStorage.setItem('os:prevAt',String(Date.now()));}catch(_){}}
+      }
+      await ref.set({[OS_DOC.field]:out});
       setSyncStatus('live');
     }catch(e){console.warn('store.set failed',e);setSyncStatus('error');}
   }
