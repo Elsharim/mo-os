@@ -2,7 +2,7 @@
 // /api/gcal/callback -> Google sends you back here; tokens get stored
 // /api/gcal/status   -> connected or not (needs the MO OS connector token)
 import { timingSafeEqual } from 'crypto';
-import { connectUrl, stateOk, finishConnect, status, configured } from '../_gcal.js';
+import { connectUrl, stateOk, finishConnect, status, configured, setOnly } from '../_gcal.js';
 
 function authed(req) {
   const tok = process.env.MOOS_MCP_TOKEN || '';
@@ -32,7 +32,13 @@ export default async function handler(req, res) {
     }
     if (action === 'status') {
       if (!authed(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
-      res.status(200).json(await status()); return;
+      res.status(200).json(await status(true)); return;
+    }
+    if (action === 'only') {
+      // POST {names:[...]} limits events to these calendars (by name or id); empty = calendars Mo owns
+      if (!authed(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+      let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
+      res.status(200).json({ only: await setOnly((body || {}).names) }); return;
     }
     res.status(404).json({ error: 'Unknown action' });
   } catch (e) {

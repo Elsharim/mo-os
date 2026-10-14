@@ -92,10 +92,30 @@ async function accessToken() {
   }
 }
 
-export async function status() {
+export async function status(withCalendars) {
   const s = await load().catch(() => null);
   if (!s || !s.refresh) return { connected: false, configured: configured() };
-  return { connected: !s.bad, configured: true, owner: s.owner || '', needs_reconnect: s.bad === 'reconnect', tz: s.tz || '' };
+  const out = { connected: !s.bad, configured: true, owner: s.owner || '', needs_reconnect: s.bad === 'reconnect', tz: s.tz || '', only: s.only || null };
+  if (withCalendars) {
+    try {
+      const tok = await accessToken();
+      const list = await call(tok, 'GET', '/users/me/calendarList', { minAccessRole: 'reader' });
+      out.calendars = (list.items || []).map((c) => ({ id: c.id, name: c.summary || '', role: c.accessRole, primary: !!c.primary, selected: c.selected !== false, used: useCal(c, s) }));
+    } catch (e) { out.calendars_error = String(e.message || e); }
+  }
+  return out;
+}
+// Which calendars count: an explicit list if Mo set one, else the ones he owns.
+function useCal(c, s) {
+  if (s && Array.isArray(s.only) && s.only.length) return s.only.includes(c.id) || s.only.includes(c.summary);
+  return c.accessRole === 'owner' && !/holiday|birthday|weather/i.test(c.summary || '');
+}
+export async function setOnly(names) {
+  const s = await load();
+  if (!s) throw new Error('not connected');
+  s.only = Array.isArray(names) ? names.filter(Boolean) : null;
+  await save(s);
+  return s.only;
 }
 export const isConnected = async () => { const s = await status(); return s.connected; };
 
@@ -113,8 +133,9 @@ async function call(tok, method, path, params, body) {
 export async function listEvents(fromMs, toMs) {
   const tok = await accessToken();
   if (!tok) return null;
+  const s = await load();
   const list = await call(tok, 'GET', '/users/me/calendarList', { minAccessRole: 'reader' });
-  const cals = (list.items || []).filter((c) => c.selected !== false && !/holiday|birthday|weather/i.test(c.summary || ''));
+  const cals = (list.items || []).filter((c) => useCal(c, s));
   const out = [];
   await Promise.all(cals.map(async (c) => {
     const ev = await call(tok, 'GET', `/calendars/${encodeURIComponent(c.id)}/events`, {
