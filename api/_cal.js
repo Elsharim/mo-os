@@ -2,6 +2,7 @@
 // ~36h of events here every 15 min (handles recurring events). Fallback: Google's
 // private iCal link (env CAL_ICS_URL), which only sees one-off events.
 import { webcrypto, createHash } from 'crypto';
+import { listEvents as gcalEvents, status as gcalStatus } from './_gcal.js';
 const subtle = (globalThis.crypto || webcrypto).subtle;
 const API_KEY = process.env.FIREBASE_API_KEY || 'AIzaSyCYCt9-opphzCOSInAaPnrGIBN8M6kWW-Y';
 const DOC_URL = 'https://firestore.googleapis.com/v1/projects/poppy-sales/databases/(default)/documents/poppy/oscal:Mo';
@@ -78,11 +79,20 @@ const hhmm = (ms, off) => new Date(ms + offMin(off) * 6e4).toISOString().slice(1
 
 // Events in Mo's "day": local 5am today to 5am tomorrow (his calls run late).
 export async function calendarToday(tzOffset) {
-  const pushed = await loadPushed().catch(() => null);
+  const now0 = Date.now();
+  // Preferred: Google Calendar connected directly. Falls back to whatever the old
+  // Apps Script pushed, then to the iCal link.
+  let google = null, gstate = null;
+  try {
+    gstate = await gcalStatus();
+    if (gstate.connected) google = await gcalEvents(now0 - 18 * 36e5, now0 + 36 * 36e5);
+  } catch (e) { google = null; }
+  const pushed = google ? null : await loadPushed().catch(() => null);
   const urls = String(process.env.CAL_ICS_URL || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (!pushed && !urls.length) return null;
+  if (!google && !pushed && !urls.length) return gstate && gstate.needs_reconnect ? { events: [], next: null, synced_at: null, source: 'google', needs_reconnect: true } : null;
   let raw;
-  if (pushed) raw = pushed.events.map((e) => ({ title: e.title, start: { ms: Date.parse(e.start) }, end: e.end ? { ms: Date.parse(e.end) } : null }));
+  if (google) raw = google.map((e) => ({ title: e.title, start: { ms: Date.parse(e.start), allDay: e.allDay }, end: e.end ? { ms: Date.parse(e.end) } : null, cal: e.cal }));
+  else if (pushed) raw = pushed.events.map((e) => ({ title: e.title, start: { ms: Date.parse(e.start) }, end: e.end ? { ms: Date.parse(e.end) } : null }));
   else {
     const texts = await Promise.all(urls.map((u) => fetch(u).then((r) => (r.ok ? r.text() : '')).catch(() => '')));
     raw = texts.flatMap(parseIcs);
@@ -100,7 +110,7 @@ export async function calendarToday(tzOffset) {
       start_iso: new Date(e.start.ms).toISOString(), end_iso: e.end ? new Date(e.end.ms).toISOString() : null, past: (e.end ? e.end.ms : e.start.ms + 18e5) < now
     }));
   const next = events.find((e) => !e.past) || null;
-  return { events, next, synced_at: pushed ? new Date(pushed.at).toISOString() : null };
+  return { events, next, synced_at: google ? new Date(now0).toISOString() : pushed ? new Date(pushed.at).toISOString() : null, source: google ? 'google' : pushed ? 'script' : 'ics' };
 }
 
 /* Queue of calendar writes (create / delete) that the Apps Script in Mo's account

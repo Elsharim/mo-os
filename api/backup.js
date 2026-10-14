@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       const cal = await calendarToday(null);
       const at = cal && cal.synced_at ? Date.parse(cal.synced_at) : null;
       const hours = at ? Math.round((Date.now() - at) / 36e5) : null;
-      if (hours == null || hours >= 2) {
+      if (!(cal && cal.source === 'google') && (hours == null || hours >= 2)) {
         const recent = (await readNotes({ to: 'grok', unread_only: false, limit: 50, mark_read: false })).some((n) => n.topic === 'calendar' && Date.now() - Date.parse(n.at) < 20 * 36e5);
         if (!recent) await leaveNote({ from: 'claude', to: 'grok', topic: 'calendar', text: `Mo's calendar sync has been quiet for ${hours == null ? 'a while' : hours + ' hours'}. Tell him: open script.google.com, open the MO OS project, pick setup next to Run, press Run, allow the permission.` });
         health = { calendar_stale_hours: hours };

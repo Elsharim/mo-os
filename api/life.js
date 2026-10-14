@@ -9,6 +9,7 @@ import { calendarToday, storePushed, queueAdd, queuePending, queueAck } from './
 import { moneySummary } from './_money.js';
 import { callsSummary } from './_work.js';
 import { leaveNote, readNotes } from './_notes.js';
+import { isConnected as gcalConnected, createEvent as gcalCreate, deleteEvent as gcalDelete } from './_gcal.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -43,6 +44,12 @@ export default async function handler(req, res) {
       const title = String(body.title || '').trim().slice(0, 200);
       const start = Date.parse(body.start_iso), end = Date.parse(body.end_iso);
       if (!title || isNaN(start)) { res.status(400).json({ error: 'title and start_iso needed' }); return; }
+      if (await gcalConnected().catch(() => false)) {
+        // Google Calendar is linked directly: do it now, no queue
+        if (body.action === 'delete') { res.status(200).json({ ok: true, removed: await gcalDelete({ title, start_iso: new Date(start).toISOString() }), via: 'google' }); return; }
+        const id = await gcalCreate({ title, start_iso: new Date(start).toISOString(), end_iso: new Date(isNaN(end) ? start + 30 * 6e4 : end).toISOString() });
+        res.status(200).json({ ok: true, id, via: 'google' }); return;
+      }
       const item = await queueAdd(body.action === 'delete'
         ? { action: 'delete', title, start_iso: new Date(start).toISOString() }
         : { action: 'create', title, start_iso: new Date(start).toISOString(), end_iso: new Date(isNaN(end) ? start + 30 * 6e4 : end).toISOString() });

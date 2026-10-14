@@ -5601,7 +5601,7 @@ function timelineHTML(){
     <div class="tl-head"><h3>Today</h3><span class="h3sub">${new Date().toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</span></div>
     <button class="btn btn-sm tl-toggle" id="tl-toggle">${window.__tlCollapsed?'Show calendar':'Hide calendar'}</button>
     <div class="ag card" id="tl-scroll">
-      ${(()=>{const at=cal&&cal.synced_at?Date.parse(cal.synced_at):null;const h=at?Math.round((Date.now()-at)/36e5):null;return h!=null&&h>=1?`<div class="ag-stale">Calendar hasn't synced for ${h<48?h+' hour'+(h===1?'':'s'):Math.round(h/24)+' days'}. Open your Google script, run setup once.</div>`:'';})()}
+      ${(()=>{const at=cal&&cal.synced_at?Date.parse(cal.synced_at):null;const h=at?Math.round((Date.now()-at)/36e5):null;if(cal&&cal.needs_reconnect)return `<div class="ag-stale">Google Calendar needs a reconnect. <a href="/api/gcal/connect" style="color:inherit">Connect again</a>.</div>`;return h!=null&&h>=1&&!(cal&&cal.source==='google')?`<div class="ag-stale">Calendar hasn't synced for ${h<48?h+' hour'+(h===1?'':'s'):Math.round(h/24)+' days'}. <a href="/api/gcal/connect" style="color:inherit">Connect Google Calendar directly</a> so nothing has to be re-run.</div>`:'';})()}
       ${rows.length?rows.join(''):`<div class="ag-empty">${cal?'Nothing on the calendar today.':(d?'Calendar not linked yet.':'Loading…')}<small>Tap ⏱ on a task to put it on your calendar.</small></div>`}
     </div>
   </div>`;
