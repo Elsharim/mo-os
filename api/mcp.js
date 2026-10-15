@@ -41,6 +41,10 @@ const TOOLS = [{
     required: ['tasks']
   }
 }, {
+  name: 'complete_tasks',
+  description: "Mark tasks in Mo's MO OS list as done, matched by name (case-insensitive, partial match is fine, best match wins). Use it when Mo says something is done. MO OS is encrypted, so you cannot read the list; just pass the names as he said them. Applied the next time MO OS is open.",
+  inputSchema: { type: 'object', properties: { names: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' } } }, required: ['names'] }
+}, {
   name: 'whoop',
   description: "Mo's WHOOP data: today's recovery (score, HRV, resting HR), last night's sleep (bed and wake time in his local time, hours asleep, deep/REM, performance), day strain and calories, workouts, plus the same for recent days and his weight. Use it for morning check-ins, to judge how hard he should push today, and to spot patterns.",
   inputSchema: { type: 'object', properties: { days: { type: 'number', description: 'How many recent days, 1 to 30. Default 7.' } } }
@@ -134,7 +138,7 @@ const TOOLS = [{
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
   "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, pick the 3 that matter most and add them with today=true.",
   "FOOD COACH: Mo is bulking from 145 to 170 lbs. Base is 3,000 cal a day, weekly budget is 7 times that base (21,000 unless food_plan.targets.weekly_calories says otherwise), Monday to Sunday in Europe/Sarajevo, protein 150g a day. His real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <adjusted daily target> cal\nProtein  <g so far> / <daily protein target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
@@ -212,6 +216,13 @@ async function addTasks(args) {
   return `Added ${n} task${n > 1 ? 's' : ''} to MO OS${todayN ? ` (${todayN} for today's Top 3)` : ''}. They show up the next time MO OS is open.`;
 }
 
+async function completeTasks(args) {
+  const names = (Array.isArray(args && args.names) ? args.names : []).map((x) => String(x || '').trim().slice(0, 200)).filter(Boolean).slice(0, 20);
+  if (!names.length) throw new Error('No task names were given.');
+  await sealToInbox([{ kind: 'complete', names, src: 'Grok Bot' }]);
+  return `Will mark ${names.length} task${names.length > 1 ? 's' : ''} done the next time MO OS is open: ${names.join('; ')}.`;
+}
+
 const ok = (id, result) => ({ jsonrpc: '2.0', id, result });
 const err = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
 
@@ -232,7 +243,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'complete_tasks', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -267,6 +278,8 @@ async function handle(msg) {
             ? await writeJournal(args)
           : name === 'hevy'
             ? JSON.stringify(await hevySummary(Number(args.workouts) || 10))
+          : name === 'complete_tasks'
+            ? await completeTasks(args)
             : await addTasks(args);
         return ok(id, { content: [{ type: 'text', text }] });
       } catch (e) {

@@ -5800,6 +5800,18 @@ async function drainInbox(){
         if(!checked)etToast('Workout logged: '+(it.text||'gym'));
         continue;
       }
+      if(it.kind==='complete'){
+        // Grok says these are done: best name match among open tasks
+        const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+        for(const nm of (Array.isArray(it.names)?it.names:[])){
+          const q=norm(nm);if(!q)continue;
+          const open=openTasks();
+          let hit=open.find(t=>norm(t.name)===q)||open.find(t=>norm(t.name).includes(q)||q.includes(norm(t.name)));
+          if(!hit){const qs=q.split(' ').filter(w=>w.length>2);let best=null,bs=0;for(const t of open){const tn=norm(t.name);const sc=qs.filter(w=>tn.includes(w)).length/Math.max(1,qs.length);if(sc>bs){bs=sc;best=t;}}if(bs>=0.6)hit=best;}
+          if(hit){completeTask(hit.id);checked++;}
+        }
+        continue;
+      }
       if(it.kind==='journal'){
         const body=String(it.text||'').trim();if(!body)continue;
         const day=/^\d{4}-\d{2}-\d{2}$/.test(it.date||'')?it.date:today();
@@ -5822,7 +5834,7 @@ async function drainInbox(){
     if(added||checked||journaled){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
     const del={};ids.forEach(id=>{del[id]=firebase.firestore.FieldValue.delete();});
     await db.collection('poppy').doc(INBOX_DOC).update(del);
-    if(checked)etToast('Workout done, '+checked+' gym task'+(checked>1?'s':'')+' checked off');
+    if(checked)etToast(checked+' task'+(checked>1?'s':'')+' checked off');
     if(journaled)etToast('Journal updated from '+((items.find(x=>x.kind==='journal')||{}).src||'your inbox'));
     if(added||checked||journaled){
       const typing=['INPUT','TEXTAREA'].includes(document.activeElement&&document.activeElement.tagName);
