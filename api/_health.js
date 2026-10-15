@@ -178,6 +178,16 @@ export async function logWeight({ date, lb, kg }) {
   return ingest({ date, weight_lb: w });
 }
 
+export async function removeWeight({ date }) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('date must be YYYY-MM-DD');
+  const s = await load();
+  const d = s.days[date];
+  const had = !!(d && d.weight_lb != null);
+  if (d) { delete d.weight_lb; if (!Object.keys(d).filter((k) => k !== 'updated').length) delete s.days[date]; }
+  await save(s);
+  return { removed: had, date };
+}
+
 // Remove a logged item: by name (latest match) or the last one.
 export async function removeFood({ date, name }) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('date must be YYYY-MM-DD');

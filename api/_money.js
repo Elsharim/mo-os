@@ -80,6 +80,13 @@ export async function logMoney(a) {
   return { date, net_worth_cad: s.days[date].net_worth_cad, accounts: accounts.length, month: { ym, ...m } };
 }
 
+export async function removeMoneyDay(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('date must be YYYY-MM-DD');
+  const s = await load();
+  const had = !!s.days[date]; delete s.days[date]; await save(s);
+  return { removed: had, date };
+}
+
 export async function setMoneySettings(t) {
   const s = await load();
   for (const k of ['monthly_burn_cad', 'tax_rate', 'runway_goal_months', 'deductions_cad']) if (num(t[k]) != null) s.settings[k] = num(t[k]);

@@ -5800,6 +5800,15 @@ async function drainInbox(){
         if(!checked)etToast('Workout logged: '+(it.text||'gym'));
         continue;
       }
+      if(it.kind==='delete'){
+        const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+        for(const nm of (Array.isArray(it.names)?it.names:[])){
+          const q=norm(nm);if(!q)continue;
+          const hits=openTasks().filter(t=>norm(t.name)===q||norm(t.name).includes(q)).sort((a,b)=>a.ts-b.ts);
+          (it.keep_one!==false?hits.slice(1):hits).forEach(t=>{deleteTask(t.id);checked++;});
+        }
+        continue;
+      }
       if(it.kind==='complete'){
         // Grok says these are done: best name match among open tasks
         const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
@@ -5824,6 +5833,8 @@ async function drainInbox(){
         continue;
       }
       const text=String(it.text||'').trim();if(!text)continue;
+      // same name already open: skip the duplicate
+      if(openTasks().some(t=>t.name.trim().toLowerCase()===text.toLowerCase()))continue;
       const area=String(it.area||'').trim().toLowerCase();
       const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
       const t=addTask(text,{projectId:p?p.id:null});

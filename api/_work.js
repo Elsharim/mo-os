@@ -50,6 +50,13 @@ export async function logCalls(a) {
   return { date, ...s.days[date] };
 }
 
+export async function removeCalls(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new Error('date must be YYYY-MM-DD');
+  const s = await load();
+  const had = !!s.days[date]; delete s.days[date]; await save(s);
+  return { removed: had, date };
+}
+
 const sum = (list, k) => list.reduce((t, d) => t + (d[k] || 0), 0);
 function roll(days) {
   const booked = sum(days, 'booked'), showed = sum(days, 'showed'), closed = sum(days, 'closed');
