@@ -130,6 +130,19 @@ export default async function handler(req, res) {
       });
       return;
     }
+    if (view === 'week') {
+      // Per-day facts for the Daily page: sleep, gym, cardio, food, weight, calls, plus payouts
+      const [whoop, food, hevy, work, money] = await Promise.all([safe(whoopSummary(16)), safe(healthSummary(16)), safe(hevySummary(60)), safe(callsSummary(16)), safe(moneySummary(60))]);
+      const days = {}; const D = (k) => (days[k] = days[k] || { date: k });
+      ((whoop && whoop.sleep) || []).forEach((x) => { const k = x.woke && x.woke.date; if (k) { const d = D(k); d.sleep_h = x.asleep_h; d.bed = x.bed && x.bed.time; } });
+      ((whoop && whoop.workouts) || []).forEach((w) => { if (!w.date) return; const d = D(w.date); if (/weight|strength|lift|powerlift/i.test(w.sport || '')) d.lift = true; else d.cardio = (d.cardio || []).concat(w.sport || 'cardio'); });
+      ((food && food.days) || []).forEach((x) => { const d = D(x.date); if (x.calories) d.calories = x.calories; if (x.protein) d.protein = x.protein; if (x.weight_lb) d.weight_lb = x.weight_lb; });
+      ((hevy && hevy.workouts) || []).forEach((w) => { if (w.date) D(w.date).gym = true; });
+      ((work && work.recent) || []).forEach((x) => { const d = D(x.date); d.calls = x.showed; d.booked = x.booked; });
+      const payouts = (((money && money.tax) || {}).payouts || []).map((p) => ({ date: p.date, cad: p.cad, amount: p.amount, currency: p.currency }));
+      res.status(200).json({ targets: (food && food.targets) || null, days, payouts });
+      return;
+    }
     if (view === 'notes') {
       // Claude's side of the notepad (Bearer token only)
       if (req.method === 'POST') {

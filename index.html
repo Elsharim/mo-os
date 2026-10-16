@@ -2340,6 +2340,35 @@
   .bd-tab{padding:8px 14px;border-radius:999px;font-size:13px;color:var(--muted);border:1px solid var(--hair);background:transparent;cursor:pointer}
   .bd-tab:hover{color:var(--text);background:var(--surface)}
   .bd-tab.on{background:var(--surface-hi);color:var(--text);border-color:var(--hair-2)}
+  .dl-scores{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:16px}
+  .dl-score{padding:16px 16px 14px}
+  .dl-score .bd-big{font-size:26px}
+  .dl-score.ok .bd-big{color:var(--good)}
+  .dl-score.low .bd-big{color:var(--warn)}
+  .dl-grp{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:16px 0 4px}
+  .dl-grp:first-of-type{margin-top:6px}
+  .dl-row{display:grid;grid-template-columns:26px 1fr auto;gap:12px;align-items:center;padding:9px 8px;border-radius:10px;cursor:pointer;font-size:13.5px}
+  .dl-row:hover{background:rgba(255,255,255,.035)}
+  .dl-row i{width:22px;height:22px;border-radius:7px;border:1px solid var(--hair-2);display:grid;place-items:center;font-size:13px;font-style:normal;color:#141414}
+  .dl-row.on i{background:var(--good);border-color:var(--good)}
+  .dl-row b{font-weight:500;display:block}
+  .dl-row small{display:block;color:var(--faint);font-size:11.5px;margin-top:1px}
+  .dl-row span{font-size:11.5px;color:var(--faint);white-space:nowrap}
+  .dl-row.on span{color:var(--muted)}
+  .dl-grid{display:flex;flex-direction:column;gap:2px}
+  .dl-g{display:grid;grid-template-columns:1fr repeat(7,22px) 46px;gap:6px;align-items:center;padding:5px 0;font-size:12.5px}
+  .dl-g .dl-gl{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dl-g i{width:18px;height:18px;border-radius:6px;background:rgba(255,255,255,.06);justify-self:center;font-style:normal;font-size:10.5px;color:var(--faint);display:grid;place-items:center}
+  .dl-g i.hit{background:var(--good)}
+  .dl-g i.miss{background:rgba(248,113,113,.22)}
+  .dl-g i.fut{background:rgba(255,255,255,.03)}
+  .dl-g i.today{box-shadow:0 0 0 1.5px rgba(255,255,255,.45)}
+  .dl-g b{text-align:right;font-weight:600;color:var(--muted)}
+  .dl-g b.ok{color:var(--good)}
+  .dl-g b small{font-weight:400;color:var(--faint)}
+  .dl-gh i{background:none;color:var(--faint)}
+  @media (max-width:1100px){.dl-scores{grid-template-columns:repeat(4,1fr)}}
+  @media (max-width:760px){.dl-scores{grid-template-columns:1fr 1fr}.dl-main{grid-template-columns:1fr}.dl-g{grid-template-columns:1fr repeat(7,18px) 40px;gap:4px}}
   .bd-range{display:flex;border:1px solid var(--hair);border-radius:10px;padding:3px;gap:2px}
   .bd-range button{background:transparent;border:none;color:var(--faint);font-size:12px;padding:6px 11px;border-radius:8px;cursor:pointer}
   .bd-range button:hover{color:var(--text)}
@@ -2698,6 +2727,7 @@
       <div class="sub">Personal OS</div>
     </div>
     <button class="navbtn active" data-view="morning"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg> Morning</button>
+    <button class="navbtn" data-view="daily"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg> Daily</button>
     <button class="navbtn" data-view="tasks"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg> Tasks</button>
     <button class="navbtn" data-view="body"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg> Body</button>
     <button class="navbtn" data-view="money"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><circle cx="12" cy="12" r="2.5"/><path d="M3 10h2M19 14h2"/></svg> Money</button>
@@ -3103,6 +3133,7 @@ async function load(){
   if(!S.money||typeof S.money!=='object')S.money={cash:0,investments:0,crypto:0,taxReserve:0};
   ['cash','investments','crypto','taxReserve'].forEach(f=>{if(typeof S.money[f]!=='number')S.money[f]=Number(S.money[f])||0;});
   if(Array.isArray(S.disciplines))S.disciplines.forEach(d=>{if(typeof d.weight!=='number')d.weight=10;});
+  migrateDisciplines();
   if(!Array.isArray(S.headTrash))S.headTrash=[];
   if(!S.weeklyJournals||typeof S.weeklyJournals!=='object')S.weeklyJournals={};
   if(!S.journal||typeof S.journal!=='object')S.journal={};
@@ -3134,6 +3165,39 @@ async function load(){
   if(!S.goals.label)S.goals.label='90-day goal';
 }
 
+/* Mo's 21 disciplines. auto = ticked from data (Whoop, Hevy, food log, calls, journal). per_week = a count target, not every day. */
+const DISC=[
+  {id:'sleep',label:'Sleep',sub:'on time, 8 hours, up on time',group:'body',auto:'sleep'},
+  {id:'food',label:'Food',sub:'calories, protein, tracked',group:'body',auto:'food'},
+  {id:'gym',label:'Gym',sub:'show up, add weight, full routine',group:'body',auto:'gym'},
+  {id:'cardio',label:'Cardio and sports',sub:'soccer, basketball, running',group:'body',auto:'cardio',per_week:2},
+  {id:'supplements',label:'Supplements',sub:'Accutane, creatine, vitamin D, magnesium',group:'body'},
+  {id:'braces',label:'Braces',sub:'elastics, brush, floss, water floss, mouthwash',group:'body'},
+  {id:'skincare',label:'Skincare',sub:'face wash, moisturizer, cream after shaving',group:'body'},
+  {id:'eyes',label:'Eyes',sub:'warm compress, twice',group:'body'},
+  {id:'shower',label:'Shower',sub:'and deodorant',group:'body'},
+  {id:'sales',label:'Poppy sales',sub:'take the calls, do the work',group:'head',auto:'calls'},
+  {id:'clean',label:'No porn',sub:'clean all day',group:'head'},
+  {id:'learn',label:'Reading and learning',sub:'a book, a video, an audiobook',group:'head'},
+  {id:'journal',label:'Journal',sub:'',group:'head',auto:'journal'},
+  {id:'girls',label:'Girls',sub:'talked to girls',group:'people',per_week:3},
+  {id:'parents',label:'Parents',sub:'called or saw them',group:'people',per_week:4},
+  {id:'family',label:'Family and friends',sub:'',group:'people',per_week:3},
+  {id:'hair',label:'Hair care',sub:'curls',group:'care',per_week:3},
+  {id:'grooming',label:'Body grooming',sub:'shave, eyebrows, haircut when due',group:'care',per_week:1},
+  {id:'nails',label:'Nails, hands, feet',sub:'',group:'care',per_week:1},
+  {id:'smell',label:'Smell good',sub:'perfume, lotion',group:'care'},
+  {id:'laundry',label:'Laundry',sub:'',group:'care',per_week:1}
+];
+const DISC_GROUPS=[['body','Body'],['head','Head'],['people','People'],['care','Upkeep']];
+function migrateDisciplines(){
+  if(S.discV2)return;
+  const old={d1:'gym',d2:'sleep',d3:'food',d4:'supplements',d5:'sales'};
+  Object.values(S.days||{}).forEach(r=>{if(!r||!r.disc)return;Object.keys(old).forEach(o=>{if(r.disc[o]){r.disc[old[o]]=true;delete r.disc[o];}});});
+  S.disciplines=DISC.map(d=>({id:d.id,label:d.label,weight:d.auto||d.id==='clean'?15:8}));
+  S.discV2=true;
+}
+const discMeta=id=>DISC.find(d=>d.id===id)||{id,label:id,group:'care'};
 function dayRatio(k){const r=S.days[k];if(!r||!r.disc||!S.disciplines.length)return 0;return S.disciplines.filter(d=>r.disc[d.id]).length/S.disciplines.length;}
 function dayDone(k){const r=S.days[k];if(!r||!r.disc)return 0;return S.disciplines.filter(d=>r.disc[d.id]).length;}
 function streak(){let n=0,k=today();if(dayScore(k)<60)k=addDays(k,-1);while(dayScore(k)>=60){n++;k=addDays(k,-1);}return n;}
@@ -3173,7 +3237,7 @@ function weekLabel(startK){const end=addDays(startK,6);const s=startK.split('-')
 function htTime(ts){const d=new Date(ts);const now=new Date();const sameDay=d.toDateString()===now.toDateString();const t=d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});return sameDay?('Today · '+t):d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+t;}
 
 const main=document.getElementById('main');
-function render(){({morning:renderMorning,tasks:renderTasks,journal:renderJournal,body:renderBody,money:renderMoney}[currentView]||renderMorning)();topbar();if(currentView==='morning')paintToday();}
+function render(){({morning:renderMorning,daily:renderDaily,tasks:renderTasks,journal:renderJournal,body:renderBody,money:renderMoney}[currentView]||renderMorning)();topbar();if(currentView==='morning')paintToday();}
 function topbar(){
   const n=S.name?.trim();
   const fg=featuredGoal();
@@ -5120,6 +5184,85 @@ async function paintToday(){
   if(currentView==='morning')draw(fresh);
 }
 
+/* DAILY page: weekly scoreboard, today's disciplines, the week grid */
+let _wk=null,_wkAt=0;
+async function weekData(force){
+  if(!force&&_wk&&Date.now()-_wkAt<3*60e3)return _wk;
+  const d=await lifeData('week',force);
+  if(d&&!d.error&&!d.needsUnlock){_wk=d;_wkAt=Date.now();}
+  return d;
+}
+function autoHit(id,k,wk){
+  const d=wk&&wk.days&&wk.days[k];const T=(wk&&wk.targets)||{calories:3000,protein:150};
+  switch(id){
+    case 'sleep':return !!(d&&d.sleep_h!=null&&d.sleep_h>=7);
+    case 'food':return !!(d&&d.calories>=T.calories*.9&&(d.protein||0)>=T.protein*.9);
+    case 'gym':return !!(d&&(d.gym||d.lift));
+    case 'cardio':return !!(d&&d.cardio&&d.cardio.length);
+    case 'sales':return !!(d&&d.calls>0);
+    case 'journal':{const J=S.journal||{};return Object.keys(J).some(x=>jrBase(x)===k&&String(J[x].text||'').trim());}
+  }
+  return false;
+}
+function discHit(id,k,wk){const r=S.days[k];return !!(r&&r.disc&&r.disc[id])||autoHit(id,k,wk);}
+function syncAutoTicks(wk){
+  // write data-driven hits into the day record so streaks and Grok see the same thing
+  let changed=false;
+  for(let i=0;i<14;i++){const k=addDays(today(),-i);DISC.filter(d=>d.auto).forEach(d=>{if(autoHit(d.id,k,wk)){const r=dayRec(k);if(!r.disc[d.id]){r.disc[d.id]=true;changed=true;}}});}
+  if(changed)save();
+}
+function weekHits(id,wk,days){return days.filter(k=>k<=today()&&discHit(id,k,wk)).length;}
+function scoreboard(wk,days){
+  const T=(wk&&wk.targets)||{calories:3000,protein:150,workouts_per_week:5};
+  const past=days.filter(k=>k<=today());
+  const dd=k=>(wk&&wk.days&&wk.days[k])||{};
+  const train=past.filter(k=>dd(k).gym||dd(k).lift).length;
+  const cal=past.filter(k=>dd(k).calories>=T.calories*.9).length;
+  const ws=past.map(k=>dd(k).weight_lb).filter(Boolean);
+  const sl=past.map(k=>dd(k).sleep_h).filter(x=>x!=null);
+  const calls=past.reduce((a,k)=>a+(dd(k).calls||0),0);
+  const money=((wk&&wk.payouts)||[]).filter(p=>p.date>=days[0]&&p.date<=days[6]).reduce((a,p)=>a+(p.cad||0),0);
+  const clean=past.filter(k=>discHit('clean',k,wk)).length,cleanStreak=habitStreak('clean');
+  const card=(cap,big,sub,ok)=>`<div class="card dl-score ${ok==null?'':ok?'ok':'low'}"><div class="bd-cap">${cap}</div><div class="bd-big">${big}</div><div class="bd-sub">${sub}</div></div>`;
+  return `<div class="dl-scores">
+    ${card('Training days',`${train}<small>/ ${T.workouts_per_week||5}</small>`,'this week',train>=(T.workouts_per_week||5)?true:past.length>=6?false:null)}
+    ${card('Calorie days hit',`${cal}<small>/ 7</small>`,past.length+' day'+(past.length===1?'':'s')+' in',cal>=past.length?true:null)}
+    ${card('Avg weight',ws.length?r1(avg(ws))+'<small>lbs</small>':'·',ws.length?ws.length+' weigh-in'+(ws.length===1?'':'s'):'no weigh-ins yet',null)}
+    ${card('Money earned',money?'$'+nf(Math.round(money)):'$0','CAD, payouts this week',null)}
+    ${card('Avg sleep',sl.length?r1(avg(sl))+'<small>h</small>':'·',sl.length?sl.length+' night'+(sl.length===1?'':'s'):'',sl.length?avg(sl)>=7:null)}
+    ${card('Calls taken',String(calls),'this week',null)}
+    ${card('Porn free',`${clean}<small>/ ${past.length}</small>`,cleanStreak?cleanStreak+' day streak':'tick it tonight',clean===past.length&&past.length>0?true:null)}
+  </div>`;
+}
+function renderDaily(){
+  const wkStart=weekStartOf(today()),days=weekDays(wkStart),t=today();
+  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Daily</h2><p class="sec-sub">Week of ${dateLbl(wkStart)} · ${['Mo','Tu','We','Th','Fr','Sa','Su'][days.indexOf(t)]||''} ${dateLbl(t)}</p></div></div><div id="dl"><div class="bd-empty">Loading…</div></div></div>`;
+  const paint=(wk)=>{
+    const el=document.getElementById('dl');if(!el||currentView!=='daily')return;
+    if(wk&&wk.needsUnlock){el.innerHTML=`<div class="tday-connect"><span>Confirm your PIN once on this device to see your week.</span><button class="btn btn-sm" id="dl-connect">Connect</button></div>`;el.querySelector('#dl-connect').onclick=async()=>{await ensureMediaSecret();renderDaily();};return;}
+    if(!wk||wk.error)wk=null;
+    if(wk)syncAutoTicks(wk);
+    const rec=dayRec(t);
+    const rows=g=>DISC.filter(d=>d.group===g).map(d=>{
+      const manual=!!rec.disc[d.id],auto=autoHit(d.id,t,wk),hit=manual||auto;
+      const wkN=d.per_week?weekHits(d.id,wk,days):null;
+      const note=d.auto&&!manual?(auto?'from '+({sleep:'Whoop',food:'your food log',gym:'Hevy',cardio:'Whoop',calls:'your calls',journal:'your journal'}[d.auto]):'nothing logged yet'):(d.per_week?wkN+' of '+d.per_week+' this week':'');
+      return `<div class="dl-row ${hit?'on':''}" data-disc="${d.id}"><i>${hit?'✓':''}</i><div><b>${esc(d.label)}</b>${d.sub?`<small>${esc(d.sub)}</small>`:''}</div><span>${note}</span></div>`;
+    }).join('');
+    const grid=DISC.map(d=>{
+      const n=weekHits(d.id,wk,days),target=d.per_week||days.filter(k=>k<=t).length;
+      return `<div class="dl-g"><span class="dl-gl">${esc(d.label)}</span>${days.map(k=>`<i class="${k>t?'fut':discHit(d.id,k,wk)?'hit':'miss'} ${k===t?'today':''}" title="${dayLbl(k)} ${dateLbl(k)}"></i>`).join('')}<b class="${n>=target?'ok':''}">${n}<small>/${target}</small></b></div>`;
+    }).join('');
+    el.innerHTML=`${scoreboard(wk,days)}
+      <div class="grid g2 dl-main">
+        <div class="card"><h3>Today <span class="h3sub">tap to tick · or tell Grok</span></h3>${DISC_GROUPS.map(([g,l])=>`<div class="dl-grp">${l}</div>${rows(g)}`).join('')}</div>
+        <div class="card"><h3>This week <span class="h3sub">Mon to Sun</span></h3><div class="dl-grid"><div class="dl-g dl-gh"><span></span>${days.map(k=>`<i>${dayLbl(k)}</i>`).join('')}<b></b></div>${grid}</div></div>
+      </div>`;
+    el.querySelectorAll('[data-disc]').forEach(r=>r.onclick=()=>{const id=r.dataset.disc;const rr=dayRec(t);if(rr.disc[id])delete rr.disc[id];else rr.disc[id]=true;save();paint(wk);});
+  };
+  paint(_wk);
+  weekData().then(paint);
+}
 /* BODY page: Overview, Sleep, Training, Food, Weight, with a Week / Month / 3 Months / Year range */
 let bodyTab=(()=>{try{return localStorage.getItem('os:bodyTab')||'overview';}catch(_){return 'overview';}})();
 let bodyRange=(()=>{try{return localStorage.getItem('os:bodyRange')||'month';}catch(_){return 'month';}})();
