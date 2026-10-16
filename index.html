@@ -3254,6 +3254,7 @@ function uncompleteTask(id){const t=execData().tasks[id];if(!t)return;t.status='
 function deleteTask(id){
   const E=execData();delete E.tasks[id];
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
+  if(Array.isArray(E.top3))E.top3=E.top3.filter(x=>x!==id);
 }
 function setToday(id,on){
   const E=execData();const t=E.tasks[id];if(!t)return;
@@ -3270,7 +3271,7 @@ function ensureAreas(){
   defs.forEach(([n,ic])=>{if(!have.has(n.toLowerCase()))execAddProject(n,ic);});
   E.areasSeeded=true;save();
 }
-function top3Ids(){const E=execData();if(!Array.isArray(E.top3))E.top3=[];return E.top3;}
+function top3Ids(){const E=execData();if(!Array.isArray(E.top3))E.top3=[];const live=E.top3.filter(id=>E.tasks[id]);if(live.length!==E.top3.length)E.top3=live;return E.top3;}
 function top3Tasks(){const E=execData();return top3Ids().map(id=>E.tasks[id]).filter(t=>t&&t.status!=='completed');}
 function toggleTop3(id){
   const E=execData();let arr=top3Ids();const i=arr.indexOf(id);
