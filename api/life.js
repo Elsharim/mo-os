@@ -10,6 +10,7 @@ import { moneySummary } from './_money.js';
 import { callsSummary } from './_work.js';
 import { leaveNote, readNotes } from './_notes.js';
 import { isConnected as gcalConnected, createEvent as gcalCreate, deleteEvent as gcalDelete } from './_gcal.js';
+import { storeMirror } from './_mirror.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -33,6 +34,14 @@ export default async function handler(req, res) {
       await queueAck(Array.isArray(body && body.ids) ? body.ids : []);
       res.status(200).json({ ok: true });
     } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+    return;
+  }
+  // App side: a copy of tasks, journal, disciplines and goals for the bots
+  if (req.method === 'POST' && view0 === 'mirror') {
+    if (!authed(req)) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }
+    try { res.status(200).json({ ok: true, ...(await storeMirror(body || {})) }); }
+    catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
     return;
   }
   // App side: schedule a task (create) or unschedule it (delete)

@@ -3068,7 +3068,29 @@ let S=null,currentView='morning',saveTimer=null,habitRange=14;
 
 const HDOTS=['var(--accent)','var(--accent-2)','var(--teal)','var(--gold)','var(--good)'];
 function dayRec(k){if(!S.days[k])S.days[k]={disc:{}};S.days[k].disc=S.days[k].disc||{};return S.days[k];}
-function save(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{await store.set(STORE_KEY,JSON.stringify(S));},250);}
+function save(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{await store.set(STORE_KEY,JSON.stringify(S));},250);mirrorSoon();}
+/* a copy of tasks, journal, disciplines and goals for the bots (server keeps it under its own secret) */
+let _mirrorTimer=null,_mirrorLast='';
+function mirrorSoon(){clearTimeout(_mirrorTimer);_mirrorTimer=setTimeout(pushMirror,3000);}
+async function pushMirror(){
+  try{
+    if(!S||typeof mediaSecret!=='function')return;
+    const sec=mediaSecret();if(!sec)return;
+    const E=execData();const cutoff=Date.now()-30*864e5;
+    const J=jrData();
+    const body={
+      name:S.name||'Mo',projects:E.projects.map(p=>({id:p.id,name:p.name})),top3:top3Ids(),
+      tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>({id:t.id,name:t.name,projectId:t.projectId,today:!!t.today,status:t.status,when:t.when||null,ts:t.ts,completedAt:t.completedAt})),
+      journal:Object.keys(J).sort().reverse().slice(0,120).map(k=>({key:k,title:J[k].title||'',text:J[k].text||'',ts:J[k].ts||0,done:!!J[k].done})),
+      disciplines:S.disciplines||[],
+      days:Object.fromEntries(Object.keys(S.days||{}).sort().slice(-60).map(k=>[k,{disc:(S.days[k]||{}).disc||{}}])),
+      goals:goalsList(),north_star:S.northStar||null,buy_box:(S.goals||{}).buyBox||null
+    };
+    const txt=JSON.stringify(body);if(txt===_mirrorLast)return;
+    const r=await fetch('/api/life?view=mirror',{method:'POST',headers:{'Content-Type':'application/json','x-moos-secret':sec},body:txt});
+    if(r.ok)_mirrorLast=txt;
+  }catch(e){console.warn('mirror',e);}
+}
 async function load(){
   const raw=await store.get(STORE_KEY);
   if(raw==='__LOCKED__'||raw==='__BADKEY__'){S=null;window.__LOCKED=raw;return;}
@@ -5800,6 +5822,36 @@ async function drainInbox(){
         if(!checked)etToast('Workout logged: '+(it.text||'gym'));
         continue;
       }
+      if(it.kind==='update'){
+        const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+        let t=it.id?E.tasks[it.id]:null;
+        if(!t&&it.name){const q=norm(it.name);const open=openTasks();t=open.find(x=>norm(x.name)===q)||open.find(x=>norm(x.name).includes(q)||q.includes(norm(x.name)))||null;}
+        if(!t)continue;
+        const st=it.set||{};
+        if(typeof st.name==='string'&&st.name.trim())t.name=st.name.trim().slice(0,500);
+        if(typeof st.area==='string'){const p=E.projects.find(x=>(x.name||'').trim().toLowerCase()===st.area.trim().toLowerCase());if(p)t.projectId=p.id;}
+        if(typeof st.today==='boolean')setToday(t.id,st.today);
+        if(typeof st.top3==='boolean'&&top3Ids().includes(t.id)!==st.top3&&!(st.top3&&top3Ids().length>=3))toggleTop3(t.id);
+        if(st.status==='completed'&&t.status!=='completed')completeTask(t.id);
+        if(st.status==='open'&&t.status==='completed')uncompleteTask(t.id);
+        t.touchedAt=Date.now();checked++;
+        continue;
+      }
+      if(it.kind==='tick'){
+        const k=/^\d{4}-\d{2}-\d{2}$/.test(it.date||'')?it.date:today();
+        const rec=dayRec(k);const find=x=>{const q=String(x||'').toLowerCase().trim();return S.disciplines.find(d=>d.id===x||String(d.label||'').toLowerCase()===q)||S.disciplines.find(d=>String(d.label||'').toLowerCase().includes(q));};
+        (it.done||[]).forEach(x=>{const d=find(x);if(d){rec.disc[d.id]=true;checked++;}});
+        (it.undone||[]).forEach(x=>{const d=find(x);if(d){delete rec.disc[d.id];checked++;}});
+        continue;
+      }
+      if(it.kind==='journal_edit'){
+        const J=jrData();const e=J[it.key];if(!e)continue;
+        if(it.delete){delete J[it.key];journaled++;continue;}
+        if(typeof it.title==='string')e.title=it.title;
+        if(typeof it.text==='string')e.text=it.text;
+        e.ts=Date.now();journaled++;
+        continue;
+      }
       if(it.kind==='delete'){
         const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
         for(const nm of (Array.isArray(it.names)?it.names:[])){
@@ -5857,6 +5909,7 @@ async function drainInbox(){
 }
 function finishBoot(){
   ensureInboxKey().then(drainInbox);
+  setTimeout(pushMirror,4000);
   if(!window.__inboxTimer){
     window.__inboxTimer=setInterval(drainInbox,45000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden){drainInbox();if(currentView==='morning')paintToday();}});

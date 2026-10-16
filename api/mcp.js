@@ -8,6 +8,8 @@ import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets, removeWeight } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout, removeMoneyDay } from './_money.js';
 import { logCalls, callsSummary, removeCalls } from './_work.js';
+import { readMirror, tasksOf, journalOf, disciplinesOf, goalsOf, summaryOf } from './_mirror.js';
+import { calendarToday } from './_cal.js';
 import { leaveNote, readNotes } from './_notes.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
@@ -52,6 +54,38 @@ const TOOLS = [{
   name: 'remove_log',
   description: "Delete one logged day from MO OS: kind 'weight' (a weigh-in), 'calls' (a calls day), or 'money' (a balance snapshot). Give the date.",
   inputSchema: { type: 'object', properties: { kind: { type: 'string', enum: ['weight', 'calls', 'money'] }, date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['kind', 'date'] }
+}, {
+  name: 'list_tasks',
+  description: "Mo's open tasks from MO OS with id, name, area, today flag and Top 3 flag (from the copy the app syncs each time it saves). Pass all=true to include completed ones.",
+  inputSchema: { type: 'object', properties: { all: { type: 'boolean' } } }
+}, {
+  name: 'update_tasks',
+  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), today (true/false), top3 (true/false), area (Sales, Fitness, Money, Personal), status ('completed' or 'open'). Applied the next time MO OS is open.",
+  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, today: { type: 'boolean' }, top3: { type: 'boolean' }, area: { type: 'string' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
+}, {
+  name: 'read_journal',
+  description: "Mo's journal entries from MO OS, newest first. Optional from/to dates (YYYY-MM-DD) and limit (default 30). Each entry has a key for edit_journal.",
+  inputSchema: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, limit: { type: 'number' } } }
+}, {
+  name: 'edit_journal',
+  description: "Edit or delete one journal entry by key (from read_journal). Give title and/or text to replace them, or delete=true. Applied the next time MO OS is open. New entries: write_journal.",
+  inputSchema: { type: 'object', properties: { key: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' }, delete: { type: 'boolean' } }, required: ['key'] }
+}, {
+  name: 'disciplines',
+  description: "Mo's daily disciplines list and which ones he hit each day (default last 7 days). Use for the night check-in score and the Sunday review.",
+  inputSchema: { type: 'object', properties: { days: { type: 'number' } } }
+}, {
+  name: 'tick',
+  description: "Mark disciplines done or not done for a date (default today). Pass labels or ids from the disciplines tool. Applied the next time MO OS is open.",
+  inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD, his local day' }, done: { type: 'array', items: { type: 'string' } }, undone: { type: 'array', items: { type: 'string' } } } }
+}, {
+  name: 'goals',
+  description: "Mo's goals from MO OS: the goal list with target dates and done flags, north star, buy box.",
+  inputSchema: { type: 'object', properties: {} }
+}, {
+  name: 'summary',
+  description: "One call for briefs: Top 3, today's tasks, open task count, disciplines today, active goals, last journal entry, plus last night's sleep and recovery, food so far, today's calendar and calls this week.",
+  inputSchema: { type: 'object', properties: {} }
 }, {
   name: 'whoop',
   description: "Mo's WHOOP data: today's recovery (score, HRV, resting HR), last night's sleep (bed and wake time in his local time, hours asleep, deep/REM, performance), day strain and calories, workouts, plus the same for recent days and his weight. Use it for morning check-ins, to judge how hard he should push today, and to spot patterns.",
@@ -146,7 +180,7 @@ const TOOLS = [{
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, remove_log, write_journal, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
   "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, pick the 3 that matter most and add them with today=true.",
   "FOOD COACH: Mo is bulking from 145 to 170 lbs. Base is 3,000 cal a day, weekly budget is 7 times that base (21,000 unless food_plan.targets.weekly_calories says otherwise), Monday to Sunday in Europe/Sarajevo, protein 150g a day. His real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <adjusted daily target> cal\nProtein  <g so far> / <daily protein target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
@@ -246,6 +280,40 @@ async function removeLog(args) {
   throw new Error("kind must be weight, calls or money");
 }
 
+async function updateTasks(args) {
+  const ups = (Array.isArray(args && args.updates) ? args.updates : []).map((u) => ({ id: u.id ? String(u.id) : undefined, name: u.name ? String(u.name).slice(0, 200) : undefined, set: u.set && typeof u.set === 'object' ? u.set : {} })).filter((u) => (u.id || u.name) && Object.keys(u.set).length).slice(0, 20);
+  if (!ups.length) throw new Error('Each update needs id or name plus a set object.');
+  await sealToInbox(ups.map((u) => ({ kind: 'update', ...u, src: 'Grok Bot' })));
+  return `Queued ${ups.length} task update${ups.length > 1 ? 's' : ''}; they apply the next time MO OS is open.`;
+}
+async function editJournal(args) {
+  const key = String((args && args.key) || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}(#\d+)?$/.test(key)) throw new Error('key must look like YYYY-MM-DD or YYYY-MM-DD#2 (from read_journal).');
+  await sealToInbox([{ kind: 'journal_edit', key, title: args.title != null ? String(args.title).slice(0, 200) : undefined, text: args.text != null ? String(args.text).slice(0, 20000) : undefined, delete: !!args.delete, src: 'Grok Bot' }]);
+  return `Queued ${args.delete ? 'deletion' : 'edit'} of journal entry ${key}; applies the next time MO OS is open.`;
+}
+async function tick(args) {
+  const date = /^\d{4}-\d{2}-\d{2}$/.test((args && args.date) || '') ? args.date : null;
+  const done = (Array.isArray(args && args.done) ? args.done : []).map(String).slice(0, 40), undone = (Array.isArray(args && args.undone) ? args.undone : []).map(String).slice(0, 40);
+  if (!done.length && !undone.length) throw new Error('Give done and/or undone.');
+  await sealToInbox([{ kind: 'tick', date, done, undone, src: 'Grok Bot' }]);
+  return `Queued ${done.length} done, ${undone.length} undone for ${date || 'today'}; applies the next time MO OS is open.`;
+}
+async function summary() {
+  const M = await readMirror().catch((e) => ({ error: e.message }));
+  const [whoop, food, work] = await Promise.all([whoopSummary(2).catch(() => null), healthSummary(1).catch(() => null), callsSummary(7).catch(() => null)]);
+  const cal = await calendarToday((whoop && whoop.tz_offset) || null).catch(() => null);
+  const t = whoop && whoop.today;
+  return {
+    app: M.error ? { error: M.error } : summaryOf(M),
+    sleep: t && t.sleep ? { hours: t.sleep.asleep_h, bed: t.sleep.bed && t.sleep.bed.time, woke: t.sleep.woke && t.sleep.woke.time } : null,
+    recovery: t && t.recovery ? t.recovery.score : null,
+    food_today: food && food.food_plan ? food.food_plan.today : null,
+    calendar_today: cal ? cal.events : null,
+    calls_this_week: work ? work.this_week : null
+  };
+}
+
 const ok = (id, result) => ({ jsonrpc: '2.0', id, result });
 const err = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
 
@@ -266,7 +334,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -305,6 +373,22 @@ async function handle(msg) {
             ? await completeTasks(args)
           : name === 'delete_tasks'
             ? await deleteTasks(args)
+          : name === 'list_tasks'
+            ? JSON.stringify(tasksOf(await readMirror(), { all: !!args.all }))
+          : name === 'update_tasks'
+            ? await updateTasks(args)
+          : name === 'read_journal'
+            ? JSON.stringify(journalOf(await readMirror(), { from: args.from, to: args.to, limit: Math.min(200, Number(args.limit) || 30) }))
+          : name === 'edit_journal'
+            ? await editJournal(args)
+          : name === 'disciplines'
+            ? JSON.stringify(disciplinesOf(await readMirror(), Math.min(60, Number(args.days) || 7)))
+          : name === 'tick'
+            ? await tick(args)
+          : name === 'goals'
+            ? JSON.stringify(goalsOf(await readMirror()))
+          : name === 'summary'
+            ? JSON.stringify(await summary())
           : name === 'remove_log'
             ? JSON.stringify(await removeLog(args))
             : await addTasks(args);
