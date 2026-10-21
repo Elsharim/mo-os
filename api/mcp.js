@@ -8,7 +8,8 @@ import { hevySummary } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets, removeWeight } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout, removeMoneyDay } from './_money.js';
 import { logCalls, callsSummary, removeCalls } from './_work.js';
-import { readMirror, tasksOf, journalOf, disciplinesOf, goalsOf, summaryOf } from './_mirror.js';
+import { readMirror, tasksOf, journalOf, disciplinesOf, goalsOf, summaryOf, applyToMirror, nameForId } from './_mirror.js';
+import { localDateISO } from './_health.js';
 import { calendarToday } from './_cal.js';
 import { leaveNote, readNotes } from './_notes.js';
 
@@ -23,7 +24,7 @@ const NOT_READY = 'The MO OS inbox is not activated yet. Open MO OS once on any 
 
 const TOOLS = [{
   name: 'add_tasks',
-  description: "Add one or more tasks to Mo's MO OS task list. Set today=true to also put a task in his Top 3 for today (the app keeps at most 3; extras still land in the list). Optional area: Sales, Fitness, Money or Personal. MO OS is end-to-end encrypted, so you can add tasks but cannot read his existing list. Tasks appear the next time MO OS is open.",
+  description: "Add one or more tasks to Mo's MO OS task list. Set today=true to also put a task in his Top 3 for today (the app keeps at most 3; extras still land in the list). Optional area: Sales, Fitness, Money or Personal. Use list_tasks to read his list.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -44,11 +45,11 @@ const TOOLS = [{
   }
 }, {
   name: 'complete_tasks',
-  description: "Mark tasks in Mo's MO OS list as done, matched by name (case-insensitive, partial match is fine, best match wins). Use it when Mo says something is done. MO OS is encrypted, so you cannot read the list; just pass the names as he said them. Applied the next time MO OS is open.",
+  description: "Mark tasks in Mo's MO OS list as done, matched by name (case-insensitive, partial match is fine, best match wins). Use it when Mo says something is done. MO OS is encrypted, so you cannot read the list; just pass the names as he said them. Takes effect right away for the bots; the app applies it whenever it's open.",
   inputSchema: { type: 'object', properties: { names: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' } } }, required: ['names'] }
 }, {
   name: 'delete_tasks',
-  description: "Delete open tasks in MO OS by name. keep_one=true keeps the oldest copy and deletes the duplicates (use this to clean up repeats). keep_one=false deletes every open task matching that name. Applied the next time MO OS is open. add_tasks already skips a task when an open one with the same name exists.",
+  description: "Delete open tasks in MO OS by name. keep_one=true keeps the oldest copy and deletes the duplicates (use this to clean up repeats). keep_one=false deletes every open task matching that name. Takes effect right away for the bots; the app applies it whenever it's open. add_tasks already skips a task when an open one with the same name exists.",
   inputSchema: { type: 'object', properties: { names: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' } }, keep_one: { type: 'boolean', description: 'Default true' } }, required: ['names'] }
 }, {
   name: 'remove_log',
@@ -60,7 +61,7 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { all: { type: 'boolean' } } }
 }, {
   name: 'update_tasks',
-  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), today (true/false), top3 (true/false), area (Sales, Fitness, Money, Personal), status ('completed' or 'open'). Applied the next time MO OS is open.",
+  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), today (true/false), top3 (true/false), area (Sales, Fitness, Money, Personal), status ('completed' or 'open'). Takes effect right away for the bots; the app applies it whenever it's open.",
   inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, today: { type: 'boolean' }, top3: { type: 'boolean' }, area: { type: 'string' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
 }, {
   name: 'read_journal',
@@ -68,7 +69,7 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, limit: { type: 'number' } } }
 }, {
   name: 'edit_journal',
-  description: "Edit or delete one journal entry by key (from read_journal). Give title and/or text to replace them, or delete=true. Applied the next time MO OS is open. New entries: write_journal.",
+  description: "Edit or delete one journal entry by key (from read_journal). Give title and/or text to replace them, or delete=true. Takes effect right away for the bots; the app applies it whenever it's open. New entries: write_journal.",
   inputSchema: { type: 'object', properties: { key: { type: 'string' }, title: { type: 'string' }, text: { type: 'string' }, delete: { type: 'boolean' } }, required: ['key'] }
 }, {
   name: 'disciplines',
@@ -76,7 +77,7 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { days: { type: 'number' } } }
 }, {
   name: 'tick',
-  description: "Mark disciplines done or not done for a date (default today). Pass labels or ids from the disciplines tool. Applied the next time MO OS is open.",
+  description: "Mark disciplines done or not done for a date (default today). Pass labels or ids from the disciplines tool. Takes effect right away for the bots; the app applies it whenever it's open.",
   inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD, his local day' }, done: { type: 'array', items: { type: 'string' } }, undone: { type: 'array', items: { type: 'string' } } } }
 }, {
   name: 'goals',
@@ -230,6 +231,8 @@ export async function sealToInbox(items) {
     body: JSON.stringify({ fields })
   });
   if (!w.ok) throw new Error('Could not save to the MO OS inbox (' + w.status + ').');
+  // apply the same change to the bots' copy now, so reads see it right away
+  await applyToMirror(items, localDateISO()).catch(() => false);
 }
 
 async function writeJournal(a) {
@@ -237,7 +240,7 @@ async function writeJournal(a) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(a.date || '') ? a.date : '';
   if (!text || !date) throw new Error('Need text and a YYYY-MM-DD date.');
   await sealToInbox([{ kind: 'journal', text, date, title: String(a.title || '').slice(0, 120), src: 'Grok Bot' }]);
-  return `Saved to the journal for ${date}. It shows up the next time MO OS is open.`;
+  return `Saved to the journal for ${date}. read_journal shows it now; the app picks it up whenever it's open.`;
 }
 
 async function addTasks(args) {
@@ -255,14 +258,14 @@ async function addTasks(args) {
   await sealToInbox(clean.map((t) => ({ ...t, src: 'Grok Bot' })));
 
   const n = clean.length, todayN = clean.filter((t) => t.today).length;
-  return `Added ${n} task${n > 1 ? 's' : ''} to MO OS${todayN ? ` (${todayN} for today's Top 3)` : ''}. They show up the next time MO OS is open.`;
+  return `Added ${n} task${n > 1 ? 's' : ''} to MO OS${todayN ? ` (${todayN} for today's Top 3)` : ''}. list_tasks shows them now; the app picks them up whenever it's open.`;
 }
 
 async function completeTasks(args) {
   const names = (Array.isArray(args && args.names) ? args.names : []).map((x) => String(x || '').trim().slice(0, 200)).filter(Boolean).slice(0, 20);
   if (!names.length) throw new Error('No task names were given.');
   await sealToInbox([{ kind: 'complete', names, src: 'Grok Bot' }]);
-  return `Will mark ${names.length} task${names.length > 1 ? 's' : ''} done the next time MO OS is open: ${names.join('; ')}.`;
+  return `Marked ${names.length} task${names.length > 1 ? 's' : ''} done: ${names.join('; ')}. list_tasks reflects it now.`;
 }
 
 async function deleteTasks(args) {
@@ -270,7 +273,7 @@ async function deleteTasks(args) {
   if (!names.length) throw new Error('No task names were given.');
   const keep = (args && args.keep_one) !== false;
   await sealToInbox([{ kind: 'delete', names, keep_one: keep, src: 'Grok Bot' }]);
-  return `Will ${keep ? 'remove duplicates of' : 'delete'} ${names.length} task name${names.length > 1 ? 's' : ''} the next time MO OS is open: ${names.join('; ')}.`;
+  return `${keep ? 'Removed duplicates of' : 'Deleted'} ${names.join('; ')}. list_tasks reflects it now.`;
 }
 async function removeLog(args) {
   const k = String((args && args.kind) || '');
@@ -283,21 +286,22 @@ async function removeLog(args) {
 async function updateTasks(args) {
   const ups = (Array.isArray(args && args.updates) ? args.updates : []).map((u) => ({ id: u.id ? String(u.id) : undefined, name: u.name ? String(u.name).slice(0, 200) : undefined, set: u.set && typeof u.set === 'object' ? u.set : {} })).filter((u) => (u.id || u.name) && Object.keys(u.set).length).slice(0, 20);
   if (!ups.length) throw new Error('Each update needs id or name plus a set object.');
+  if (ups.some((u) => u.id && !u.name)) { const M = await readMirror().catch(() => null); if (M) ups.forEach((u) => { if (u.id && !u.name) u.name = nameForId(M, u.id) || undefined; }); }
   await sealToInbox(ups.map((u) => ({ kind: 'update', ...u, src: 'Grok Bot' })));
-  return `Queued ${ups.length} task update${ups.length > 1 ? 's' : ''}; they apply the next time MO OS is open.`;
+  return `Updated ${ups.length} task${ups.length > 1 ? 's' : ''}. list_tasks reflects it now.`;
 }
 async function editJournal(args) {
   const key = String((args && args.key) || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}(#\d+)?$/.test(key)) throw new Error('key must look like YYYY-MM-DD or YYYY-MM-DD#2 (from read_journal).');
   await sealToInbox([{ kind: 'journal_edit', key, title: args.title != null ? String(args.title).slice(0, 200) : undefined, text: args.text != null ? String(args.text).slice(0, 20000) : undefined, delete: !!args.delete, src: 'Grok Bot' }]);
-  return `Queued ${args.delete ? 'deletion' : 'edit'} of journal entry ${key}; applies the next time MO OS is open.`;
+  return `${args.delete ? 'Deleted' : 'Edited'} journal entry ${key}. read_journal reflects it now.`;
 }
 async function tick(args) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test((args && args.date) || '') ? args.date : null;
   const done = (Array.isArray(args && args.done) ? args.done : []).map(String).slice(0, 40), undone = (Array.isArray(args && args.undone) ? args.undone : []).map(String).slice(0, 40);
   if (!done.length && !undone.length) throw new Error('Give done and/or undone.');
   await sealToInbox([{ kind: 'tick', date, done, undone, src: 'Grok Bot' }]);
-  return `Queued ${done.length} done, ${undone.length} undone for ${date || 'today'}; applies the next time MO OS is open.`;
+  return `Ticked ${done.length} done, ${undone.length} undone for ${date || 'today'}. disciplines reflects it now.`;
 }
 async function summary() {
   const M = await readMirror().catch((e) => ({ error: e.message }));

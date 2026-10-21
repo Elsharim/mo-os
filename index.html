@@ -3106,6 +3106,9 @@ async function pushMirror(){
   try{
     if(!S||typeof mediaSecret!=='function')return;
     const sec=mediaSecret();if(!sec)return;
+    // pick up anything the bots queued first, so this copy never drops their changes
+    if(typeof _draining!=='undefined'&&_draining){mirrorSoon();return;}
+    if(typeof drainInbox==='function')await drainInbox();
     const E=execData();const cutoff=Date.now()-30*864e5;
     const J=jrData();
     const body={
