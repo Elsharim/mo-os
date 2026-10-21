@@ -51,5 +51,5 @@ export async function readNotes({ to, unread_only, limit, mark_read }) {
     s.notes.forEach((n) => { if (ids.has(n.id)) n.read = true; });
     await save(s);
   }
-  return list;
+  return list.slice().reverse(); // newest first, so a bot reading the top sees the latest
 }
