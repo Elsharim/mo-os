@@ -2717,6 +2717,38 @@
   .tl{position:sticky;top:12px;max-height:none;overflow:visible}
 
   .ag-stale{margin:4px 6px 8px;padding:9px 12px;border-radius:10px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);font-size:12.5px;color:#fca5a5;line-height:1.5}
+
+  /* Priority groups: Now / This week / Later */
+  .tk-groups{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+  .tk-group{border-radius:16px;padding:2px 2px 6px;transition:background .16s,box-shadow .16s}
+  .tk-group.over{background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+  .tk-gh{display:flex;align-items:center;gap:10px;padding:12px 8px 6px;position:sticky;top:0;z-index:2;background:linear-gradient(var(--bg) 72%,transparent)}
+  .tk-gdot{width:7px;height:7px;border-radius:50%;background:var(--c);box-shadow:0 0 0 4px var(--ring);flex:none}
+  .tk-gh b{font-family:var(--display);font-size:15px;font-weight:560;letter-spacing:-.02em}
+  .tk-gsub{margin-left:auto;font-size:12px;color:var(--faint);font-weight:400}
+  .tk-group.now{--c:#ff7a47;--ring:rgba(255,122,71,.16)}
+  .tk-group.week{--c:#8eb6ff;--ring:rgba(142,182,255,.16)}
+  .tk-group.later{--c:rgba(255,255,255,.32);--ring:rgba(255,255,255,.05)}
+  .tk-group.sched{--c:var(--teal);--ring:rgba(45,212,191,.14)}
+  .tk-empty{font-size:13px;color:var(--faint);padding:2px 8px 10px 26px}
+  .tk-more-now{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;padding:2px 0}
+  .tk-more-now:hover{color:var(--text)}
+  .tk-prio{flex:none;font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.03em;height:22px;min-width:30px;padding:0 6px;border:none;border-radius:7px;cursor:pointer;transition:transform .15s ease,background .15s}
+  .tk-prio.p1{color:#ffb4a8;background:rgba(255,122,100,.14)}
+  .tk-prio.p2{color:#c5d6ff;background:rgba(142,182,255,.12)}
+  .tk-prio.p3{color:rgba(255,255,255,.42);background:rgba(255,255,255,.05)}
+  .tk-prio:hover{transform:scale(1.06)}
+  .tk-prio.pop{animation:prioPop .28s ease}
+  .tk-why{font-size:11px;color:var(--faint);margin-left:8px;white-space:nowrap}
+  .tk-quiet-list .tk-row .tk-acts{opacity:1}
+  @keyframes prioPop{0%{transform:scale(.86)}55%{transform:scale(1.08)}100%{transform:scale(1)}}
+  @media (max-width:620px){
+    .tk-prio{height:32px;min-width:36px;font-size:11px}
+    .tk-gh{top:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .tk-prio.pop,.tk-row{animation:none}
+  }
 </style>
 </head>
 <body>
@@ -2807,6 +2839,32 @@ async function decStr(v){
   const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(p[0])},cryptoKey,b64d(p[1]));
   return new TextDecoder().decode(pt);
 }
+let _saveTail=Promise.resolve();
+async function persistStore(k){
+  const v=_mem[k];
+  try{
+    let out=v;
+    if(cryptoKey)out=await encStr(v);
+    else if(encAtRest){console.warn('locked, write skipped');return false;}
+    if(_mem[k]!==v)return true;
+    const db=await fbInit();
+    const ref=db.collection(OS_DOC.collection).doc(OS_DOC.doc);
+    const cur=await ref.get();
+    if(_mem[k]!==v)return true;
+    const curV=cur.exists?cur.data()[OS_DOC.field]:null;
+    if(curV!=null){
+      const cs=String(curV);
+      if(cs.startsWith(ENC)&&!cryptoKey){encAtRest=true;console.warn('cloud copy is encrypted and this device has no key, write skipped');setSyncStatus('error');return false;}
+      if(cs.length>20000&&cs.length>String(out).length*4){console.warn('refusing to replace a much larger cloud copy');setSyncStatus('error');if(typeof etToast==='function')etToast('Not saved: the cloud copy is much bigger than this one. Reload to pick it up.');return false;}
+      let at=0;try{at=+localStorage.getItem('os:prevAt')||0;}catch(_){}
+      if(Date.now()-at>36e5){await db.collection(OS_DOC.collection).doc('osprev:Mo').set({v:curV,at:Date.now()});try{localStorage.setItem('os:prevAt',String(Date.now()));}catch(_){}}
+    }
+    if(_mem[k]!==v)return true;
+    await ref.set({[OS_DOC.field]:out});
+    setSyncStatus('live');
+    return true;
+  }catch(e){console.warn('store.set failed',e);setSyncStatus('error');return false;}
+}
 const store={
   async get(k){
     try{
@@ -2830,27 +2888,9 @@ const store={
   },
   async set(k,v){
     _mem[k]=v;
-    try{
-      let out=v;
-      if(cryptoKey)out=await encStr(v);
-      else if(encAtRest){console.warn('locked, write skipped');return;}
-      const db=await fbInit();
-      const ref=db.collection(OS_DOC.collection).doc(OS_DOC.doc);
-      // Safety before overwriting: never put plaintext over an encrypted copy, never
-      // replace a big copy with a tiny one (a fresh default state), and keep the
-      // outgoing copy in osprev:Mo at most once an hour so one bad write is undoable.
-      const cur=await ref.get();
-      const curV=cur.exists?cur.data()[OS_DOC.field]:null;
-      if(curV!=null){
-        const cs=String(curV);
-        if(cs.startsWith(ENC)&&!cryptoKey){encAtRest=true;console.warn('cloud copy is encrypted and this device has no key, write skipped');setSyncStatus('error');return;}
-        if(cs.length>20000&&cs.length>String(out).length*4){console.warn('refusing to replace a much larger cloud copy');setSyncStatus('error');if(typeof etToast==='function')etToast('Not saved: the cloud copy is much bigger than this one. Reload to pick it up.');return;}
-        let at=0;try{at=+localStorage.getItem('os:prevAt')||0;}catch(_){}
-        if(Date.now()-at>36e5){await db.collection(OS_DOC.collection).doc('osprev:Mo').set({v:curV,at:Date.now()});try{localStorage.setItem('os:prevAt',String(Date.now()));}catch(_){}}
-      }
-      await ref.set({[OS_DOC.field]:out});
-      setSyncStatus('live');
-    }catch(e){console.warn('store.set failed',e);setSyncStatus('error');}
+    const job=_saveTail.then(()=>persistStore(k));
+    _saveTail=job.catch(()=>false);
+    return job;
   }
 };
 
@@ -3100,29 +3140,40 @@ const HDOTS=['var(--accent)','var(--accent-2)','var(--teal)','var(--gold)','var(
 function dayRec(k){if(!S.days[k])S.days[k]={disc:{}};S.days[k].disc=S.days[k].disc||{};return S.days[k];}
 function save(){clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{await store.set(STORE_KEY,JSON.stringify(S));},250);mirrorSoon();}
 /* a copy of tasks, journal, disciplines and goals for the bots (server keeps it under its own secret) */
-let _mirrorTimer=null,_mirrorLast='';
-function mirrorSoon(){clearTimeout(_mirrorTimer);_mirrorTimer=setTimeout(pushMirror,3000);}
-async function pushMirror(){
-  try{
-    if(!S||typeof mediaSecret!=='function')return;
-    const sec=mediaSecret();if(!sec)return;
-    // pick up anything the bots queued first, so this copy never drops their changes
-    if(typeof _draining!=='undefined'&&_draining){mirrorSoon();return;}
-    if(typeof drainInbox==='function')await drainInbox();
-    const E=execData();const cutoff=Date.now()-30*864e5;
-    const J=jrData();
-    const body={
-      name:S.name||'Mo',projects:E.projects.map(p=>({id:p.id,name:p.name})),top3:top3Ids(),
-      tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>({id:t.id,name:t.name,projectId:t.projectId,today:!!t.today,status:t.status,when:t.when||null,ts:t.ts,completedAt:t.completedAt})),
-      journal:Object.keys(J).sort().reverse().slice(0,120).map(k=>({key:k,title:J[k].title||'',text:J[k].text||'',ts:J[k].ts||0,done:!!J[k].done})),
-      disciplines:S.disciplines||[],
-      days:Object.fromEntries(Object.keys(S.days||{}).sort().slice(-60).map(k=>[k,{disc:(S.days[k]||{}).disc||{}}])),
-      goals:goalsList(),north_star:S.northStar||null,buy_box:(S.goals||{}).buyBox||null
-    };
-    const txt=JSON.stringify(body);if(txt===_mirrorLast)return;
-    const r=await fetch('/api/life?view=mirror',{method:'POST',headers:{'Content-Type':'application/json','x-moos-secret':sec},body:txt});
-    if(r.ok)_mirrorLast=txt;
-  }catch(e){console.warn('mirror',e);}
+let _mirrorTimer=null,_mirrorLast='',_mirrorTail=Promise.resolve();
+function mirrorSoon(){clearTimeout(_mirrorTimer);_mirrorTimer=setTimeout(pushMirror,1000);}
+function mirrorSnapshot(){
+  const E=execData();const cutoff=Date.now()-30*864e5;
+  const J=jrData();
+  return {
+    name:S.name||'Mo',projects:E.projects.map(p=>({id:p.id,name:p.name})),
+    tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>({id:t.id,name:t.name,projectId:t.projectId,today:taskPriority(t)==='P1',priority:taskPriority(t),status:t.status,when:t.when||null,ts:t.ts,touchedAt:t.touchedAt||t.ts||0,completedAt:t.completedAt})),
+    journal:Object.keys(J).sort().reverse().slice(0,120).map(k=>({key:k,title:J[k].title||'',text:J[k].text||'',ts:J[k].ts||0,done:!!J[k].done})),
+    disciplines:S.disciplines||[],
+    days:Object.fromEntries(Object.keys(S.days||{}).sort().slice(-60).map(k=>[k,{disc:(S.days[k]||{}).disc||{}}])),
+    goals:goalsList(),north_star:S.northStar||null,buy_box:(S.goals||{}).buyBox||null
+  };
+}
+async function waitDrain(){
+  const start=Date.now();
+  while(typeof _draining!=='undefined'&&_draining&&Date.now()-start<15000)await new Promise(r=>setTimeout(r,40));
+}
+async function pushMirrorOnce(){
+  if(!S||typeof mediaSecret!=='function')return;
+  const sec=mediaSecret();if(!sec)return;
+  await waitDrain();
+  if(typeof drainInbox==='function')await drainInbox({fromPush:true});
+  const body=mirrorSnapshot();
+  const cmp=JSON.stringify(body);
+  if(cmp===_mirrorLast)return;
+  body.builtAt=Date.now();
+  const r=await fetch('/api/life?view=mirror',{method:'POST',headers:{'Content-Type':'application/json','x-moos-secret':sec},body:JSON.stringify(body)});
+  if(r.ok)_mirrorLast=cmp;
+}
+function pushMirror(){
+  const job=_mirrorTail.then(()=>pushMirrorOnce());
+  _mirrorTail=job.catch(e=>{console.warn('mirror',e);});
+  return job;
 }
 async function load(){
   const raw=await store.get(STORE_KEY);
@@ -3287,6 +3338,14 @@ function execData(){
     S.exec.v2=true;save();
   }
   if(!Array.isArray(S.exec.todayOrder))S.exec.todayOrder=[];
+  if(!S.exec.prioV1){
+    const top=new Set(Array.isArray(S.exec.top3)?S.exec.top3:[]);
+    Object.values(S.exec.tasks).forEach(t=>{
+      if(t.priority!=='P1'&&t.priority!=='P2'&&t.priority!=='P3')t.priority=top.has(t.id)?'P1':'P2';
+    });
+    S.exec.top3=[];
+    S.exec.prioV1=true;save();
+  }
   return S.exec;
 }
 function taskProject(t){if(!t||!t.projectId)return null;return execData().projects.find(p=>p.id===t.projectId)||null;}
@@ -3308,8 +3367,9 @@ function addTask(name,opts){
   opts=opts||{};
   const E=execData();
   const id='t'+Date.now()+Math.random().toString(36).slice(2,7);
-  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,status:'inbox',today:!!opts.today,ts:Date.now(),touchedAt:Date.now(),completedAt:null};
-  if(opts.today)E.todayOrder.push(id);
+  const priority=opts.priority==='P1'||opts.priority==='P2'||opts.priority==='P3'?opts.priority:(opts.today?'P1':'P2');
+  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,status:'inbox',today:priority==='P1',priority,ts:Date.now(),touchedAt:Date.now(),completedAt:null};
+  if(priority==='P1')E.todayOrder.push(id);
   return E.tasks[id];
 }
 function completeTask(id){
@@ -3321,15 +3381,13 @@ function uncompleteTask(id){const t=execData().tasks[id];if(!t)return;t.status='
 function deleteTask(id){
   const E=execData();delete E.tasks[id];
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
-  if(Array.isArray(E.top3))E.top3=E.top3.filter(x=>x!==id);
 }
 function setToday(id,on){
-  const E=execData();const t=E.tasks[id];if(!t)return;
-  t.today=!!on;
-  E.todayOrder=E.todayOrder.filter(x=>x!==id);
-  if(on)E.todayOrder.push(id);
+  const t=execData().tasks[id];if(!t)return;
+  if(on)setPriority(id,'P1');
+  else t.today=false;
 }
-/* LIFE AREAS + TOP 3 + STALE (task hub) */
+/* LIFE AREAS + PRIORITY. Now / This week / Later stays in step with NOW_CAP, NUDGE_MS and QUIET_MS in api/_mirror.js */
 function ensureAreas(){
   const E=execData();
   if(E.areasSeeded)return;
@@ -3338,12 +3396,32 @@ function ensureAreas(){
   defs.forEach(([n,ic])=>{if(!have.has(n.toLowerCase()))execAddProject(n,ic);});
   E.areasSeeded=true;save();
 }
-function top3Ids(){const E=execData();if(!Array.isArray(E.top3))E.top3=[];const live=E.top3.filter(id=>E.tasks[id]);if(live.length!==E.top3.length)E.top3=live;return E.top3;}
-function top3Tasks(){const E=execData();return top3Ids().map(id=>E.tasks[id]).filter(t=>t&&t.status!=='completed');}
-function toggleTop3(id){
-  const E=execData();let arr=top3Ids();const i=arr.indexOf(id);
-  if(i>=0)arr.splice(i,1); else {arr=arr.filter(x=>E.tasks[x]&&E.tasks[x].status!=='completed');E.top3=arr;if(arr.length<3)arr.push(id);}
-  E.top3=arr;touchTask(id);
+const NOW_CAP=5,NUDGE_MS=3*864e5;
+const PRIO_NEXT={P2:'P1',P1:'P3',P3:'P2'};
+const PRIO_TIP={P2:'This week. Tap to move to Now.',P1:'Now. Tap to move to Later.',P3:'Later. Tap to move to This week.'};
+function taskPriority(t){return t&&(t.priority==='P1'||t.priority==='P2'||t.priority==='P3')?t.priority:'P2';}
+function prioRank(p){return p==='P1'?0:p==='P3'?2:1;}
+function byPrioThenCreated(a,b){return prioRank(taskPriority(a))-prioRank(taskPriority(b))||(a.ts||0)-(b.ts||0)||String(a.id).localeCompare(String(b.id));}
+function setPriority(id,p){
+  const t=execData().tasks[id];if(!t||(p!=='P1'&&p!=='P2'&&p!=='P3'))return;
+  t.priority=p;t.today=p==='P1';touchTask(id);
+}
+function cyclePriority(id){const t=execData().tasks[id];if(t)setPriority(id,PRIO_NEXT[taskPriority(t)]);}
+let nowExpanded=false,_popId=null;
+function focusBoard(list,nowMs){
+  nowMs=nowMs||Date.now();
+  const overdue=t=>{const w=Date.parse(t.when||'');return !Number.isNaN(w)&&w<nowMs;};
+  const age=t=>nowMs-((t.touchedAt||t.ts)||0);
+  const quiet=t=>age(t)>STALE_MS;
+  const pool=[];
+  const add=(arr,why)=>arr.slice().sort(byPrioThenCreated).forEach(t=>{if(!pool.some(x=>x.t.id===t.id))pool.push({t,why});});
+  add(list.filter(overdue),'overdue');
+  add(list.filter(t=>taskPriority(t)==='P1'),'priority');
+  add(list.filter(t=>taskPriority(t)==='P2'&&!overdue(t)&&age(t)>=NUDGE_MS&&!quiet(t)),'untouched');
+  const urgent=pool.filter(x=>x.why!=='untouched');
+  const shown=nowExpanded?urgent.concat(pool.slice(0,NOW_CAP).filter(x=>x.why==='untouched')):pool.slice(0,NOW_CAP);
+  const ids=new Set(shown.map(x=>x.t.id));
+  return {now:shown,also:pool.filter(x=>!ids.has(x.t.id)&&x.why!=='untouched')};
 }
 function touchTask(id){const t=execData().tasks[id];if(t)t.touchedAt=Date.now();}
 const STALE_MS=14*24*3600*1000;
@@ -3468,18 +3546,20 @@ function projectCard(p){
     </div>`}
   </div>`;
 }
-function hubTaskRow(t){
+function hubTaskRow(t,opts){
+  opts=opts||{};
   const done=t.status==='completed';
   const proj=taskProject(t);
-  const inTop=top3Ids().includes(t.id);
+  const p=taskPriority(t);
   const dc=proj?execProjColor(proj.id):'var(--border-2)';
   const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
-  return `<div class="et-row tk-row ${done?'completed':''} ${inTop?'top':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
+  const why=opts.why==='overdue'?'<span class="tk-why">overdue</span>':opts.why==='untouched'?'<span class="tk-why">sitting a few days</span>':'';
+  return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-    <div class="et-main"><div class="et-name tk-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:'<i class="tk-adot none"></i>'}<span class="tk-txt">${esc(t.name)}</span>${whenChip}</div></div>
+    <div class="et-main"><div class="et-name tk-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:'<i class="tk-adot none"></i>'}<span class="tk-txt">${esc(t.name)}</span>${whenChip}${why}</div></div>
+    <button type="button" class="tk-prio p${p.slice(1)} ${_popId===t.id?'pop':''}" data-prio="${t.id}" title="${PRIO_TIP[p]}">${p}</button>
     <div class="et-actions tk-acts">
-      ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
-      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of Top 3':'Top 3'}">${inTop?'★':'☆'}</button>
+      ${opts.quiet?`<button class="et-lblbtn" data-keep="${t.id}">Keep</button>`:(t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`)}
       <button class="tk-more" data-dot="${t.id}" title="Area, delete">⋯</button>
     </div>
   </div>`;
@@ -3487,16 +3567,27 @@ function hubTaskRow(t){
 function renderTasks(){
   ensureAreas();
   const E=execData();
-  const t3=top3Tasks();
   const dToday=doneToday();
   const areas=E.projects;
   const open=openTasks();
   const filtered=taskArea==='all'?open:open.filter(t=>(t.projectId||null)===taskArea);
-  const tk=todayKey();
-  const sched=filtered.filter(t=>t.when&&!isStale(t)).sort((a,b)=>Date.parse(a.when)-Date.parse(b.when));
-  const fresh=filtered.filter(t=>!t.when&&!isStale(t)).sort((a,b)=>{const ia=top3Ids().includes(a.id),ib=top3Ids().includes(b.id);if(ia!==ib)return ia?-1:1;return b.ts-a.ts;});
-  const quiet=filtered.filter(t=>isStale(t)).sort((a,b)=>a.ts-b.ts);
+  const board=focusBoard(filtered);
+  const nowIds=new Set(board.now.map(x=>x.t.id));
+  const future=t=>{const w=Date.parse(t.when||'');return !Number.isNaN(w)&&w>=Date.now();};
+  const upcoming=filtered.filter(t=>!nowIds.has(t.id)&&future(t)).sort((a,b)=>Date.parse(a.when)-Date.parse(b.when));
+  const upIds=new Set(upcoming.map(t=>t.id));
+  const also=board.also.filter(x=>!upIds.has(x.t.id));
+  const alsoIds=new Set(also.map(x=>x.t.id));
+  const held=id=>nowIds.has(id)||upIds.has(id)||alsoIds.has(id);
+  const week=filtered.filter(t=>taskPriority(t)==='P2'&&!held(t.id)&&!isStale(t)).sort(byPrioThenCreated);
+  const later=filtered.filter(t=>taskPriority(t)==='P3'&&!held(t.id)&&!isStale(t)).sort(byPrioThenCreated);
+  const quiet=filtered.filter(t=>isStale(t)&&!nowIds.has(t.id)&&!upIds.has(t.id)).sort((a,b)=>(a.touchedAt||a.ts||0)-(b.touchedAt||b.ts||0));
   const cnt=pid=>open.filter(t=>(t.projectId||null)===pid).length;
+  const group=(cls,drop,title,sub,rows,empty)=>`<section class="tk-group ${cls}" ${drop?`data-drop="${drop}"`:''}>
+      <div class="tk-gh"><i class="tk-gdot"></i><b>${title}</b>${sub?`<span class="tk-gsub">${sub}</span>`:''}</div>
+      ${rows?`<div class="et-list">${rows}</div>`:`<div class="tk-empty">${empty}</div>`}
+    </section>`;
+  const nowSub=also.length?`<button type="button" class="tk-more-now" id="tk-now-more">${nowExpanded?'Show the short list':also.length+' more urgent'}</button>`:'';
 
   main.innerHTML=`<div class="view">
     <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
@@ -3507,37 +3598,22 @@ function renderTasks(){
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
 
-    ${t3.length?`<div class="tk-today">
-      <div class="tk-today-h">Top 3 today</div>
-      <div class="tk-top3-grid">
-        ${[0,1,2].map(i=>{const t=t3[i];
-          return t?`<div class="tk-top3-card" data-id="${t.id}">
-            <span class="box et-complete" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-            <span class="tk-top3-name" data-n="${t.id}">${esc(t.name)}${t.when?`<span class="tk-top3-when">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:''}</span>
-            <button class="tk-top3-x" data-star="${t.id}" title="Remove">×</button>
-          </div>`
-          :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star one below</span></div>`;
-        }).join('')}
-      </div>
-    </div>`:`<div class="tk-top3-line">No Top 3 yet. Star up to 3 tasks below, or tell Grok.</div>`}
-
     <div class="tk-filter">
       <button class="tk-fchip ${taskArea==='all'?'on':''}" data-area="all">All${open.length?` <i>${open.length}</i>`:''}</button>
       ${areas.map(p=>`<button class="tk-fchip ${taskArea===p.id?'on':''}" data-area="${p.id}" style="--dc:${execProjColor(p.id)}"><span class="tk-fdot"></span>${esc(p.name)}${cnt(p.id)?` <i>${cnt(p.id)}</i>`:''}</button>`).join('')}
       <button class="tk-fchip tk-fadd" id="tk-area-add" title="Add a life area">+</button>
     </div>
 
-    ${sched.length?`<div class="tk-sect"><b>Scheduled</b><span>${sched.filter(t=>isoDay(new Date(t.when))===tk).length} today</span></div><div class="et-list">${sched.map(hubTaskRow).join('')}</div>`:''}
-    ${fresh.length?`${sched.length?'<div class="tk-sect"><b>Anytime</b></div>':''}<div class="et-list">${fresh.map(hubTaskRow).join('')}</div>`
-      :(sched.length?'':`<div class="empty sect-empty">${open.length?'Nothing in this area.':'All clear. Capture something above.'}</div>`)}
+    <div class="tk-groups">
+      ${group('now','P1','Now',nowSub,board.now.map(x=>hubTaskRow(x.t,{why:x.why})).join(''),'Nothing is marked for today.')}
+      ${upcoming.length?group('sched','','Scheduled',upcoming.filter(t=>isoDay(new Date(t.when))===todayKey()).length+' today',upcoming.map(t=>hubTaskRow(t)).join(''),''):''}
+      ${group('week','P2','This week','',week.map(t=>hubTaskRow(t)).join(''),'Nothing this week.')}
+      ${group('later','P3','Later','',later.map(t=>hubTaskRow(t)).join(''),'Nothing later.')}
+    </div>
 
     ${quiet.length?`<div class="tk-quiet">
       <button class="tk-quiet-h" id="tk-quiet-toggle">${taskQuietOpen?'▾':'▸'} ${quiet.length} gone quiet <span>untouched 2+ weeks</span></button>
-      ${taskQuietOpen?`<div class="et-list tk-quiet-list">${quiet.map(t=>`<div class="et-row tk-row" data-id="${t.id}">
-        <span class="box et-complete" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-        <div class="et-main"><div class="et-name" data-n="${t.id}">${esc(t.name)}</div></div>
-        <div class="et-actions tk-acts" style="opacity:1"><button class="et-lblbtn" data-keep="${t.id}">Keep</button><button class="rm" data-del="${t.id}">×</button></div>
-      </div>`).join('')}</div>`:''}
+      ${taskQuietOpen?`<div class="et-list tk-quiet-list">${quiet.map(t=>hubTaskRow(t,{quiet:true})).join('')}</div>`:''}
     </div>`:''}
 
     ${dToday.length?`<div class="sect" style="margin-top:22px">
@@ -3555,8 +3631,7 @@ function wireTasks(){
   const add=()=>{
     const v=inp.value.trim();if(!v)return;
     const pc=parseCapture(v);if(!pc.name)return;
-    const t=addTask(pc.name,{projectId:pc.area||(taskArea==='all'?null:taskArea)});
-    if(pc.top3)toggleTop3(t.id);
+    const t=addTask(pc.name,{projectId:pc.area||(taskArea==='all'?null:taskArea),priority:pc.priority||'P2'});
     save();
     if(pc.mins!=null){scheduleTask(t.id,slotDate(pc.mins+pc.dayOff*1440));return;}
     renderTasks();
@@ -3585,7 +3660,24 @@ function wireTasks(){
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
   main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const t=E.tasks[b.dataset.del];if(t&&t.when)unscheduleTask(t.id,true);deleteTask(b.dataset.del);save();renderTasks();});
   main.querySelectorAll('[data-keep]').forEach(b=>b.onclick=()=>{touchTask(b.dataset.keep);save();renderTasks();});
-  main.querySelectorAll('[data-star]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.star);save();renderTasks();});
+  main.querySelectorAll('[data-prio]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();
+    const id=b.dataset.prio;if(!E.tasks[id])return;
+    cyclePriority(id);_popId=id;save();renderTasks();
+    setTimeout(()=>{if(_popId===id)_popId=null;},320);
+  });
+  const moreNow=document.getElementById('tk-now-more');
+  if(moreNow)moreNow.onclick=()=>{nowExpanded=!nowExpanded;renderTasks();};
+  main.querySelectorAll('[data-drop]').forEach(sec=>{
+    sec.addEventListener('dragover',e=>{e.preventDefault();sec.classList.add('over');});
+    sec.addEventListener('dragleave',e=>{if(!sec.contains(e.relatedTarget))sec.classList.remove('over');});
+    sec.addEventListener('drop',e=>{
+      e.preventDefault();e.stopPropagation();sec.classList.remove('over');
+      const id=(e.dataTransfer&&e.dataTransfer.getData('text/plain'))||_dragId;
+      if(!id||!E.tasks[id]||taskPriority(E.tasks[id])===sec.dataset.drop)return;
+      setPriority(id,sec.dataset.drop);_popId=id;save();renderTasks();
+    });
+  });
   main.querySelectorAll('[data-dot]').forEach(b=>b.onclick=e=>{e.stopPropagation();openAreaPicker(b.dataset.dot,b);});
 
   const renameRow=(nm,dn)=>{
@@ -3596,7 +3688,6 @@ function wireTasks(){
     input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
   };
   main.querySelectorAll('.et-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
-  main.querySelectorAll('.tk-top3-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
 
   const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
   const qt=document.getElementById('tk-quiet-toggle');if(qt)qt.onclick=()=>{taskQuietOpen=!taskQuietOpen;renderTasks();};
@@ -5130,9 +5221,6 @@ function todaySay(d){
   return out.join(' ');
 }
 function todayCard(d){
-  const E=execData();
-  const ids=top3Ids().filter(id=>E.tasks[id]);
-  const done=ids.filter(id=>E.tasks[id].status==='completed').length;
   const sl=d&&d.sleep,rec=d&&d.recovery,cal=d&&d.calendar,f=d&&d.food;
   const now=new Date();
   const dateStr=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
@@ -5152,15 +5240,16 @@ function todayCard(d){
   const sched=cal&&cal.events.length
     ?cal.events.slice(0,7).map(e=>`<div class="sch ${e.past?'past':''} ${up[0]===e?'next':''}"><span class="sch-t">${fmt12(e.start)}</span><span class="sch-n">${esc(e.title)}</span>${up[0]===e?'<span class="sch-b">next</span>':''}</div>`).join('')+(cal.events.length>7?`<div class="tday-empty">+${cal.events.length-7} more</div>`:'')
     :`<div class="tday-empty">${cal?'Nothing booked today.':'Your calls show up here once the calendar is linked.'}</div>`;
-  const top=ids.length
-    ?ids.map(id=>{const t=E.tasks[id];const ok=t.status==='completed';return `<div class="t3 ${ok?'done':''}" data-t3="${id}"><i>${ok?'✓':''}</i><span>${esc(t.name)}</span></div>`;}).join('')
-    :`<div class="tday-empty">No Top 3 yet. <a class="link" id="t3-pick" style="color:var(--accent);cursor:pointer">Pick them in Tasks</a> or tell Grok.</div>`;
+  const nowItems=focusBoard(openTasks()).now.map(x=>x.t);
+  const top=nowItems.length
+    ?nowItems.map(t=>`<div class="t3" data-now="${t.id}"><i></i><span>${esc(t.name)}</span></div>`).join('')
+    :`<div class="tday-empty">Nothing in Now. <a class="link" id="now-pick" style="color:var(--accent);cursor:pointer">Open Tasks</a></div>`;
   return `<div class="card tday">
     <div class="tday-date">${dateStr}</div>
     <div class="tday-stats">${stats}</div>
     <div class="tday-cols">
       <div><div class="tday-cap"><span>Schedule</span></div>${sched}</div>
-      <div><div class="tday-cap"><span>Top 3${ids.length?' · '+done+' of '+ids.length+' done':''}</span><a id="t3-open">Tasks →</a></div>${top}</div>
+      <div><div class="tday-cap"><span>Now${nowItems.length?' · '+nowItems.length:''}</span><a id="now-open">Tasks →</a></div>${top}</div>
     </div>
   </div>`;
 }
@@ -5175,9 +5264,9 @@ async function paintToday(){
     }
     el.innerHTML=todayCard(d&&!d.error?d:null);
     const go=()=>{currentView='tasks';setActiveNav('tasks');render();};
-    el.querySelectorAll('#t3-open,#t3-pick').forEach(a=>a.onclick=go);
-    el.querySelectorAll('[data-t3]').forEach(r=>r.onclick=()=>{
-      const t=execData().tasks[r.dataset.t3];if(!t)return;
+    el.querySelectorAll('#now-open,#now-pick').forEach(a=>a.onclick=go);
+    el.querySelectorAll('[data-now]').forEach(r=>r.onclick=()=>{
+      const t=execData().tasks[r.dataset.now];if(!t)return;
       if(t.status==='completed')uncompleteTask(t.id);else completeTask(t.id);
       touchTask(t.id);save();draw(d);
     });
@@ -5699,21 +5788,23 @@ function renderBody(){
 
 /* DAY TIMELINE on Tasks: today's calendar, drag a task onto a time to put it on Google Calendar */
 const TL_START=7,TL_END=25,TL_HPX=40; // 7am to 1am, 40px per hour
-let tlPick=null,_tlTimer=null;
+let tlPick=null,_tlTimer=null,_dragId=null;
 const tlMins=d=>{const x=new Date(d);let m=x.getHours()*60+x.getMinutes();if(m<TL_START*60)m+=1440;return m;};
 const tlTop=d=>(tlMins(d)-TL_START*60)/60*TL_HPX;
 const tlFmt=d=>{const x=new Date(d);return fmt12(String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0'));};
 const sameEvent=(t,e)=>e&&t.when&&Math.abs(Date.parse(e.start_iso)-Date.parse(t.when))<120e3&&(e.title||'').trim().toLowerCase()===t.name.trim().toLowerCase();
 function slotDate(mins){const d=new Date();d.setHours(0,0,0,0);if(mins>=1440){d.setDate(d.getDate()+1);mins-=1440;}d.setHours(Math.floor(mins/60),mins%60,0,0);return d;}
-/* "call clinton tomorrow 3pm @sales !" -> name, time, day offset, area, top3 */
+/* "call clinton tomorrow 3pm @sales p1" -> name, time, day offset, area, priority. ! also means P1. */
 function parseCapture(text){
-  let t=' '+text.trim(),out={name:'',mins:null,dayOff:0,area:null,top3:false};
+  let t=' '+text.trim(),out={name:'',mins:null,dayOff:0,area:null,priority:null};
   const tm=/\s(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(t);
   if(tm){let h=+tm[1]%12;if(tm[3].toLowerCase()==='pm')h+=12;out.mins=h*60+(+tm[2]||0);t=t.slice(0,tm.index)+' '+t.slice(tm.index+tm[0].length);}
   if(/\s(tomorrow|tmrw|tmr)\b/i.test(t)){out.dayOff=1;t=t.replace(/\s(tomorrow|tmrw|tmr)\b/i,' ');}
   const ar=/\s[@#]([a-z]+)\b/i.exec(t);
   if(ar){const E=execData();const p=E.projects.find(x=>(x.name||'').toLowerCase().startsWith(ar[1].toLowerCase()));if(p){out.area=p.id;t=t.slice(0,ar.index)+' '+t.slice(ar.index+ar[0].length);}}
-  if(/\s!$/.test(t)||/^\s!/.test(t)){out.top3=true;t=t.replace(/\s!$/,'').replace(/^\s!/,' ');}
+  const pm=/(?:^|\s)(p[123])\b/i.exec(t);
+  if(pm){out.priority=pm[1].toUpperCase();t=t.slice(0,pm.index)+' '+t.slice(pm.index+pm[0].length);}
+  if(/\s!$/.test(t)||/^\s!/.test(t)){if(!out.priority)out.priority='P1';t=t.replace(/\s!$/,'').replace(/^\s!/,' ');}
   out.name=t.replace(/\s+/g,' ').trim();
   if(out.mins!=null&&!/\s(today)\b/i.test(' '+text))out.name=out.name.replace(/\s(today)\b/i,'');
   return out;
@@ -5802,19 +5893,19 @@ function wireTimeline(){
   if(sc){
     sc.ondragover=e=>{e.preventDefault();sc.classList.add('over');};
     sc.ondragleave=()=>sc.classList.remove('over');
-    sc.ondrop=e=>{e.preventDefault();sc.classList.remove('over');const id=e.dataTransfer.getData('text/plain');if(!id)return;const btn=main.querySelector(`[data-clock="${id}"]`)||sc;openTimePick(id,btn);};
+    sc.ondrop=e=>{e.preventDefault();sc.classList.remove('over');const id=(e.dataTransfer&&e.dataTransfer.getData('text/plain'))||_dragId;if(!id)return;const btn=main.querySelector(`[data-clock="${id}"]`)||sc;openTimePick(id,btn);};
     sc.querySelectorAll('[data-unsched]').forEach(b=>b.onclick=e=>{e.stopPropagation();unscheduleTask(b.dataset.unsched);});
   }
   const tg=document.getElementById('tl-toggle');if(tg)tg.onclick=()=>{window.__tlCollapsed=!window.__tlCollapsed;renderTasks();};
   main.querySelectorAll('.tk-row[draggable]').forEach(r=>{
-    r.ondragstart=e=>{e.dataTransfer.setData('text/plain',r.dataset.id);e.dataTransfer.effectAllowed='move';r.classList.add('dragging');};
-    r.ondragend=()=>r.classList.remove('dragging');
+    r.ondragstart=e=>{_dragId=r.dataset.id;try{e.dataTransfer.setData('text/plain',r.dataset.id);e.dataTransfer.effectAllowed='move';}catch(_){}r.classList.add('dragging');};
+    r.ondragend=()=>{r.classList.remove('dragging');_dragId=null;};
   });
   main.querySelectorAll('[data-clock]').forEach(b=>b.onclick=e=>{e.stopPropagation();const t=execData().tasks[b.dataset.clock];if(t&&t.when){unscheduleTask(t.id);return;}openTimePick(b.dataset.clock,b);});
   if(!window.__tpEsc){window.__tpEsc=true;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeTimePick();});}
   clearInterval(_tlTimer);
   _tlTimer=setInterval(async()=>{if(currentView!=='tasks'){clearInterval(_tlTimer);return;}const d=await lifeData('today',true);if(currentView==='tasks'&&d&&!d.needsUnlock){const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}}},60e3);
-  if(!_life.today)lifeData('today').then(()=>{if(currentView==='tasks'){const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}}});
+  if(!_life.today)lifeData('today').then(()=>{if(currentView!=='tasks'||!_life.today)return;const el=document.getElementById('tl-wrap');if(el){el.innerHTML=timelineHTML();wireTimeline();}});
 }
 
 
@@ -5937,7 +6028,21 @@ async function ensureInboxKey(){
   }catch(e){console.warn('inbox key',e);}
 }
 let _draining=false;
-async function drainInbox(){
+function inboxPriority(it){
+  const p=String((it&&it.priority)||'').toUpperCase();
+  if(p==='P1'||p==='P2'||p==='P3')return p;
+  if(it&&(it.top3===true||it.today===true))return 'P1';
+  return 'P2';
+}
+function priorityUpdate(st){
+  if(!st||typeof st!=='object')return null;
+  const p=String(st.priority||'').toUpperCase();
+  if(p==='P1'||p==='P2'||p==='P3')return p;
+  if(st.top3===true||st.today===true)return 'P1';
+  return null;
+}
+async function drainInbox(opts){
+  opts=opts||{};
   if(_draining||!cryptoKey||!S||!S.inboxPriv)return;
   _draining=true;
   try{
@@ -5948,7 +6053,7 @@ async function drainInbox(){
     const ids=Object.keys(data).filter(k=>/^i\d/.test(k));
     if(!ids.length)return;
     const priv=await crypto.subtle.importKey('jwk',S.inboxPriv,{name:'ECDH',namedCurve:'P-256'},false,['deriveKey']);
-    const items=[];
+    const items=[],okIds=[];
     for(const id of ids){
       try{
         const env=JSON.parse(data[id]);
@@ -5956,11 +6061,14 @@ async function drainInbox(){
         const k=await crypto.subtle.deriveKey({name:'ECDH',public:epk},priv,{name:'AES-GCM',length:256},false,['decrypt']);
         const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},k,b64d(env.ct));
         items.push(JSON.parse(new TextDecoder().decode(pt)));
-      }catch(_){/* unreadable or junk: dropped below */}
+        okIds.push(id);
+      }catch(_){/* leave unreadable items in the inbox */}
     }
+    if(!okIds.length)return;
     items.sort((a,b)=>(a.ts||0)-(b.ts||0));
+    const prior=JSON.stringify(S);
     const E=execData();
-    let added=0,checked=0,journaled=0;
+    let added=0,checked=0,journaled=0,bumped=0;
     for(const it of items){
       if(it.kind==='workout'){
         // a workout saved in Hevy checks off today's gym-type tasks
@@ -5977,8 +6085,9 @@ async function drainInbox(){
         const st=it.set||{};
         if(typeof st.name==='string'&&st.name.trim())t.name=st.name.trim().slice(0,500);
         if(typeof st.area==='string'){const p=E.projects.find(x=>(x.name||'').trim().toLowerCase()===st.area.trim().toLowerCase());if(p)t.projectId=p.id;}
-        if(typeof st.today==='boolean')setToday(t.id,st.today);
-        if(typeof st.top3==='boolean'&&top3Ids().includes(t.id)!==st.top3&&!(st.top3&&top3Ids().length>=3))toggleTop3(t.id);
+        if(typeof st.today==='boolean')t.today=st.today;
+        const pr=priorityUpdate(st);
+        if(pr)setPriority(t.id,pr);
         if(st.status==='completed'&&t.status!=='completed')completeTask(t.id);
         if(st.status==='open'&&t.status==='completed')uncompleteTask(t.id);
         t.touchedAt=Date.now();checked++;
@@ -6032,21 +6141,27 @@ async function drainInbox(){
         continue;
       }
       const text=String(it.text||'').trim();if(!text)continue;
-      // same name already open: skip the duplicate
-      if(openTasks().some(t=>t.name.trim().toLowerCase()===text.toLowerCase()))continue;
+      const np=inboxPriority(it);
+      const dup=openTasks().find(t=>t.name.trim().toLowerCase()===text.toLowerCase());
+      if(dup){
+        if(prioRank(np)<prioRank(taskPriority(dup))){setPriority(dup.id,np);bumped++;}
+        continue;
+      }
       const area=String(it.area||'').trim().toLowerCase();
       const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
-      const t=addTask(text,{projectId:p?p.id:null});
-      if(it.today&&top3Ids().length<3)toggleTop3(t.id);
+      addTask(text,{projectId:p?p.id:null,priority:np});
       added++;
     }
     // persist the merged tasks before clearing the inbox so nothing can get lost
-    if(added||checked||journaled){clearTimeout(saveTimer);await store.set(STORE_KEY,JSON.stringify(S));}
-    const del={};ids.forEach(id=>{del[id]=firebase.firestore.FieldValue.delete();});
+    let saved=true;
+    if(added||checked||journaled||bumped){clearTimeout(saveTimer);saved=await store.set(STORE_KEY,JSON.stringify(S));}
+    if(saved===false){try{S=JSON.parse(prior);}catch(_){}return;}
+    const del={};okIds.forEach(id=>{del[id]=firebase.firestore.FieldValue.delete();});
     await db.collection('poppy').doc(INBOX_DOC).update(del);
+    if(!opts.fromPush)mirrorSoon();
     if(checked)etToast(checked+' task'+(checked>1?'s':'')+' checked off');
     if(journaled)etToast('Journal updated from '+((items.find(x=>x.kind==='journal')||{}).src||'your inbox'));
-    if(added||checked||journaled){
+    if(added||checked||journaled||bumped){
       const typing=['INPUT','TEXTAREA'].includes(document.activeElement&&document.activeElement.tagName);
       if(!typing&&(currentView==='tasks'||currentView==='morning'||currentView==='journal'))render();
       if(added)etToast(added+' task'+(added>1?'s':'')+' added from '+((items[0]&&items[0].src)||'your inbox'));
