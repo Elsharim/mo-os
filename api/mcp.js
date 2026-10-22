@@ -4,7 +4,7 @@
 // parked in an inbox doc; the app unseals and merges it the next time it's open.
 import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
-import { hevySummary, hevyRoutines } from './_hevy.js';
+import { hevySummary, hevyRoutines, hevyEdit } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets, removeWeight } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout, removeMoneyDay } from './_money.js';
 import { logCalls, callsSummary, removeCalls } from './_work.js';
@@ -176,12 +176,28 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { unread_only: { type: 'boolean', description: 'Default true' } } }
 }, {
   name: 'hevy',
-  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight. Pass routines=true to also get his saved Hevy routines (the plan: each routine's exercises with planned sets/reps and muscle groups, when it was last done, and which planned exercises he skipped that time) plus every muscle group with the date it was last trained and working sets in the last 14 days. Use that to call out skipped exercises and neglected muscles.",
+  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight. Pass routines=true to also get his saved Hevy routines (the plan: each routine's exercises with planned sets/reps and muscle groups, when it was last done, and which planned exercises he skipped that time) plus every muscle group with the date it was last trained and working sets in the last 14 days. Use that to call out skipped exercises and neglected muscles. Workouts and routines come with ids for hevy_edit.",
   inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' }, routines: { type: 'boolean', description: 'Also return saved routines and muscle group recency. Default false.' } } }
+}, {
+  name: 'hevy_edit',
+  description: "Write to Mo's Hevy account. Weights in lbs. Exercises by exact Hevy title (e.g. \"Lat Pulldown (Cable)\") or exercise_template_id; if a name is ambiguous the error lists the closest titles, so run find_exercise first when unsure. Actions: find_exercise {query}; get_workout {id}; log_workout {title, exercises, start_time?, end_time? (ISO, default ends now), minutes? (default 60), description?}; update_workout {id, fields to change; exercises replaces the whole list, omit it to keep them}; get_routine {id}; create_routine {title, exercises, folder_id?, notes?}; update_routine {id, title?, notes?, exercises? (replaces the whole list)}; create_folder {title}; create_exercise {title, exercise_type?, equipment?, muscle?} for a custom exercise. Exercise shape: {exercise, notes?, rest_seconds?, superset_id?, sets: [{weight_lb?, reps?, rep_min?, rep_max?, type?: warmup|normal|failure|dropset, duration_seconds?, rpe?}]} or shorthand {exercise, sets: 3, reps: 10 or \"8-10\", weight_lb?}. To edit one exercise in a routine, get_routine first, then send the full list back. Hevy's API cannot delete workouts or routines. Confirm with Mo before overwriting an existing workout or routine.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['find_exercise', 'get_workout', 'log_workout', 'update_workout', 'get_routine', 'create_routine', 'update_routine', 'create_folder', 'create_exercise'] },
+      id: { type: 'string', description: 'Workout or routine id' },
+      query: { type: 'string', description: 'find_exercise search text' },
+      title: { type: 'string' }, notes: { type: 'string' }, description: { type: 'string' },
+      folder_id: { type: 'number' }, start_time: { type: 'string' }, end_time: { type: 'string' }, minutes: { type: 'number' },
+      exercise_type: { type: 'string' }, equipment: { type: 'string' }, muscle: { type: 'string' },
+      exercises: { type: 'array', items: { type: 'object' } }
+    },
+    required: ['action']
+  }
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), hevy_edit (log/edit workouts and routines in Hevy), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
   "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, and set priorities: P1 for what must happen today, P2 for this week, P3 for someday. Keep P1 short.",
   "FOOD COACH: Mo is bulking from 145 to 170 lbs. Base is 3,000 cal a day, weekly budget is 7 times that base (21,000 unless food_plan.targets.weekly_calories says otherwise), Monday to Sunday in Europe/Sarajevo, protein 150g a day. His real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <adjusted daily target> cal\nProtein  <g so far> / <daily protein target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
@@ -338,7 +354,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -373,6 +389,8 @@ async function handle(msg) {
             ? await writeJournal(args)
           : name === 'hevy'
             ? JSON.stringify(args.routines ? { ...(await hevySummary(Number(args.workouts) || 10)), ...(await hevyRoutines()) } : await hevySummary(Number(args.workouts) || 10))
+          : name === 'hevy_edit'
+            ? JSON.stringify(await hevyEdit(args))
           : name === 'complete_tasks'
             ? await completeTasks(args)
           : name === 'delete_tasks'
