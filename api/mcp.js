@@ -4,7 +4,7 @@
 // parked in an inbox doc; the app unseals and merges it the next time it's open.
 import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
-import { hevySummary } from './_hevy.js';
+import { hevySummary, hevyRoutines } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets, removeWeight } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout, removeMoneyDay } from './_money.js';
 import { logCalls, callsSummary, removeCalls } from './_work.js';
@@ -176,8 +176,8 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { unread_only: { type: 'boolean', description: 'Default true' } } }
 }, {
   name: 'hevy',
-  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
-  inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
+  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight. Pass routines=true to also get his saved Hevy routines (the plan: each routine's exercises with planned sets/reps and muscle groups, when it was last done, and which planned exercises he skipped that time) plus every muscle group with the date it was last trained and working sets in the last 14 days. Use that to call out skipped exercises and neglected muscles.",
+  inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' }, routines: { type: 'boolean', description: 'Also return saved routines and muscle group recency. Default false.' } } }
 }];
 
 const INSTRUCTIONS = [
@@ -372,7 +372,7 @@ async function handle(msg) {
           : name === 'write_journal'
             ? await writeJournal(args)
           : name === 'hevy'
-            ? JSON.stringify(await hevySummary(Number(args.workouts) || 10))
+            ? JSON.stringify(args.routines ? { ...(await hevySummary(Number(args.workouts) || 10)), ...(await hevyRoutines()) } : await hevySummary(Number(args.workouts) || 10))
           : name === 'complete_tasks'
             ? await completeTasks(args)
           : name === 'delete_tasks'

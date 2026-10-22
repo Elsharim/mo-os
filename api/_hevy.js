@@ -65,3 +65,85 @@ export async function hevySummary(n = 10) {
     exercises
   };
 }
+
+// Saved routines (the plan) + when each muscle group was last trained, so a bot can call out skips.
+let templates = null;
+async function exerciseTemplates() {
+  if (templates) return templates;
+  const out = {};
+  for (let page = 1; page <= 20; page++) {
+    const d = await get(`/exercise_templates?page=${page}&pageSize=100`);
+    for (const t of d.exercise_templates || []) out[t.id] = { primary: t.primary_muscle_group || null, secondary: t.secondary_muscle_groups || [] };
+    if (page >= (d.page_count || 1)) break;
+  }
+  return (templates = out);
+}
+
+async function allPages(path, key) {
+  const out = [];
+  for (let page = 1; page <= 20; page++) {
+    const d = await get(`${path}?page=${page}&pageSize=10`);
+    out.push(...(d[key] || []));
+    if (page >= (d.page_count || 1)) break;
+  }
+  return out;
+}
+
+const fmtPlanned = (sets) => {
+  const work = (sets || []).filter((s) => s.type !== 'warmup');
+  if (!work.length) return '';
+  const reps = (s) => (s.rep_range && s.rep_range.start ? `${s.rep_range.start}-${s.rep_range.end || s.rep_range.start}` : s.reps || (s.duration_seconds ? s.duration_seconds + 's' : '?'));
+  const w = work.map((s) => s.weight_kg).find((x) => x);
+  return `${work.length}x${reps(work[0])}${w ? ' @ ' + lb(w) + 'lb' : ''}`;
+};
+
+export async function hevyRoutines() {
+  const [routines, folders, ws, tpl] = await Promise.all([
+    allPages('/routines', 'routines'),
+    allPages('/routine_folders', 'routine_folders').catch(() => []),
+    recentWorkouts(60),
+    exerciseTemplates().catch(() => ({}))
+  ]);
+  const folderOf = Object.fromEntries(folders.map((f) => [f.id, f]));
+  const today = Date.now();
+  const daysAgo = (d) => Math.floor((today - Date.parse(d)) / 864e5);
+  const lastByTitle = {};
+  for (const w of ws) if (!lastByTitle[w.title]) lastByTitle[w.title] = w; // ws is newest first
+
+  const plan = routines
+    .map((r) => {
+      const f = folderOf[r.folder_id];
+      const last = lastByTitle[r.title];
+      const done = new Set(((last && last.exercises) || []).map((e) => e.exercise_template_id || e.title));
+      return {
+        routine: r.title, folder: f ? f.title : null, _order: [f ? f.index : 999, r.index ?? 0],
+        last_done: last ? last.start_time.slice(0, 10) : null,
+        exercises: (r.exercises || []).map((e) => ({
+          exercise: e.title, planned: fmtPlanned(e.sets), muscle: (tpl[e.exercise_template_id] || {}).primary || null,
+          secondary: (tpl[e.exercise_template_id] || {}).secondary || [], notes: e.notes || undefined
+        })),
+        skipped_last_time: last ? (r.exercises || []).filter((e) => !done.has(e.exercise_template_id) && !done.has(e.title)).map((e) => e.title) : []
+      };
+    })
+    .sort((a, b) => a._order[0] - b._order[0] || a._order[1] - b._order[1])
+    .map(({ _order, ...r }) => r);
+
+  const muscles = {};
+  for (const w of ws.slice().reverse()) {
+    const date = w.start_time.slice(0, 10);
+    for (const e of w.exercises || []) {
+      const t = tpl[e.exercise_template_id];
+      if (!t || !t.primary) continue;
+      const sets = (e.sets || []).filter((s) => s.type !== 'warmup').length;
+      const m = (muscles[t.primary] = muscles[t.primary] || { last_trained: null, sets_14d: 0 });
+      m.last_trained = date;
+      if (daysAgo(date) <= 14) m.sets_14d += sets;
+    }
+  }
+  const planned = new Set(plan.flatMap((r) => r.exercises.map((e) => e.muscle)).filter(Boolean));
+  for (const m of planned) muscles[m] = muscles[m] || { last_trained: null, sets_14d: 0 };
+  const muscleList = Object.entries(muscles)
+    .map(([muscle, m]) => ({ muscle, last_trained: m.last_trained, days_ago: m.last_trained ? daysAgo(m.last_trained) : null, sets_14d: m.sets_14d }))
+    .sort((a, b) => (b.days_ago ?? 999) - (a.days_ago ?? 999));
+  return { routines: plan, muscles: muscleList };
+}
