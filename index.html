@@ -2579,6 +2579,15 @@
   .tk-more,.tk-star,.tk-clock{background:none;border:none;color:var(--faint);cursor:pointer;font-size:14px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;padding:0}
   .tk-more:hover,.tk-star:hover,.tk-clock:hover{color:var(--text);background:var(--surface-hi)}
   .tk-star.on{color:var(--gold)}
+  .tk-pri{flex:0 0 auto;align-self:center;background:none;border:1px solid var(--hair-2);color:var(--faint);font:600 11px/1 var(--mono);border-radius:7px;padding:5px 7px;margin-right:4px;cursor:pointer;transition:.13s}
+  .tk-pri.p0{opacity:0;border-style:dashed}
+  .tk-row:hover .tk-pri.p0{opacity:.7}
+  @media (hover:none){.tk-pri.p0{opacity:.45}}
+  .tk-pri.p1{color:var(--accent);border-color:rgba(255,122,71,.45);background:rgba(255,122,71,.08)}
+  .tk-pri.p2{color:var(--gold);border-color:rgba(251,191,36,.35)}
+  .tk-pri.p3{color:var(--muted,var(--faint))}
+  .tk-pri:hover{border-color:var(--accent);color:var(--text)}
+  .tk-psect.p1 b{color:var(--accent)}
   .tk-top3-line{font-size:13px;color:var(--faint);margin:0 0 22px 4px}
   .ap-danger{color:#f87171}
   .tk-filter{margin-bottom:10px}
@@ -3112,8 +3121,8 @@ async function pushMirror(){
     const E=execData();const cutoff=Date.now()-30*864e5;
     const J=jrData();
     const body={
-      name:S.name||'Mo',projects:E.projects.map(p=>({id:p.id,name:p.name})),top3:top3Ids(),
-      tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>({id:t.id,name:t.name,projectId:t.projectId,today:!!t.today,status:t.status,when:t.when||null,ts:t.ts,completedAt:t.completedAt})),
+      name:S.name||'Mo',projects:E.projects.map(p=>({id:p.id,name:p.name})),
+      tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>({id:t.id,name:t.name,projectId:t.projectId,today:!!t.today,pri:t.pri||null,status:t.status,when:t.when||null,ts:t.ts,completedAt:t.completedAt})),
       journal:Object.keys(J).sort().reverse().slice(0,120).map(k=>({key:k,title:J[k].title||'',text:J[k].text||'',ts:J[k].ts||0,done:!!J[k].done})),
       disciplines:S.disciplines||[],
       days:Object.fromEntries(Object.keys(S.days||{}).sort().slice(-60).map(k=>[k,{disc:(S.days[k]||{}).disc||{}}])),
@@ -3287,6 +3296,7 @@ function execData(){
     S.exec.v2=true;save();
   }
   if(!Array.isArray(S.exec.todayOrder))S.exec.todayOrder=[];
+  if(!S.exec.priV1){(Array.isArray(S.exec.top3)?S.exec.top3:[]).forEach(id=>{const t=S.exec.tasks[id];if(t&&!t.pri)t.pri=1;});delete S.exec.top3;S.exec.priV1=true;save();}
   return S.exec;
 }
 function taskProject(t){if(!t||!t.projectId)return null;return execData().projects.find(p=>p.id===t.projectId)||null;}
@@ -3321,7 +3331,6 @@ function uncompleteTask(id){const t=execData().tasks[id];if(!t)return;t.status='
 function deleteTask(id){
   const E=execData();delete E.tasks[id];
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
-  if(Array.isArray(E.top3))E.top3=E.top3.filter(x=>x!==id);
 }
 function setToday(id,on){
   const E=execData();const t=E.tasks[id];if(!t)return;
@@ -3329,7 +3338,7 @@ function setToday(id,on){
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
   if(on)E.todayOrder.push(id);
 }
-/* LIFE AREAS + TOP 3 + STALE (task hub) */
+/* LIFE AREAS + PRIORITY + STALE (task hub) */
 function ensureAreas(){
   const E=execData();
   if(E.areasSeeded)return;
@@ -3338,13 +3347,12 @@ function ensureAreas(){
   defs.forEach(([n,ic])=>{if(!have.has(n.toLowerCase()))execAddProject(n,ic);});
   E.areasSeeded=true;save();
 }
-function top3Ids(){const E=execData();if(!Array.isArray(E.top3))E.top3=[];const live=E.top3.filter(id=>E.tasks[id]);if(live.length!==E.top3.length)E.top3=live;return E.top3;}
-function top3Tasks(){const E=execData();return top3Ids().map(id=>E.tasks[id]).filter(t=>t&&t.status!=='completed');}
-function toggleTop3(id){
-  const E=execData();let arr=top3Ids();const i=arr.indexOf(id);
-  if(i>=0)arr.splice(i,1); else {arr=arr.filter(x=>E.tasks[x]&&E.tasks[x].status!=='completed');E.top3=arr;if(arr.length<3)arr.push(id);}
-  E.top3=arr;touchTask(id);
-}
+/* P1 = do today, P2 = this week, P3 = someday, none = not sorted yet */
+const PRI_LBL={1:'Today',2:'This week',3:'Someday'};
+function priOf(v){const n=parseInt(String(v==null?'':v).replace(/^p/i,''),10);return [1,2,3].includes(n)?n:0;}
+function setPri(id,v){const t=execData().tasks[id];if(!t)return;const n=priOf(v);if(n)t.pri=n;else delete t.pri;touchTask(id);}
+function cyclePri(id){const t=execData().tasks[id];if(!t)return;setPri(id,t.pri?(t.pri<3?t.pri+1:0):1);}
+const priRank=t=>t.pri||4;
 function touchTask(id){const t=execData().tasks[id];if(t)t.touchedAt=Date.now();}
 const STALE_MS=14*24*3600*1000;
 function isStale(t){return t&&t.status!=='completed'&&(Date.now()-(t.touchedAt||t.ts||0))>STALE_MS;}
@@ -3471,15 +3479,14 @@ function projectCard(p){
 function hubTaskRow(t){
   const done=t.status==='completed';
   const proj=taskProject(t);
-  const inTop=top3Ids().includes(t.id);
   const dc=proj?execProjColor(proj.id):'var(--border-2)';
   const whenChip=t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';
-  return `<div class="et-row tk-row ${done?'completed':''} ${inTop?'top':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
+  return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
     <div class="et-main"><div class="et-name tk-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:'<i class="tk-adot none"></i>'}<span class="tk-txt">${esc(t.name)}</span>${whenChip}</div></div>
+    ${done?'':`<button class="tk-pri p${t.pri||0}" data-pri="${t.id}" title="${t.pri?'P'+t.pri+' · '+PRI_LBL[t.pri]+'. Tap to change':'Set priority'}">${t.pri?'P'+t.pri:'P'}</button>`}
     <div class="et-actions tk-acts">
       ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
-      <button class="tk-star ${inTop?'on':''}" data-star="${t.id}" title="${inTop?'Take out of Top 3':'Top 3'}">${inTop?'★':'☆'}</button>
       <button class="tk-more" data-dot="${t.id}" title="Area, delete">⋯</button>
     </div>
   </div>`;
@@ -3487,14 +3494,14 @@ function hubTaskRow(t){
 function renderTasks(){
   ensureAreas();
   const E=execData();
-  const t3=top3Tasks();
   const dToday=doneToday();
   const areas=E.projects;
   const open=openTasks();
   const filtered=taskArea==='all'?open:open.filter(t=>(t.projectId||null)===taskArea);
   const tk=todayKey();
   const sched=filtered.filter(t=>t.when&&!isStale(t)).sort((a,b)=>Date.parse(a.when)-Date.parse(b.when));
-  const fresh=filtered.filter(t=>!t.when&&!isStale(t)).sort((a,b)=>{const ia=top3Ids().includes(a.id),ib=top3Ids().includes(b.id);if(ia!==ib)return ia?-1:1;return b.ts-a.ts;});
+  const fresh=filtered.filter(t=>!t.when&&!isStale(t)).sort((a,b)=>(priRank(a)-priRank(b))||(b.ts-a.ts));
+  const priGroups=[1,2,3,0].map(n=>({n,list:fresh.filter(t=>(t.pri||0)===n)})).filter(g=>g.list.length);
   const quiet=filtered.filter(t=>isStale(t)).sort((a,b)=>a.ts-b.ts);
   const cnt=pid=>open.filter(t=>(t.projectId||null)===pid).length;
 
@@ -3507,20 +3514,6 @@ function renderTasks(){
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
 
-    ${t3.length?`<div class="tk-today">
-      <div class="tk-today-h">Top 3 today</div>
-      <div class="tk-top3-grid">
-        ${[0,1,2].map(i=>{const t=t3[i];
-          return t?`<div class="tk-top3-card" data-id="${t.id}">
-            <span class="box et-complete" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
-            <span class="tk-top3-name" data-n="${t.id}">${esc(t.name)}${t.when?`<span class="tk-top3-when">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:''}</span>
-            <button class="tk-top3-x" data-star="${t.id}" title="Remove">×</button>
-          </div>`
-          :`<div class="tk-top3-card empty"><span class="tk-top3-num">${i+1}</span><span class="tk-top3-hint">star one below</span></div>`;
-        }).join('')}
-      </div>
-    </div>`:`<div class="tk-top3-line">No Top 3 yet. Star up to 3 tasks below, or tell Grok.</div>`}
-
     <div class="tk-filter">
       <button class="tk-fchip ${taskArea==='all'?'on':''}" data-area="all">All${open.length?` <i>${open.length}</i>`:''}</button>
       ${areas.map(p=>`<button class="tk-fchip ${taskArea===p.id?'on':''}" data-area="${p.id}" style="--dc:${execProjColor(p.id)}"><span class="tk-fdot"></span>${esc(p.name)}${cnt(p.id)?` <i>${cnt(p.id)}</i>`:''}</button>`).join('')}
@@ -3528,7 +3521,7 @@ function renderTasks(){
     </div>
 
     ${sched.length?`<div class="tk-sect"><b>Scheduled</b><span>${sched.filter(t=>isoDay(new Date(t.when))===tk).length} today</span></div><div class="et-list">${sched.map(hubTaskRow).join('')}</div>`:''}
-    ${fresh.length?`${sched.length?'<div class="tk-sect"><b>Anytime</b></div>':''}<div class="et-list">${fresh.map(hubTaskRow).join('')}</div>`
+    ${fresh.length?priGroups.map(g=>`<div class="tk-sect tk-psect p${g.n}"><b>${g.n?'P'+g.n+' · '+PRI_LBL[g.n]:'No priority'}</b><span>${g.list.length}</span></div><div class="et-list">${g.list.map(hubTaskRow).join('')}</div>`).join('')
       :(sched.length?'':`<div class="empty sect-empty">${open.length?'Nothing in this area.':'All clear. Capture something above.'}</div>`)}
 
     ${quiet.length?`<div class="tk-quiet">
@@ -3556,7 +3549,7 @@ function wireTasks(){
     const v=inp.value.trim();if(!v)return;
     const pc=parseCapture(v);if(!pc.name)return;
     const t=addTask(pc.name,{projectId:pc.area||(taskArea==='all'?null:taskArea)});
-    if(pc.top3)toggleTop3(t.id);
+    if(pc.pri)setPri(t.id,pc.pri);
     save();
     if(pc.mins!=null){scheduleTask(t.id,slotDate(pc.mins+pc.dayOff*1440));return;}
     renderTasks();
@@ -3585,7 +3578,7 @@ function wireTasks(){
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
   main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const t=E.tasks[b.dataset.del];if(t&&t.when)unscheduleTask(t.id,true);deleteTask(b.dataset.del);save();renderTasks();});
   main.querySelectorAll('[data-keep]').forEach(b=>b.onclick=()=>{touchTask(b.dataset.keep);save();renderTasks();});
-  main.querySelectorAll('[data-star]').forEach(b=>b.onclick=()=>{toggleTop3(b.dataset.star);save();renderTasks();});
+  main.querySelectorAll('[data-pri]').forEach(b=>b.onclick=e=>{e.stopPropagation();cyclePri(b.dataset.pri);save();renderTasks();});
   main.querySelectorAll('[data-dot]').forEach(b=>b.onclick=e=>{e.stopPropagation();openAreaPicker(b.dataset.dot,b);});
 
   const renameRow=(nm,dn)=>{
@@ -3596,7 +3589,6 @@ function wireTasks(){
     input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
   };
   main.querySelectorAll('.et-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
-  main.querySelectorAll('.tk-top3-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
 
   const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
   const qt=document.getElementById('tk-quiet-toggle');if(qt)qt.onclick=()=>{taskQuietOpen=!taskQuietOpen;renderTasks();};
@@ -5131,7 +5123,8 @@ function todaySay(d){
 }
 function todayCard(d){
   const E=execData();
-  const ids=top3Ids().filter(id=>E.tasks[id]);
+  const tk0=todayKey();
+  const ids=Object.values(E.tasks).filter(t=>t.pri===1&&(t.status!=='completed'||(t.completedAt&&isoDay(new Date(t.completedAt))===tk0))).sort((a,b)=>((a.status==='completed')-(b.status==='completed'))||(b.ts-a.ts)).map(t=>t.id);
   const done=ids.filter(id=>E.tasks[id].status==='completed').length;
   const sl=d&&d.sleep,rec=d&&d.recovery,cal=d&&d.calendar,f=d&&d.food;
   const now=new Date();
@@ -5154,13 +5147,13 @@ function todayCard(d){
     :`<div class="tday-empty">${cal?'Nothing booked today.':'Your calls show up here once the calendar is linked.'}</div>`;
   const top=ids.length
     ?ids.map(id=>{const t=E.tasks[id];const ok=t.status==='completed';return `<div class="t3 ${ok?'done':''}" data-t3="${id}"><i>${ok?'✓':''}</i><span>${esc(t.name)}</span></div>`;}).join('')
-    :`<div class="tday-empty">No Top 3 yet. <a class="link" id="t3-pick" style="color:var(--accent);cursor:pointer">Pick them in Tasks</a> or tell Grok.</div>`;
+    :`<div class="tday-empty">Nothing marked P1. <a class="link" id="t3-pick" style="color:var(--accent);cursor:pointer">Set priorities in Tasks</a> or tell Grok.</div>`;
   return `<div class="card tday">
     <div class="tday-date">${dateStr}</div>
     <div class="tday-stats">${stats}</div>
     <div class="tday-cols">
       <div><div class="tday-cap"><span>Schedule</span></div>${sched}</div>
-      <div><div class="tday-cap"><span>Top 3${ids.length?' · '+done+' of '+ids.length+' done':''}</span><a id="t3-open">Tasks →</a></div>${top}</div>
+      <div><div class="tday-cap"><span>P1 today${ids.length?' · '+done+' of '+ids.length+' done':''}</span><a id="t3-open">Tasks →</a></div>${top}</div>
     </div>
   </div>`;
 }
@@ -5705,15 +5698,17 @@ const tlTop=d=>(tlMins(d)-TL_START*60)/60*TL_HPX;
 const tlFmt=d=>{const x=new Date(d);return fmt12(String(x.getHours()).padStart(2,'0')+':'+String(x.getMinutes()).padStart(2,'0'));};
 const sameEvent=(t,e)=>e&&t.when&&Math.abs(Date.parse(e.start_iso)-Date.parse(t.when))<120e3&&(e.title||'').trim().toLowerCase()===t.name.trim().toLowerCase();
 function slotDate(mins){const d=new Date();d.setHours(0,0,0,0);if(mins>=1440){d.setDate(d.getDate()+1);mins-=1440;}d.setHours(Math.floor(mins/60),mins%60,0,0);return d;}
-/* "call clinton tomorrow 3pm @sales !" -> name, time, day offset, area, top3 */
+/* "call clinton tomorrow 3pm @sales p1" -> name, time, day offset, area, priority ("!" = p1) */
 function parseCapture(text){
-  let t=' '+text.trim(),out={name:'',mins:null,dayOff:0,area:null,top3:false};
+  let t=' '+text.trim(),out={name:'',mins:null,dayOff:0,area:null,pri:0};
   const tm=/\s(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i.exec(t);
   if(tm){let h=+tm[1]%12;if(tm[3].toLowerCase()==='pm')h+=12;out.mins=h*60+(+tm[2]||0);t=t.slice(0,tm.index)+' '+t.slice(tm.index+tm[0].length);}
   if(/\s(tomorrow|tmrw|tmr)\b/i.test(t)){out.dayOff=1;t=t.replace(/\s(tomorrow|tmrw|tmr)\b/i,' ');}
   const ar=/\s[@#]([a-z]+)\b/i.exec(t);
   if(ar){const E=execData();const p=E.projects.find(x=>(x.name||'').toLowerCase().startsWith(ar[1].toLowerCase()));if(p){out.area=p.id;t=t.slice(0,ar.index)+' '+t.slice(ar.index+ar[0].length);}}
-  if(/\s!$/.test(t)||/^\s!/.test(t)){out.top3=true;t=t.replace(/\s!$/,'').replace(/^\s!/,' ');}
+  if(/\s!$/.test(t)||/^\s!/.test(t)){out.pri=1;t=t.replace(/\s!$/,'').replace(/^\s!/,' ');}
+  const pm=/\s[pP]([123])(?=\s|$)/.exec(t);
+  if(pm){out.pri=+pm[1];t=t.slice(0,pm.index)+' '+t.slice(pm.index+pm[0].length);}
   out.name=t.replace(/\s+/g,' ').trim();
   if(out.mins!=null&&!/\s(today)\b/i.test(' '+text))out.name=out.name.replace(/\s(today)\b/i,'');
   return out;
@@ -5978,7 +5973,8 @@ async function drainInbox(){
         if(typeof st.name==='string'&&st.name.trim())t.name=st.name.trim().slice(0,500);
         if(typeof st.area==='string'){const p=E.projects.find(x=>(x.name||'').trim().toLowerCase()===st.area.trim().toLowerCase());if(p)t.projectId=p.id;}
         if(typeof st.today==='boolean')setToday(t.id,st.today);
-        if(typeof st.top3==='boolean'&&top3Ids().includes(t.id)!==st.top3&&!(st.top3&&top3Ids().length>=3))toggleTop3(t.id);
+        if(st.priority!==undefined)setPri(t.id,st.priority);
+        else if(typeof st.top3==='boolean'){if(st.top3)setPri(t.id,1);else if(t.pri===1)setPri(t.id,0);}
         if(st.status==='completed'&&t.status!=='completed')completeTask(t.id);
         if(st.status==='open'&&t.status==='completed')uncompleteTask(t.id);
         t.touchedAt=Date.now();checked++;
@@ -6037,7 +6033,7 @@ async function drainInbox(){
       const area=String(it.area||'').trim().toLowerCase();
       const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
       const t=addTask(text,{projectId:p?p.id:null});
-      if(it.today&&top3Ids().length<3)toggleTop3(t.id);
+      if(priOf(it.priority))setPri(t.id,it.priority);else if(it.today)setPri(t.id,1);
       added++;
     }
     // persist the merged tasks before clearing the inbox so nothing can get lost
