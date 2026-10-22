@@ -273,7 +273,18 @@ export async function hevyEdit(a) {
 
     case 'get_routine': {
       const r = unwrap(await get('/routines/' + encodeURIComponent(a.id)), 'routine');
-      return { ...brief(r), folder_id: r.folder_id, notes: r.notes };
+      return {
+        id: r.id, title: r.title, folder_id: r.folder_id ?? null, notes: r.notes || null,
+        exercises: (r.exercises || []).map((e) => ({
+          exercise: e.title, exercise_template_id: e.exercise_template_id, rest_seconds: e.rest_seconds ?? null,
+          superset_id: e.superset_id ?? null, notes: e.notes || null,
+          sets: (e.sets || []).map((x) => ({
+            type: x.type, weight_lb: lb(x.weight_kg), reps: x.reps ?? null,
+            rep_range: x.rep_range && x.rep_range.start != null ? `${x.rep_range.start}-${x.rep_range.end ?? x.rep_range.start}` : null,
+            duration_seconds: x.duration_seconds ?? undefined, distance_meters: x.distance_meters ?? undefined
+          }))
+        }))
+      };
     }
 
     case 'create_routine': {
