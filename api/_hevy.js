@@ -299,7 +299,7 @@ export async function hevyEdit(a) {
       if (!a.id) throw new Error('update_routine needs id (from hevy routines=true, routines[].id)');
       const r = unwrap(await get('/routines/' + encodeURIComponent(a.id)), 'routine');
       const d = await call('PUT', '/routines/' + encodeURIComponent(a.id), { routine: {
-        title: a.title ?? r.title, notes: a.notes ?? r.notes ?? null,
+        title: a.title ?? r.title, ...(a.folder_id !== undefined ? { folder_id: a.folder_id } : {}), notes: a.notes ?? r.notes ?? null,
         exercises: a.exercises ? await toExercises(a.exercises, true) : keepExercises(r.exercises, true)
       } });
       return { ok: true, updated: brief(unwrap(d, 'routine')) };
