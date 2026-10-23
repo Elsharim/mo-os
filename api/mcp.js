@@ -4,11 +4,11 @@
 // parked in an inbox doc; the app unseals and merges it the next time it's open.
 import { webcrypto, timingSafeEqual } from 'crypto';
 import { whoopSummary, NOT_CONNECTED } from './_whoop.js';
-import { hevySummary } from './_hevy.js';
+import { hevySummary, hevyRoutines, hevyEdit } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets, removeWeight } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout, removeMoneyDay } from './_money.js';
 import { logCalls, callsSummary, removeCalls } from './_work.js';
-import { readMirror, tasksOf, journalOf, disciplinesOf, goalsOf, summaryOf, applyToMirror, nameForId, coercePriority } from './_mirror.js';
+import { readMirror, tasksOf, priOf, journalOf, disciplinesOf, goalsOf, summaryOf, applyToMirror, nameForId } from './_mirror.js';
 import { localDateISO } from './_health.js';
 import { calendarToday } from './_cal.js';
 import { leaveNote, readNotes } from './_notes.js';
@@ -24,7 +24,7 @@ const NOT_READY = 'The MO OS inbox is not activated yet. Open MO OS once on any 
 
 const TOOLS = [{
   name: 'add_tasks',
-  description: "Add one or more tasks to Mo's MO OS list. priority is P1 (do today), P2 (this week, the default) or P3 (someday). Optional area: Sales, Fitness, Money or Personal. today=true and top3=true are the old way to say P1. Use list_tasks to read his list.",
+  description: "Add one or more tasks to Mo's MO OS task list. Optional priority: P1 (do today), P2 (this week), P3 (someday); leave it out if unsure. Optional area: Sales, Fitness, Money or Personal. Use list_tasks to read his list.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -35,9 +35,7 @@ const TOOLS = [{
           properties: {
             text: { type: 'string', description: 'The task, short and actionable' },
             area: { type: 'string', description: 'Optional: Sales, Fitness, Money or Personal' },
-            priority: { type: 'string', enum: ['P1', 'P2', 'P3'], description: 'P1 do today, P2 this week (default), P3 someday' },
-            today: { type: 'boolean', description: 'Legacy. true means priority P1.' },
-            top3: { type: 'boolean', description: 'Legacy. true means priority P1. Otherwise ignored.' }
+            priority: { type: 'string', enum: ['P1', 'P2', 'P3'], description: 'P1 = do today, P2 = this week, P3 = someday' }
           },
           required: ['text']
         }
@@ -59,12 +57,12 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { kind: { type: 'string', enum: ['weight', 'calls', 'money'] }, date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['kind', 'date'] }
 }, {
   name: 'list_tasks',
-  description: "Mo's tasks, grouped the way the app shows them. now is the short focus list (at most 5: overdue, then P1, then P2 left untouched for 3 or more days). also_now is the rest of the urgent ones. this_week is P2. later is P3. tasks is the flat list, sorted by priority then oldest first, and each task has priority. Pass all=true to include completed tasks in tasks only. This matches the app once MO OS has been opened.",
-  inputSchema: { type: 'object', properties: { all: { type: 'boolean' } } }
+  description: "Mo's open tasks from MO OS, sorted by priority (P1 do today, P2 this week, P3 someday, then null = not sorted), with id, name, area, priority, status and when (from the copy the app syncs each time it saves; pending=true means the app has not picked it up yet). Optional priority filter. Pass all=true to include completed ones.",
+  inputSchema: { type: 'object', properties: { all: { type: 'boolean' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'Only tasks with this priority (none = not sorted yet)' } } }
 }, {
   name: 'update_tasks',
-  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), priority (P1, P2 or P3), area (Sales, Fitness, Money, Personal), status ('completed' or 'open'). today=true and top3=true are the old way to set priority P1. A false value does not lower the priority. Takes effect right away for the bots; the app applies it whenever it's open.",
-  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3'] }, today: { type: 'boolean', description: 'Legacy. true means P1.' }, top3: { type: 'boolean', description: 'Legacy. true means P1. Otherwise ignored.' }, area: { type: 'string' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
+  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), priority (P1 do today, P2 this week, P3 someday, none to clear), area (Sales, Fitness, Money, Personal), status ('completed' or 'open'). Takes effect right away for the bots; the app applies it whenever it's open.",
+  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'P1 = do today, P2 = this week, P3 = someday, none = clear it' }, area: { type: 'string' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
 }, {
   name: 'read_journal',
   description: "Mo's journal entries from MO OS, newest first. Optional from/to dates (YYYY-MM-DD) and limit (default 30). Each entry has a key for edit_journal.",
@@ -87,7 +85,7 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: {} }
 }, {
   name: 'summary',
-  description: "One call for briefs: Now, the rest of the urgent tasks, this week, how many are later, open task count, disciplines today, active goals, last journal entry, plus last night's sleep and recovery, food so far, today's calendar and calls this week.",
+  description: "One call for briefs: P1 tasks (today), P2 tasks (this week), open task count, disciplines today, active goals, last journal entry, plus last night's sleep and recovery, food so far, today's calendar and calls this week.",
   inputSchema: { type: 'object', properties: {} }
 }, {
   name: 'whoop',
@@ -178,13 +176,29 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { unread_only: { type: 'boolean', description: 'Default true' } } }
 }, {
   name: 'hevy',
-  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight.",
-  inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' } } }
+  description: "Mo's gym log from Hevy (weights in lbs): recent workouts with every set, and per exercise the last session, estimated 1RM, and the target to beat next time (progressive overload). Use it before a gym session to tell him exactly what to hit, and to track strength progress toward his goal of going from about 147 to 170 lbs bodyweight. Pass routines=true to also get his saved Hevy routines (the plan: each routine's exercises with planned sets/reps and muscle groups, when it was last done, and which planned exercises he skipped that time) plus every muscle group with the date it was last trained and working sets in the last 14 days. Use that to call out skipped exercises and neglected muscles. Workouts and routines come with ids for hevy_edit.",
+  inputSchema: { type: 'object', properties: { workouts: { type: 'number', description: 'How many recent workouts, 1 to 30. Default 10.' }, routines: { type: 'boolean', description: 'Also return saved routines and muscle group recency. Default false.' } } }
+}, {
+  name: 'hevy_edit',
+  description: "Write to Mo's Hevy account. Weights in lbs. Exercises by exact Hevy title (e.g. \"Lat Pulldown (Cable)\") or exercise_template_id; if a name is ambiguous the error lists the closest titles, so run find_exercise first when unsure. Actions: find_exercise {query}; get_workout {id}; log_workout {title, exercises, start_time?, end_time? (ISO, default ends now), minutes? (default 60), description?}; update_workout {id, fields to change; exercises replaces the whole list, omit it to keep them}; get_routine {id}; create_routine {title, exercises, folder_id?, notes?}; update_routine {id, title?, folder_id?, notes?, exercises? (replaces the whole list)}; create_folder {title}; create_exercise {title, exercise_type?, equipment?, muscle?} for a custom exercise. Exercise shape: {exercise, notes?, rest_seconds?, superset_id?, sets: [{weight_lb?, reps?, rep_min?, rep_max?, type?: warmup|normal|failure|dropset, duration_seconds?, rpe?}]} or shorthand {exercise, sets: 3, reps: 10 or \"8-10\", weight_lb?}. To edit one exercise in a routine, get_routine first, then send the full list back. Hevy's API cannot delete workouts or routines. Confirm with Mo before overwriting an existing workout or routine.",
+  inputSchema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['find_exercise', 'get_workout', 'log_workout', 'update_workout', 'get_routine', 'create_routine', 'update_routine', 'create_folder', 'create_exercise'] },
+      id: { type: 'string', description: 'Workout or routine id' },
+      query: { type: 'string', description: 'find_exercise search text' },
+      title: { type: 'string' }, notes: { type: 'string' }, description: { type: 'string' },
+      folder_id: { type: 'number' }, start_time: { type: 'string' }, end_time: { type: 'string' }, minutes: { type: 'number' },
+      exercise_type: { type: 'string' }, equipment: { type: 'string' }, muscle: { type: 'string' },
+      exercises: { type: 'array', items: { type: 'object' } }
+    },
+    required: ['action']
+  }
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
-  "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, and set priority P1 for the short today list (about five). P2 is this week and the default. P3 is someday. list_tasks returns them as now, also_now, this_week and later.",
+  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), hevy_edit (log/edit workouts and routines in Hevy), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, and set priorities: P1 for what must happen today, P2 for this week, P3 for someday. Keep P1 short.",
   "FOOD COACH: Mo is bulking from 145 to 170 lbs. Base is 3,000 cal a day, weekly budget is 7 times that base (21,000 unless food_plan.targets.weekly_calories says otherwise), Monday to Sunday in Europe/Sarajevo, protein 150g a day. His real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <adjusted daily target> cal\nProtein  <g so far> / <daily protein target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
   "The adjusted daily target is food_plan.today.adjusted_daily_target on log_food and food_and_weight. It does not drop as he eats today. If today.provisional is true, the target and the week remaining use the prorated budget (base times logged days plus days left), not the full weekly goal, and you say it is provisional. If today.clamped or today.note is set, the one line tells him to spread the gap, and you never tell him to eat the raw uncapped number. Protein is daily: a high day does not cover a low day. Unlogged days are unlogged, not zero. Weight trend fields on food_and_weight stay as they are.",
@@ -248,27 +262,19 @@ async function writeJournal(a) {
 async function addTasks(args) {
   const list = Array.isArray(args && args.tasks) ? args.tasks : [];
   const clean = list
-    .map((t) => {
-      const priority = coercePriority(t && t.priority, { today: !!(t && t.today), top3: !!(t && t.top3) });
-      return {
-        text: String((t && t.text) || '').trim().slice(0, 500),
-        area: String((t && t.area) || '').trim().slice(0, 40),
-        priority,
-        today: priority === 'P1',
-        top3: !!(t && t.top3)
-      };
-    })
+    .map((t) => ({
+      text: String((t && t.text) || '').trim().slice(0, 500),
+      area: String((t && t.area) || '').trim().slice(0, 40),
+      priority: priOf(t && t.priority) ? 'P' + priOf(t.priority) : undefined
+    }))
     .filter((t) => t.text)
     .slice(0, 20);
   if (!clean.length) throw new Error('No task text was given.');
 
   await sealToInbox(clean.map((t) => ({ ...t, src: 'Grok Bot' })));
 
-  const n = clean.length;
-  const counts = { P1: 0, P2: 0, P3: 0 };
-  clean.forEach((t) => { counts[t.priority] += 1; });
-  const bits = ['P1', 'P2', 'P3'].filter((p) => counts[p]).map((p) => `${counts[p]} ${p}`);
-  return `Added ${n} task${n > 1 ? 's' : ''} to MO OS (${bits.join(', ')}). list_tasks shows them now; the app picks them up whenever it's open.`;
+  const n = clean.length, p1 = clean.filter((t) => t.priority === 'P1').length;
+  return `Added ${n} task${n > 1 ? 's' : ''} to MO OS${p1 ? ` (${p1} as P1 for today)` : ''}. list_tasks shows them now; the app picks them up whenever it's open.`;
 }
 
 async function completeTasks(args) {
@@ -348,7 +354,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -382,13 +388,15 @@ async function handle(msg) {
           : name === 'write_journal'
             ? await writeJournal(args)
           : name === 'hevy'
-            ? JSON.stringify(await hevySummary(Number(args.workouts) || 10))
+            ? JSON.stringify(args.routines ? { ...(await hevySummary(Number(args.workouts) || 10)), ...(await hevyRoutines()) } : await hevySummary(Number(args.workouts) || 10))
+          : name === 'hevy_edit'
+            ? JSON.stringify(await hevyEdit(args))
           : name === 'complete_tasks'
             ? await completeTasks(args)
           : name === 'delete_tasks'
             ? await deleteTasks(args)
           : name === 'list_tasks'
-            ? JSON.stringify(tasksOf(await readMirror(), { all: !!args.all }))
+            ? JSON.stringify(tasksOf(await readMirror(), { all: !!args.all }).filter((t) => !args.priority || (args.priority === 'none' ? !t.priority : t.priority === 'P' + priOf(args.priority))))
           : name === 'update_tasks'
             ? await updateTasks(args)
           : name === 'read_journal'
