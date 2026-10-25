@@ -2341,6 +2341,31 @@
   .bd-tab:hover{color:var(--text);background:var(--surface)}
   .bd-tab.on{background:var(--surface-hi);color:var(--text);border-color:var(--hair-2)}
   .dl-scores{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:16px}
+  .wk-head{align-items:flex-end}.wk-nav button{font-size:12.5px;padding:6px 12px}
+  .wk-nums{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+  .wk-num{position:relative;border-radius:18px;padding:16px 16px 14px;background:var(--surface,rgba(255,255,255,.04));border:1px solid var(--hair,rgba(255,255,255,.07));overflow:hidden}
+  .wk-num:before{content:"";position:absolute;inset:0;opacity:.16;background:radial-gradient(120% 90% at 0% 0%,var(--tone,#ff7a47),transparent 60%)}
+  .wk-num.money{--tone:#4ade80}.wk-num.calls{--tone:#8b5cf6}.wk-num.gym{--tone:#22c55e}.wk-num.food{--tone:#ff7a47}.wk-num.weight{--tone:#2dd4bf}
+  .wk-cap{position:relative;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint,rgba(255,255,255,.5))}
+  .wk-big{position:relative;font-family:var(--display,inherit);font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:6px;line-height:1.05}
+  .wk-big small{font-size:15px;color:var(--faint,rgba(255,255,255,.45));font-weight:600}
+  .wk-sub{position:relative;font-size:12px;color:var(--muted,rgba(255,255,255,.6));margin-top:6px}
+  .wk-grid{padding:14px 18px 8px}
+  .wk-row{display:grid;grid-template-columns:150px repeat(7,1fr) 56px;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--hair,rgba(255,255,255,.06))}
+  .wk-row.wk-hd{border-top:none;padding-top:2px}
+  .wk-hd i{font-style:normal;text-align:center;font-size:11.5px;font-weight:700;color:var(--faint,rgba(255,255,255,.45));display:flex;flex-direction:column;align-items:center;gap:1px}
+  .wk-hd i small{font-size:11px;font-weight:600;opacity:.7}.wk-hd i.today{color:var(--accent,#ff7a47)}
+  .wk-lbl{font-size:14px;font-weight:600;display:flex;flex-direction:column}.wk-lbl small{font-size:11px;font-weight:500;color:var(--faint,rgba(255,255,255,.4));margin-top:1px}
+  .wk-row .c{justify-self:center;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:13px;font-weight:800;color:#0b0b0d;transition:transform .12s}
+  .wk-row .c.miss{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.08)}
+  .wk-row .c.fut{background:rgba(255,255,255,.025)}
+  .wk-row .c.today{box-shadow:0 0 0 2px var(--accent,#ff7a47)}
+  .wk-row .c.tap{cursor:pointer}.wk-row .c.tap:hover{transform:scale(1.08)}
+  .h-gym .c.hit{background:#22c55e}.h-cal .c.hit{background:#ff7a47}.h-pro .c.hit{background:#2dd4bf}.h-supps .c.hit{background:#f5b700}.h-learn .c.hit{background:#8b5cf6;color:#fff}.h-parents .c.hit{background:#f472b6}
+  .wk-row>b{text-align:right;font-size:15px;font-weight:700}.wk-row>b small{font-size:12px;color:var(--faint,rgba(255,255,255,.4));font-weight:600}.wk-row>b.ok{color:#4ade80}
+  .wk-foot{font-size:12px;color:var(--faint,rgba(255,255,255,.4));margin:12px 4px 0;line-height:1.5}
+  @media (max-width:900px){.wk-nums{grid-template-columns:repeat(3,1fr);gap:8px}.wk-num{padding:12px 12px 11px;border-radius:15px}.wk-big{font-size:22px;margin-top:4px}.wk-big small{font-size:12px}.wk-cap{font-size:10px}.wk-sub{font-size:11px;margin-top:3px}}
+  @media (max-width:700px){.wk-grid{padding:10px 10px 4px}.wk-row{grid-template-columns:78px repeat(7,1fr) 36px;gap:3px}.wk-lbl{font-size:12px}.wk-lbl small{display:none}.wk-row .c{width:26px;height:26px;font-size:11px}.wk-row>b{font-size:13px}.wk-row>b small{font-size:10px}.wk-big{font-size:26px}}
   .dl-score{padding:16px 16px 14px}
   .dl-score .bd-big{font-size:26px}
   .dl-score.ok .bd-big{color:var(--good)}
@@ -3285,7 +3310,7 @@
       <div class="rail-group">
         <div class="rail-label">Day</div>
         <button class="navbtn active" data-view="morning" data-label="Morning" title="Morning"><span class="navico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.25"/><path d="M12 3.4v2.1M12 18.5v2.1M3.4 12h2.1M18.5 12h2.1M5.9 5.9l1.5 1.5M16.6 16.6l1.5 1.5M18.1 5.9l-1.5 1.5M7.4 16.6L5.9 18.1"/></svg></span><span class="navlbl">Morning</span></button>
-        <button class="navbtn" data-view="daily" data-label="Daily" title="Daily"><span class="navico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M8.2 12.2l2.5 2.5 5.2-5.4"/></svg></span><span class="navlbl">Daily</span></button>
+        <button class="navbtn" data-view="daily" data-label="Week" title="Week"><span class="navico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M8.2 12.2l2.5 2.5 5.2-5.4"/></svg></span><span class="navlbl">Week</span></button>
         <button class="navbtn" data-view="tasks" data-label="Tasks" title="Tasks"><span class="navico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7h9.2M10 12h9.2M10 17h9.2"/><path d="M4.4 7.2l1.3 1.3 2.2-2.3M4.4 12.2l1.3 1.3 2.2-2.3M4.4 17.2l1.3 1.3 2.2-2.3"/></svg></span><span class="navlbl">Tasks</span></button>
       </div>
       <div class="rail-group">
@@ -3665,7 +3690,7 @@ const DEFAULT={
   }
 };
 
-let S=null,currentView='morning',saveTimer=null,habitRange=14;
+let S=null,currentView=(window.matchMedia&&matchMedia('(max-width:700px)').matches)?'daily':'morning',saveTimer=null,habitRange=14;
 
 const HDOTS=['var(--accent)','var(--accent-2)','var(--teal)','var(--gold)','var(--good)'];
 function dayRec(k){if(!S.days[k])S.days[k]={disc:{}};S.days[k].disc=S.days[k].disc||{};return S.days[k];}
@@ -5838,53 +5863,62 @@ function syncAutoTicks(wk){
   if(changed)save();
 }
 function weekHits(id,wk,days){return days.filter(k=>k<=today()&&discHit(id,k,wk)).length;}
-function scoreboard(wk,days){
-  const T=(wk&&wk.targets)||{calories:3000,protein:150,workouts_per_week:5};
-  const past=days.filter(k=>k<=today());
-  const dd=k=>(wk&&wk.days&&wk.days[k])||{};
-  const train=past.filter(k=>dd(k).gym||dd(k).lift).length;
-  const cal=past.filter(k=>dd(k).calories>=T.calories*.9).length;
-  const ws=past.map(k=>dd(k).weight_lb).filter(Boolean);
-  const sl=past.map(k=>dd(k).sleep_h).filter(x=>x!=null);
-  const calls=past.reduce((a,k)=>a+(dd(k).calls||0),0);
-  const money=((wk&&wk.payouts)||[]).filter(p=>p.date>=days[0]&&p.date<=days[6]).reduce((a,p)=>a+(p.cad||0),0);
-  const clean=past.filter(k=>discHit('clean',k,wk)).length,cleanStreak=habitStreak('clean');
-  const card=(cap,big,sub,ok)=>`<div class="card dl-score ${ok==null?'':ok?'ok':'low'}"><div class="bd-cap">${cap}</div><div class="bd-big">${big}</div><div class="bd-sub">${sub}</div></div>`;
-  return `<div class="dl-scores">
-    ${card('Training days',`${train}<small>/ ${T.workouts_per_week||5}</small>`,'this week',train>=(T.workouts_per_week||5)?true:past.length>=6?false:null)}
-    ${card('Calorie days hit',`${cal}<small>/ 7</small>`,past.length+' day'+(past.length===1?'':'s')+' in',cal>=past.length?true:null)}
-    ${card('Avg weight',ws.length?r1(avg(ws))+'<small>lbs</small>':'·',ws.length?ws.length+' weigh-in'+(ws.length===1?'':'s'):'no weigh-ins yet',null)}
-    ${card('Money earned',money?'$'+nf(Math.round(money)):'$0','CAD, payouts this week',null)}
-    ${card('Avg sleep',sl.length?r1(avg(sl))+'<small>h</small>':'·',sl.length?sl.length+' night'+(sl.length===1?'':'s'):'',sl.length?avg(sl)>=7:null)}
-    ${card('Calls taken',String(calls),'this week',null)}
-    ${card('Porn free',`${clean}<small>/ ${past.length}</small>`,cleanStreak?cleanStreak+' day streak':'tick it tonight',clean===past.length&&past.length>0?true:null)}
-  </div>`;
+/* WEEK page: the numbers that matter + a habit grid Mon to Sun. Look-only: everything fills itself. */
+let weekOffset=0;
+const HABITS=[
+  {id:'gym',label:'Gym',target:5,hit:(d)=>!!(d.gym||d.lift),from:'Hevy'},
+  {id:'cal',label:'Calories',target:7,hit:(d,T)=>(d.calories||0)>=T.calories*.9,from:'Food'},
+  {id:'pro',label:'Protein',target:7,hit:(d,T)=>(d.protein||0)>=T.protein*.95,from:'Food'},
+  {id:'supps',label:'Supplements',target:7,hit:(d,T,k)=>!!d.supps||!!(S.days[k]&&S.days[k].disc&&S.days[k].disc.supplements),from:'Food bot',tap:true},
+  {id:'learn',label:'Learning',target:7,hit:(d)=>!!d.learning,from:'your brain'},
+  {id:'parents',label:'Parents',target:4,hit:(d)=>!!d.parents,from:'texts and calls'}
+];
+function ensureDisciplinesNote(){
+  if(S.discNoteV1)return;
+  const body=['Every day','Supplements: Accutane, creatine, vitamin D, magnesium','Braces: elastics every 3 hours, brush, floss, water floss, mouthwash','Skincare: face wash, moisturizer, cream after shaving','Eyes: warm compress, morning and night','Shower and deodorant, smell good','Read or learn something, add it to the brain','',
+    'Every week','Gym 5 days, progressive overload on the main lifts','Cardio or sports twice','Talk to girls','Call parents every 2 days, family and friends','Hair care (curls)','Nails, hands and feet','Laundry on Sunday','',
+    'Every few weeks','Haircut every 3 weeks','Eyebrows every 2 weeks'].join('\n');
+  notesData().unshift({id:'n-disc',title:'My disciplines',body,pinned:true,created:Date.now(),updated:Date.now()});
+  S.discNoteV1=true;save();
 }
 function renderDaily(){
-  const wkStart=weekStartOf(today()),days=weekDays(wkStart),t=today();
-  main.innerHTML=`<div class="view"><div class="head"><div><h2 class="sec">Daily</h2><p class="sec-sub">Week of ${dateLbl(wkStart)} · ${['Mo','Tu','We','Th','Fr','Sa','Su'][days.indexOf(t)]||''} ${dateLbl(t)}</p></div></div><div id="dl"><div class="bd-empty">Loading…</div></div></div>`;
+  ensureDisciplinesNote();
+  const wkStart=addDays(weekStartOf(today()),weekOffset*7),days=weekDays(wkStart),t=today();
+  const range=`${dateLbl(days[0])} to ${dateLbl(days[6])}`;
+  main.innerHTML=`<div class="view"><div class="head wk-head"><div><h2 class="sec">${weekOffset?'Last week':'This week'}</h2><p class="sec-sub">${range}</p></div>
+    <div class="seg wk-nav"><button data-wo="-1" class="${weekOffset===-1?'on':''}">Last week</button><button data-wo="0" class="${weekOffset===0?'on':''}">This week</button></div></div><div id="dl"><div class="bd-empty">Loading…</div></div></div>`;
+  main.querySelectorAll('[data-wo]').forEach(b=>b.onclick=()=>{weekOffset=+b.dataset.wo;renderDaily();});
   const paint=(wk)=>{
     const el=document.getElementById('dl');if(!el||currentView!=='daily')return;
     if(wk&&wk.needsUnlock){el.innerHTML=`<div class="tday-connect"><span>Confirm your PIN once on this device to see your week.</span><button class="btn btn-sm" id="dl-connect">Connect</button></div>`;el.querySelector('#dl-connect').onclick=async()=>{await ensureMediaSecret();renderDaily();};return;}
-    if(!wk||wk.error)wk=null;
-    if(wk)syncAutoTicks(wk);
-    const rec=dayRec(t);
-    const rows=g=>DISC.filter(d=>d.group===g).map(d=>{
-      const manual=!!rec.disc[d.id],auto=autoHit(d.id,t,wk),hit=manual||auto;
-      const wkN=d.per_week?weekHits(d.id,wk,days):null;
-      const note=d.auto&&!manual?(auto?'from '+({sleep:'Whoop',food:'your food log',gym:'Hevy',cardio:'Whoop',calls:'your calls',journal:'your journal'}[d.auto]):'nothing logged yet'):(d.per_week?wkN+' of '+d.per_week+' this week':'');
-      return `<div class="dl-row ${hit?'on':''}" data-disc="${d.id}"><i>${hit?'✓':''}</i><div><b>${esc(d.label)}</b>${d.sub?`<small>${esc(d.sub)}</small>`:''}</div><span>${note}</span></div>`;
+    if(!wk||wk.error)wk={days:{},payouts:[]};
+    const T=Object.assign({calories:3000,protein:150,workouts_per_week:5},wk.targets||{});
+    const dd=k=>(wk.days&&wk.days[k])||{};
+    const past=days.filter(k=>k<=t);
+    const gym=past.filter(k=>HABITS[0].hit(dd(k))).length,cal=past.filter(k=>HABITS[1].hit(dd(k),T)).length;
+    const ws=past.map(k=>dd(k).weight_lb).filter(Boolean),calls=past.reduce((a,k)=>a+(dd(k).calls||0),0),booked=past.reduce((a,k)=>a+(dd(k).booked||0),0);
+    const paid=(wk.payouts||[]).filter(p=>p.date>=days[0]&&p.date<=days[6]).reduce((a,p)=>a+(p.cad||0),0);
+    const num=(cap,big,sub,tone)=>`<div class="wk-num ${tone||''}"><div class="wk-cap">${cap}</div><div class="wk-big">${big}</div><div class="wk-sub">${sub}</div></div>`;
+    const nums=`<div class="wk-nums">
+      ${num('Money',paid?'$'+nf(Math.round(paid)):'$0',paid?'CAD paid out this week':'commissions coming soon','money')}
+      ${num('Calls taken',String(calls),booked?`of ${booked} booked`:'this week','calls')}
+      ${num('Gym',`${gym}<small>/${T.workouts_per_week||5}</small>`,gym>=(T.workouts_per_week||5)?'week done 🔥':`${(T.workouts_per_week||5)-gym} to go`,'gym')}
+      ${num('Calorie days',`${cal}<small>/7</small>`,`${past.length} day${past.length===1?'':'s'} in`,'food')}
+      ${num('Avg weight',ws.length?r1(avg(ws))+'<small> lbs</small>':'·',ws.length?`${ws.length} weigh-in${ws.length===1?'':'s'}`:'no weigh-ins yet','weight')}
+    </div>`;
+    const head=`<div class="wk-row wk-hd"><span></span>${days.map(k=>`<i class="${k===t?'today':''}">${dayLbl(k)}<small>${+k.slice(8)}</small></i>`).join('')}<b></b></div>`;
+    const rows=HABITS.map(h=>{
+      const n=days.filter(k=>k<=t&&h.hit(dd(k),T,k)).length;
+      const cells=days.map(k=>{
+        const fut=k>t,hit=!fut&&h.hit(dd(k),T,k);
+        const tip=h.id==='learn'&&dd(k).learned?esc(dd(k).learned):`${dayLbl(k)} ${dateLbl(k)}`;
+        return `<i class="c ${fut?'fut':hit?'hit':'miss'} ${k===t?'today':''} ${h.tap&&!fut?'tap':''}" data-h="${h.tap&&!fut?h.id:''}" data-k="${k}" title="${tip}">${hit?'✓':''}</i>`;
+      }).join('');
+      return `<div class="wk-row h-${h.id}"><span class="wk-lbl">${h.label}<small>${h.from}</small></span>${cells}<b class="${n>=h.target?'ok':''}">${n}<small>/${h.target}</small></b></div>`;
     }).join('');
-    const grid=DISC.map(d=>{
-      const n=weekHits(d.id,wk,days),target=d.per_week||days.filter(k=>k<=t).length;
-      return `<div class="dl-g"><span class="dl-gl">${esc(d.label)}</span>${days.map(k=>`<i class="${k>t?'fut':discHit(d.id,k,wk)?'hit':'miss'} ${k===t?'today':''}" title="${dayLbl(k)} ${dateLbl(k)}"></i>`).join('')}<b class="${n>=target?'ok':''}">${n}<small>/${target}</small></b></div>`;
-    }).join('');
-    el.innerHTML=`${scoreboard(wk,days)}
-      <div class="grid g2 dl-main">
-        <div class="card"><h3>Today <span class="h3sub">tap to tick · or tell Grok</span></h3>${DISC_GROUPS.map(([g,l])=>`<div class="dl-grp">${l}</div>${rows(g)}`).join('')}</div>
-        <div class="card"><h3>This week <span class="h3sub">Mon to Sun</span></h3><div class="dl-grid"><div class="dl-g dl-gh"><span></span>${days.map(k=>`<i>${dayLbl(k)}</i>`).join('')}<b></b></div>${grid}</div></div>
-      </div>`;
-    el.querySelectorAll('[data-disc]').forEach(r=>r.onclick=()=>{const id=r.dataset.disc;const rr=dayRec(t);if(rr.disc[id])delete rr.disc[id];else rr.disc[id]=true;save();paint(wk);});
+    el.innerHTML=`${nums}<div class="card wk-grid">${head}${rows}</div>
+      <div class="wk-foot">Everything here fills itself. Supplements tick when you tell the Food bot, or tap a day. Your full list of disciplines is the pinned note "My disciplines" in Journal.</div>`;
+    el.querySelectorAll('.c.tap').forEach(c=>c.onclick=()=>{const k=c.dataset.k;const r=dayRec(k);if(r.disc.supplements)delete r.disc.supplements;else r.disc.supplements=true;save();paint(wk);});
   };
   paint(_wk);
   weekData().then(paint);
@@ -6716,6 +6750,7 @@ function finishBoot(){
   wn.oninput=()=>{S.wsName=wn.value;save();document.title=wn.value||'MO OS';document.getElementById('brandmark').textContent=(S.name||wn.value||'M').trim().charAt(0).toUpperCase()||'M';};
   document.title=S.wsName||'MO OS';
   document.getElementById('brandmark').textContent=(S.name||S.wsName||'M').trim().charAt(0).toUpperCase()||'M';
+  if(typeof setActiveNav==='function')setActiveNav(currentView);
   render();
 }
 (async function(){
