@@ -69,8 +69,7 @@ module.exports = async function (KEY) {
     overlayCenter(row, ring(f.cal / (f.cal_target || 1), P.orange, P.trackDark, 92, 11), new Size(92, 92), fmt(f.cal), "of " + k(f.cal_target), 19);
     row.addSpacer(); w.addSpacer();
     const b = w.addStack(); b.centerAlignContent();
-    T(b, f.protein + "g", 13, f.protein >= f.protein_target ? P.green : P.teal, "bold"); T(b, " protein", 11, P.dim, "semi"); b.addSpacer();
-    const pill = b.addImage(SFSymbol.named(d.supps ? "pills.fill" : "pills").image); pill.imageSize = new Size(13, 13); pill.tintColor = d.supps ? P.green : P.faint;
+    b.addSpacer(); T(b, f.protein + "g", 13, f.protein >= f.protein_target ? P.green : P.teal, "bold"); T(b, " protein", 11, P.dim, "semi"); b.addSpacer();
   }
   function smallGym(w, d) {
     const g = d.gym; bg(w, hex("#16a34a"), P.greenD);
@@ -125,8 +124,7 @@ module.exports = async function (KEY) {
     const b = w.addStack(); b.centerAlignContent();
     const dd = dots(g.days, 150, P.green, P.trackDark, hex("#ffffff", 0.05)); const im = b.addImage(dd.img); im.imageSize = dd.size;
     b.addSpacer(8); T(b, g.week + "/" + g.target, 12, g.week >= g.target ? P.green : P.text, "bold"); b.addSpacer();
-    const pill = b.addImage(SFSymbol.named(d.supps ? "pills.fill" : "pills").image); pill.imageSize = new Size(13, 13); pill.tintColor = d.supps ? P.green : P.faint;
-    b.addSpacer(4); T(b, d.supps ? "taken" : "supps", 11, d.supps ? P.green : P.faint, "semi");
+    if (d.calls && d.calls.left) T(b, d.calls.left + (d.calls.left === 1 ? " call left" : " calls left"), 11, P.dim, "semi");
   }
 
   // ---------- large: your day ----------
@@ -162,7 +160,6 @@ module.exports = async function (KEY) {
     const b = w.addStack(); b.centerAlignContent();
     const dd = dots(g.days, 140, P.green, P.trackDark, hex("#ffffff", 0.05)); const im = b.addImage(dd.img); im.imageSize = dd.size;
     b.addSpacer(8); T(b, "gym " + g.week + "/" + g.target, 12, g.week >= g.target ? P.green : P.dim, "bold"); b.addSpacer();
-    const pill = b.addImage(SFSymbol.named(d.supps ? "pills.fill" : "pills").image); pill.imageSize = new Size(13, 13); pill.tintColor = d.supps ? P.green : P.faint;
   }
 
   // ---------- lock screen ----------
@@ -176,7 +173,7 @@ module.exports = async function (KEY) {
     if (fam === "accessoryInline") { T(w, (d.next ? t12(d.next.time) + " " + firstName(d.next.title) + " · " : "") + k(f.cal) + " cal", 12, Color.white(), "semi"); return; }
     T(w, d.next ? t12(d.next.time) + "  " + (firstName(d.next.title) || "Call") : "No more calls", 14, Color.white(), "heavy");
     T(w, k(f.cal) + " cal · " + f.protein + "g", 12, Color.white(), "semi");
-    T(w, "gym " + g.week + "/" + g.target + (d.supps ? "  · 💊" : ""), 12, Color.white(), "semi");
+    T(w, "gym " + g.week + "/" + g.target, 12, Color.white(), "semi");
   }
 
   const d = await load();
