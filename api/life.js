@@ -38,12 +38,15 @@ async function glance() {
   const tasks = M && M.tasks ? M.tasks.filter((t) => t.status !== 'completed') : [];
   const now = tasks.filter((t) => t.pri === 1 || t.pri === '1').map((t) => t.name);
   const c = work && !work.error ? work.today : null;
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(Date.parse(mon + 'T12:00:00Z') + i * 864e5).toISOString().slice(0, 10); return { date: d, gym: ws.some((w) => w.date === d), future: d > today }; });
+  const supp = !!(M && M.days && M.days[today] && (M.days[today].supplements || M.days[today]['supplements']));
   return {
     at: new Date().toISOString(), date: today,
     next: next ? { title: next.title, time: next.start, in_min: mins } : null,
     calls: { booked: ev.length ? ev.filter((e) => !/lunch|dinner|break|gym|sleep|busy/i.test(e.title)).length : 0, left: ev.filter((e) => !e.past && !/lunch|dinner|break|gym|sleep|busy/i.test(e.title)).length, taken: c ? c.showed : null },
     food: { cal: plan ? plan.calories : 0, cal_target: plan ? plan.adjusted_daily_target : (T.calories || 3000), protein: plan ? plan.protein : 0, protein_target: plan ? plan.protein_target : (T.protein || 150) },
-    gym: { week: week.length, target: T.workouts_per_week || 5, today: week.some((w) => w.date === today), last: ws[0] ? ws[0].date : null },
+    gym: { week: week.length, target: T.workouts_per_week || 5, today: week.some((w) => w.date === today), last: ws[0] ? ws[0].date : null, days },
+    supps: supp,
     now: now.slice(0, 4), now_count: now.length
   };
 }
