@@ -3,14 +3,14 @@
 // Auth: the device's media secret (set at PIN unlock) or the connector token.
 import { createHmac, timingSafeEqual } from 'crypto';
 import { whoopSummary } from './_whoop.js';
-import { healthSummary } from './_health.js';
+import { healthSummary, localDateISO, mondayOf } from './_health.js';
 import { hevySummary } from './_hevy.js';
 import { calendarToday, storePushed, queueAdd, queuePending, queueAck } from './_cal.js';
 import { moneySummary } from './_money.js';
 import { callsSummary } from './_work.js';
 import { leaveNote, readNotes } from './_notes.js';
 import { isConnected as gcalConnected, createEvent as gcalCreate, deleteEvent as gcalDelete } from './_gcal.js';
-import { storeMirror } from './_mirror.js';
+import { storeMirror, readMirror } from './_mirror.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -22,8 +22,41 @@ function authed(req) {
 }
 const safe = (p) => p.catch((e) => ({ error: String((e && e.message) || e) }));
 
+// Small read-only summary for the iPhone widget. Its own token (WIDGET_TOKEN) can only read this.
+async function glance() {
+  const [whoop, food, hevy, work, M] = await Promise.all([safe(whoopSummary(2)), safe(healthSummary(1)), safe(hevySummary(30)), safe(callsSummary(7)), readMirror().catch(() => null)]);
+  const tz = (whoop && !whoop.error && whoop.tz_offset) || '+02:00';
+  const cal = await safe(calendarToday(tz));
+  const today = localDateISO(), mon = mondayOf(today);
+  const ws = (hevy && hevy.workouts) || [];
+  const week = ws.filter((w) => w.date >= mon && w.date <= today);
+  const plan = food && food.food_plan && food.food_plan.today;
+  const T = (food && food.targets) || {};
+  const ev = cal && !cal.error ? cal.events : [];
+  const next = ev.find((e) => !e.past) || null;
+  const mins = next ? Math.round((Date.parse(next.start_iso) - Date.now()) / 6e4) : null;
+  const tasks = M && M.tasks ? M.tasks.filter((t) => t.status !== 'completed') : [];
+  const now = tasks.filter((t) => t.pri === 1 || t.pri === '1').map((t) => t.name);
+  const c = work && !work.error ? work.today : null;
+  return {
+    at: new Date().toISOString(), date: today,
+    next: next ? { title: next.title, time: next.start, in_min: mins } : null,
+    calls: { booked: ev.length ? ev.filter((e) => !/lunch|dinner|break|gym|sleep|busy/i.test(e.title)).length : 0, left: ev.filter((e) => !e.past && !/lunch|dinner|break|gym|sleep|busy/i.test(e.title)).length, taken: c ? c.showed : null },
+    food: { cal: plan ? plan.calories : 0, cal_target: plan ? plan.adjusted_daily_target : (T.calories || 3000), protein: plan ? plan.protein : 0, protein_target: plan ? plan.protein_target : (T.protein || 150) },
+    gym: { week: week.length, target: T.workouts_per_week || 5, today: week.some((w) => w.date === today), last: ws[0] ? ws[0].date : null },
+    now: now.slice(0, 4), now_count: now.length
+  };
+}
+
 export default async function handler(req, res) {
   const view0 = req.query.view;
+  if (view0 === 'glance') {
+    const h = String(req.headers.authorization || ''); const tok = h.startsWith('Bearer ') ? h.slice(7).trim() : String(req.query.key || '');
+    if (!(eq(tok, process.env.WIDGET_TOKEN) || authed(req))) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    res.setHeader('Cache-Control', 'no-store');
+    try { res.status(200).json(await glance()); } catch (e) { res.status(500).json({ error: String((e && e.message) || e) }); }
+    return;
+  }
   // Apps Script side: fetch pending calendar writes / ack them
   if (view0 === 'calendar_queue' || view0 === 'calendar_ack') {
     const h = String(req.headers.authorization || '');
