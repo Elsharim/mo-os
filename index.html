@@ -2345,7 +2345,7 @@
   .wk-nums{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
   .wk-num{position:relative;border-radius:18px;padding:16px 16px 14px;background:var(--surface,rgba(255,255,255,.04));border:1px solid var(--hair,rgba(255,255,255,.07));overflow:hidden}
   .wk-num:before{content:"";position:absolute;inset:0;opacity:.16;background:radial-gradient(120% 90% at 0% 0%,var(--tone,#ff7a47),transparent 60%)}
-  .wk-num.money{--tone:#4ade80}.wk-num.calls{--tone:#8b5cf6}.wk-num.gym{--tone:#22c55e}.wk-num.food{--tone:#ff7a47}.wk-num.weight{--tone:#2dd4bf}
+  .wk-num{--tone:var(--accent,#ff7a47)}.wk-num:before{opacity:.07}
   .wk-cap{position:relative;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint,rgba(255,255,255,.5))}
   .wk-big{position:relative;font-family:var(--display,inherit);font-size:30px;font-weight:700;letter-spacing:-.03em;margin-top:6px;line-height:1.05}
   .wk-big small{font-size:15px;color:var(--faint,rgba(255,255,255,.45));font-weight:600}
@@ -2361,7 +2361,7 @@
   .wk-row .c.fut{background:rgba(255,255,255,.025)}
   .wk-row .c.today{box-shadow:0 0 0 2px var(--accent,#ff7a47)}
   .wk-row .c.tap{cursor:pointer}.wk-row .c.tap:hover{transform:scale(1.08)}
-  .h-gym .c.hit{background:#22c55e}.h-cal .c.hit{background:#ff7a47}.h-pro .c.hit{background:#2dd4bf}.h-supps .c.hit{background:#f5b700}.h-learn .c.hit{background:#8b5cf6;color:#fff}.h-parents .c.hit{background:#f472b6}
+  .wk-row .c.hit{background:var(--accent,#ff7a47);color:#140a05}
   .wk-row>b{text-align:right;font-size:15px;font-weight:700}.wk-row>b small{font-size:12px;color:var(--faint,rgba(255,255,255,.4));font-weight:600}.wk-row>b.ok{color:#4ade80}
   .wk-foot{font-size:12px;color:var(--faint,rgba(255,255,255,.4));margin:12px 4px 0;line-height:1.5}
   @media (max-width:900px){.wk-nums{grid-template-columns:repeat(3,1fr);gap:8px}.wk-num{padding:12px 12px 11px;border-radius:15px}.wk-big{font-size:22px;margin-top:4px}.wk-big small{font-size:12px}.wk-cap{font-size:10px}.wk-sub{font-size:11px;margin-top:3px}}
@@ -5897,10 +5897,10 @@ function renderDaily(){
     const past=days.filter(k=>k<=t);
     const gym=past.filter(k=>HABITS[0].hit(dd(k))).length,cal=past.filter(k=>HABITS[1].hit(dd(k),T)).length;
     const ws=past.map(k=>dd(k).weight_lb).filter(Boolean),calls=past.reduce((a,k)=>a+(dd(k).calls||0),0),booked=past.reduce((a,k)=>a+(dd(k).booked||0),0);
-    const paid=(wk.payouts||[]).filter(p=>p.date>=days[0]&&p.date<=days[6]).reduce((a,p)=>a+(p.cad||0),0);
+    const pay=wk.pay&&(weekOffset?wk.pay.last_week:wk.pay.this_week);
     const num=(cap,big,sub,tone)=>`<div class="wk-num ${tone||''}"><div class="wk-cap">${cap}</div><div class="wk-big">${big}</div><div class="wk-sub">${sub}</div></div>`;
     const nums=`<div class="wk-nums">
-      ${num('Money',paid?'$'+nf(Math.round(paid)):'$0',paid?'CAD paid out this week':'commissions coming soon','money')}
+      ${num('Money',pay&&!pay.error?'$'+nf(pay.total):'·',pay&&!pay.error?`$${nf(Math.round(pay.commission))} comms + $${nf(pay.base)} base`:'tracker not reachable','money')}
       ${num('Calls taken',String(calls),booked?`of ${booked} booked`:'this week','calls')}
       ${num('Gym',`${gym}<small>/${T.workouts_per_week||5}</small>`,gym>=(T.workouts_per_week||5)?'week done 🔥':`${(T.workouts_per_week||5)-gym} to go`,'gym')}
       ${num('Calorie days',`${cal}<small>/7</small>`,`${past.length} day${past.length===1?'':'s'} in`,'food')}

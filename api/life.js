@@ -12,6 +12,7 @@ import { leaveNote, readNotes } from './_notes.js';
 import { isConnected as gcalConnected, createEvent as gcalCreate, deleteEvent as gcalDelete } from './_gcal.js';
 import { storeMirror, readMirror } from './_mirror.js';
 import { storeSignals, readSignals } from './_signals.js';
+import { payBetween } from './_pay.js';
 
 function eq(a, b) { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return y.length > 0 && x.length === y.length && timingSafeEqual(x, y); }
 function authed(req) {
@@ -36,7 +37,9 @@ export async function weekView() {
       ((sig && sig.parents) || []).forEach((k) => { D(k).parents = true; });
       Object.entries((M && M.days) || {}).forEach(([k, v]) => { if (v && v.supplements) D(k).supps = true; });
       const payouts = (((money && money.tax) || {}).payouts || []).map((p) => ({ date: p.date, cad: p.cad, amount: p.amount, currency: p.currency }));
-  return { targets: (food && food.targets) || null, days, payouts, signals_at: sig ? new Date(sig.at).toISOString() : null };
+  const tday = localDateISO(), mon = mondayOf(tday), prev = new Date(Date.parse(mon + 'T12:00:00Z') - 7 * 864e5).toISOString().slice(0, 10), prevEnd = new Date(Date.parse(mon + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10), sun = new Date(Date.parse(mon + 'T12:00:00Z') + 6 * 864e5).toISOString().slice(0, 10);
+  const [payNow, payLast] = await Promise.all([payBetween(mon, sun).catch((e) => ({ error: e.message })), payBetween(prev, prevEnd).catch((e) => ({ error: e.message }))]);
+  return Object.assign({ targets: (food && food.targets) || null, days, payouts, signals_at: sig ? new Date(sig.at).toISOString() : null }, { pay: { this_week: payNow, last_week: payLast } });
 }
 
 // Small read-only summary for the iPhone widget. Its own token (WIDGET_TOKEN) can only read this.
