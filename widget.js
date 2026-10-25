@@ -9,9 +9,9 @@ const APP = "https://mo-os-omega.vercel.app";
 module.exports = async function (KEY) {
   const hex = (h, a) => new Color(h, a == null ? 1 : a);
   const P = {
-    ink: hex("#0e0e12"), ink2: hex("#16161c"), text: hex("#f5f5f7"), dim: hex("#ffffff", 0.58), faint: hex("#ffffff", 0.32),
-    track: hex("#ffffff", 0.14), trackDark: hex("#2a2a31"), orange: hex("#ff7a47"), orangeD: hex("#c2410c"),
-    green: hex("#4ade80"), greenD: hex("#14532d"), teal: hex("#2dd4bf"), coral: hex("#ff5f57"), coralD: hex("#7c1d12")
+    ink: hex("#0b0b0d"), ink2: hex("#1a1411"), text: hex("#f5f5f7"), dim: hex("#ffffff", 0.55), faint: hex("#ffffff", 0.28),
+    track: hex("#ffffff", 0.10), trackDark: hex("#ffffff", 0.08), orange: hex("#ff7a47"), orangeD: hex("#ff7a47"),
+    green: hex("#ff7a47"), greenD: hex("#0b0b0d"), teal: hex("#ffb02e"), coral: hex("#ff7a47"), coralD: hex("#0b0b0d")
   };
 
   async function load() {
@@ -72,20 +72,20 @@ module.exports = async function (KEY) {
     b.addSpacer(); T(b, f.protein + "g", 13, f.protein >= f.protein_target ? P.green : P.teal, "bold"); T(b, " protein", 11, P.dim, "semi"); b.addSpacer();
   }
   function smallGym(w, d) {
-    const g = d.gym; bg(w, hex("#16a34a"), P.greenD);
-    label(w, "dumbbell.fill", "Gym week", hex("#ffffff", 0.85)); w.addSpacer();
+    const g = d.gym; bg(w, P.ink2, P.ink);
+    label(w, "dumbbell.fill", "Gym week", P.orange); w.addSpacer();
     const n = w.addStack(); n.bottomAlignContent(); T(n, g.week, 46, P.text, "heavy"); T(n, " /" + g.target, 18, hex("#ffffff", 0.6), "bold");
-    T(w, g.today ? "trained today" : g.week >= g.target ? "week done" : (g.target - g.week) + " to go", 12, hex("#ffffff", 0.75), "semi");
+    T(w, g.today ? "trained today" : g.week >= g.target ? "week done" : (g.target - g.week) + " to go", 12, P.dim, "semi");
     w.addSpacer(10);
-    const dd = dots(g.days, 128, P.text, hex("#ffffff", 0.22), hex("#ffffff", 0.08)); const im = w.addImage(dd.img); im.imageSize = dd.size;
+    const dd = dots(g.days, 128, P.orange, hex("#ffffff", 0.12), hex("#ffffff", 0.05)); const im = w.addImage(dd.img); im.imageSize = dd.size;
   }
   function smallNext(w, d) {
-    bg(w, P.orange, P.orangeD); label(w, "phone.fill", "Next call", hex("#ffffff", 0.85)); w.addSpacer();
+    bg(w, hex("#2a160c"), P.ink); label(w, "phone.fill", "Next call", P.orange); w.addSpacer();
     if (d.next) {
-      const n = w.addStack(); n.bottomAlignContent(); T(n, t12(d.next.time, true), 40, P.text, "heavy"); T(n, d.next.time >= "12:00" ? " pm" : " am", 15, hex("#ffffff", 0.7), "bold");
+      const n = w.addStack(); n.bottomAlignContent(); T(n, t12(d.next.time, true), 40, P.text, "heavy"); T(n, d.next.time >= "12:00" ? " pm" : " am", 15, P.dim, "bold");
       T(w, firstName(d.next.title) || "Call", 14, P.text, "bold", { min: 0.7 }); w.addSpacer(8);
-      T(w, inTxt(d.next.in_min) + (d.calls && d.calls.left > 1 ? " · " + d.calls.left + " left" : ""), 12, hex("#ffffff", 0.8), "semi");
-    } else { T(w, "Done", 38, P.text, "heavy"); T(w, "no more calls today", 12, hex("#ffffff", 0.8), "semi"); w.addSpacer(); }
+      T(w, inTxt(d.next.in_min) + (d.calls && d.calls.left > 1 ? " · " + d.calls.left + " left" : ""), 12, P.orange, "semi");
+    } else { T(w, "Done", 38, P.text, "heavy"); T(w, "no more calls today", 12, P.dim, "semi"); w.addSpacer(); }
   }
   function smallNow(w, d) {
     bg(w, P.ink2, P.ink); label(w, "checklist", "Now", P.orange); w.addSpacer(10);
@@ -149,7 +149,7 @@ module.exports = async function (KEY) {
     shown.forEach((e, i) => {
       const r = w.addStack(); r.centerAlignContent();
       const isNext = i === nextIdx;
-      const dot = r.addImage(SFSymbol.named(e.past ? "checkmark.circle.fill" : isNext ? "circle.inset.filled" : "circle").image); dot.imageSize = new Size(13, 13); dot.tintColor = e.past ? P.green : isNext ? P.orange : P.faint;
+      const dot = r.addImage(SFSymbol.named(e.past ? "checkmark.circle.fill" : isNext ? "circle.inset.filled" : "circle").image); dot.imageSize = new Size(13, 13); dot.tintColor = e.past ? P.faint : isNext ? P.orange : P.faint;
       r.addSpacer(9);
       const tm = T(r, t12(e.time), 13, e.past ? P.faint : isNext ? P.orange : P.text, "bold"); tm.font = Font.boldRoundedSystemFont(13);
       r.addSpacer(8); T(r, firstName(e.title) || e.title, 13, e.past ? P.faint : P.text, isNext ? "bold" : "semi", { min: 0.8 });
