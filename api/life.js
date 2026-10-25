@@ -33,7 +33,7 @@ async function glance() {
   const plan = food && food.food_plan && food.food_plan.today;
   const T = (food && food.targets) || {};
   const ev = cal && !cal.error ? cal.events : [];
-  const next = ev.find((e) => !e.past) || null;
+  const next = ev.find((e) => !e.past && !/^busy$|sleep|lights out/i.test(e.title)) || null;
   const mins = next ? Math.round((Date.parse(next.start_iso) - Date.now()) / 6e4) : null;
   const tasks = M && M.tasks ? M.tasks.filter((t) => t.status !== 'completed') : [];
   const now = tasks.filter((t) => t.pri === 1 || t.pri === '1').map((t) => t.name);
