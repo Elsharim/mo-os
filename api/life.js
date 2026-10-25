@@ -47,7 +47,8 @@ async function glance() {
     food: { cal: plan ? plan.calories : 0, cal_target: plan ? plan.adjusted_daily_target : (T.calories || 3000), protein: plan ? plan.protein : 0, protein_target: plan ? plan.protein_target : (T.protein || 150) },
     gym: { week: week.length, target: T.workouts_per_week || 5, today: week.some((w) => w.date === today), last: ws[0] ? ws[0].date : null, days },
     supps: supp,
-    now: now.slice(0, 4), now_count: now.length
+    now: now.slice(0, 4), now_count: now.length,
+    events: ev.filter((e) => !/^busy$|sleep|lights out/i.test(e.title)).slice(0, 10).map((e) => ({ title: e.title, time: e.start, past: !!e.past }))
   };
 }
 
