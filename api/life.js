@@ -23,6 +23,22 @@ function authed(req) {
 }
 const safe = (p) => p.catch((e) => ({ error: String((e && e.message) || e) }));
 
+export async function weekView() {
+      const [whoop, food, hevy, work, money, sig, M] = await Promise.all([safe(whoopSummary(16)), safe(healthSummary(16)), safe(hevySummary(60)), safe(callsSummary(16)), safe(moneySummary(60)), readSignals().catch(() => null), readMirror().catch(() => null)]);
+      const days = {}; const D = (k) => (days[k] = days[k] || { date: k });
+      ((whoop && whoop.sleep) || []).forEach((x) => { const k = x.woke && x.woke.date; if (k) { const d = D(k); d.sleep_h = x.asleep_h; d.bed = x.bed && x.bed.time; } });
+      ((whoop && whoop.workouts) || []).forEach((w) => { if (!w.date) return; const d = D(w.date); if (/weight|strength|lift|powerlift/i.test(w.sport || '')) d.lift = true; else d.cardio = (d.cardio || []).concat(w.sport || 'cardio'); });
+      ((food && food.days) || []).forEach((x) => { const d = D(x.date); if (x.calories) d.calories = x.calories; if (x.protein) d.protein = x.protein; if (x.weight_lb) d.weight_lb = x.weight_lb; });
+      ((hevy && hevy.workouts) || []).forEach((w) => { if (w.date) D(w.date).gym = true; });
+      ((work && work.recent) || []).forEach((x) => { const d = D(x.date); d.calls = x.showed; d.booked = x.booked; });
+      ((sig && sig.learning) || []).forEach((k) => { D(k).learning = true; });
+      Object.entries((sig && sig.learning_titles) || {}).forEach(([k, t]) => { D(k).learned = t; });
+      ((sig && sig.parents) || []).forEach((k) => { D(k).parents = true; });
+      Object.entries((M && M.days) || {}).forEach(([k, v]) => { if (v && v.supplements) D(k).supps = true; });
+      const payouts = (((money && money.tax) || {}).payouts || []).map((p) => ({ date: p.date, cad: p.cad, amount: p.amount, currency: p.currency }));
+  return { targets: (food && food.targets) || null, days, payouts, signals_at: sig ? new Date(sig.at).toISOString() : null };
+}
+
 // Small read-only summary for the iPhone widget. Its own token (WIDGET_TOKEN) can only read this.
 async function glance() {
   const [whoop, food, hevy, work, M] = await Promise.all([safe(whoopSummary(2)), safe(healthSummary(1)), safe(hevySummary(30)), safe(callsSummary(7)), readMirror().catch(() => null)]);
@@ -169,21 +185,7 @@ export default async function handler(req, res) {
       return;
     }
     if (view === 'week') {
-      // Per-day facts for the Daily page: sleep, gym, cardio, food, weight, calls, plus payouts
-      const [whoop, food, hevy, work, money, sig, M] = await Promise.all([safe(whoopSummary(16)), safe(healthSummary(16)), safe(hevySummary(60)), safe(callsSummary(16)), safe(moneySummary(60)), readSignals().catch(() => null), readMirror().catch(() => null)]);
-      const days = {}; const D = (k) => (days[k] = days[k] || { date: k });
-      ((whoop && whoop.sleep) || []).forEach((x) => { const k = x.woke && x.woke.date; if (k) { const d = D(k); d.sleep_h = x.asleep_h; d.bed = x.bed && x.bed.time; } });
-      ((whoop && whoop.workouts) || []).forEach((w) => { if (!w.date) return; const d = D(w.date); if (/weight|strength|lift|powerlift/i.test(w.sport || '')) d.lift = true; else d.cardio = (d.cardio || []).concat(w.sport || 'cardio'); });
-      ((food && food.days) || []).forEach((x) => { const d = D(x.date); if (x.calories) d.calories = x.calories; if (x.protein) d.protein = x.protein; if (x.weight_lb) d.weight_lb = x.weight_lb; });
-      ((hevy && hevy.workouts) || []).forEach((w) => { if (w.date) D(w.date).gym = true; });
-      ((work && work.recent) || []).forEach((x) => { const d = D(x.date); d.calls = x.showed; d.booked = x.booked; });
-      ((sig && sig.learning) || []).forEach((k) => { D(k).learning = true; });
-      Object.entries((sig && sig.learning_titles) || {}).forEach(([k, t]) => { D(k).learned = t; });
-      ((sig && sig.parents) || []).forEach((k) => { D(k).parents = true; });
-      Object.entries((M && M.days) || {}).forEach(([k, v]) => { if (v && v.supplements) D(k).supps = true; });
-      const payouts = (((money && money.tax) || {}).payouts || []).map((p) => ({ date: p.date, cad: p.cad, amount: p.amount, currency: p.currency }));
-      res.status(200).json({ targets: (food && food.targets) || null, days, payouts, signals_at: sig ? new Date(sig.at).toISOString() : null });
-      return;
+      res.status(200).json(await weekView()); return;
     }
     if (view === 'signals' && req.method === 'POST') {
       let body = req.body; if (typeof body === 'string') { try { body = JSON.parse(body || '{}'); } catch (_) { body = {}; } }

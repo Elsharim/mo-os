@@ -11,6 +11,7 @@ import { logCalls, callsSummary, removeCalls } from './_work.js';
 import { readMirror, tasksOf, priOf, journalOf, disciplinesOf, goalsOf, summaryOf, applyToMirror, nameForId } from './_mirror.js';
 import { localDateISO } from './_health.js';
 import { calendarToday } from './_cal.js';
+import { weekView } from './life.js';
 import { leaveNote, readNotes } from './_notes.js';
 
 const subtle = (globalThis.crypto || webcrypto).subtle;
@@ -86,6 +87,10 @@ const TOOLS = [{
 }, {
   name: 'summary',
   description: "One call for briefs: P1 tasks (today), P2 tasks (this week), open task count, disciplines today, active goals, last journal entry, plus last night's sleep and recovery, food so far, today's calendar and calls this week.",
+  inputSchema: { type: 'object', properties: {} }
+}, {
+  name: 'week',
+  description: "Mo's habit week, the same data as the Week page in MO OS. Per day (last ~16 days): gym (Hevy), calories, protein, weight, calls taken and booked, supplements, learning (days he added to his brain library, with the title), parents (days he texted or called Baba or Mama), plus targets and payouts. Weeks run Monday to Sunday. Habit targets: gym 5, calories 7 (90 percent of target), protein 7, supplements 7, learning 7, parents 4. Use it for the Sunday recap and the Monday plan.",
   inputSchema: { type: 'object', properties: {} }
 }, {
   name: 'whoop',
@@ -354,7 +359,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['week', 'add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -391,6 +396,8 @@ async function handle(msg) {
             ? JSON.stringify(args.routines ? { ...(await hevySummary(Number(args.workouts) || 10)), ...(await hevyRoutines()) } : await hevySummary(Number(args.workouts) || 10))
           : name === 'hevy_edit'
             ? JSON.stringify(await hevyEdit(args))
+          : name === 'week'
+            ? JSON.stringify(await weekView())
           : name === 'complete_tasks'
             ? await completeTasks(args)
           : name === 'delete_tasks'
