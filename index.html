@@ -3292,6 +3292,38 @@
     .navbtn,.navico,.brand .mark{transition:none}
     .navbtn:hover{transform:none}
   }
+
+  /* PROJECTS: outcomes inside the Tasks groups, one next action each */
+  .tk-group.proj{--c:var(--gold);--ring:rgba(251,191,36,.14);border-color:rgba(251,191,36,.16)}
+  .pj-list{display:flex;flex-direction:column;gap:8px;padding:6px 4px 2px}
+  .pj{border:1px solid var(--hair);background:rgba(255,255,255,.018);border-radius:16px;padding:10px 8px 6px;transition:border-color .15s}
+  .pj:hover{border-color:var(--hair-2)}
+  .pj.ask{border-color:rgba(255,122,71,.35);background:radial-gradient(120% 100% at 0 0,rgba(255,122,71,.08),transparent 60%),rgba(255,255,255,.02)}
+  .pj-h{display:flex;align-items:center;gap:10px;padding:0 4px 2px 8px}
+  .pj-dot{width:8px;height:8px;border-radius:3px;background:var(--dc);flex:none}
+  .pj-name{flex:1;min-width:0;font-family:var(--display);font-size:15px;font-weight:600;letter-spacing:-.02em;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pj-rename{flex:1;font-family:var(--display);font-size:15px;font-weight:600}
+  .pj-prog{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .pj-menu{opacity:.5}.pj:hover .pj-menu{opacity:1}
+  @media (hover:none){.pj-menu{opacity:1}}
+  .pj-next{position:relative;margin-top:2px}
+  .pj-lbl{position:absolute;left:12px;top:-1px;font-size:10px;color:var(--accent);font-weight:600;letter-spacing:.02em;pointer-events:none}
+  .pj-next .tk-row{padding-top:16px!important}
+  .pj-ask{padding:8px 8px 4px}
+  .pj-ask-in,.pj-add,.pj-new{width:100%;box-sizing:border-box;background:var(--surface);border:1px dashed rgba(255,122,71,.45);border-radius:12px;color:var(--text);font:inherit;font-size:14px;padding:11px 14px;outline:none;transition:border-color .15s,box-shadow .15s}
+  .pj-ask-in:focus,.pj-add:focus,.pj-new:focus{border-style:solid;border-color:rgba(255,122,71,.6);box-shadow:0 0 0 4px rgba(255,122,71,.07)}
+  .pj-add{border-color:var(--hair-2);margin:6px 0 4px}
+  .pj-new{border-color:var(--hair-2);background:none;margin:8px 4px 4px;width:calc(100% - 8px)}
+  .pj-ask-in::placeholder,.pj-add::placeholder,.pj-new::placeholder{color:var(--faint)}
+  .pj-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .pj-chip{background:var(--surface-hi);border:1px solid var(--hair);color:var(--muted);border-radius:99px;padding:5px 11px;font:inherit;font-size:12px;cursor:pointer;transition:color .13s,border-color .13s}
+  .pj-chip:hover{color:var(--text);border-color:var(--hair-2)}
+  .pj-chip.ghost{background:none;color:var(--good);border-color:rgba(52,211,153,.25)}
+  .pj-fold{background:none;border:none;color:var(--faint);font:inherit;font-size:12px;cursor:pointer;padding:4px 12px 4px;text-align:left}
+  .pj-fold:hover{color:var(--muted)}
+  .pj-rest{padding:0 0 2px 10px;border-left:1px solid var(--hair);margin:2px 0 4px 18px}
+  .pj-rest .tk-row{opacity:.85}
+  .tk-pjtag{font-size:11px;color:var(--gold);background:rgba(251,191,36,.1);border-radius:6px;padding:1px 7px;margin-right:8px;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -3703,9 +3735,10 @@ function mirrorSnapshot(){
   const J=jrData();
   return {
     name:S.name||'Mo',projects:E.projects.map(p=>({id:p.id,name:p.name})),
+    outcomes:E.outcomes.filter(o=>!o.done||(o.doneAt||0)>=cutoff).map(o=>({id:o.id,name:o.name,areaId:o.areaId||null,nextId:(nextActionOf(o)||{}).id||null,ask:!nextActionOf(o)&&!o.done,done:!!o.done,ts:o.ts||0})),
     tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>{
       const pr=taskPriority(t);
-      return {id:t.id,name:t.name,projectId:t.projectId,today:pr==='P1',priority:pr,pri:pr==='P1'?1:pr==='P3'?3:2,status:t.status,when:t.when||null,ts:t.ts,touchedAt:t.touchedAt||t.ts||0,completedAt:t.completedAt};
+      return {id:t.id,name:t.name,projectId:t.projectId,outcomeId:t.outcomeId||null,today:pr==='P1',priority:pr,pri:pr==='P1'?1:pr==='P3'?3:2,status:t.status,when:t.when||null,ts:t.ts,touchedAt:t.touchedAt||t.ts||0,completedAt:t.completedAt};
     }),
     journal:Object.keys(J).sort().reverse().slice(0,120).map(k=>({key:k,title:J[k].title||'',text:J[k].text||'',ts:J[k].ts||0,done:!!J[k].done})),
     disciplines:S.disciplines||[],
@@ -3905,7 +3938,59 @@ function execData(){
     S.exec.top3=[];
     S.exec.prioV1=true;save();
   }
+  if(!Array.isArray(S.exec.outcomes))S.exec.outcomes=[];
+  if(!S.exec.outV1){
+    // tasks named "Project: action" move into that project
+    Object.values(S.exec.tasks).forEach(t=>{
+      if(t.outcomeId)return;
+      const sp=splitProject(t.name);if(!sp)return;
+      let o=S.exec.outcomes.find(x=>!x.done&&normName(x.name)===normName(sp.project));
+      if(!o){o={id:'o'+Date.now()+Math.random().toString(36).slice(2,6),name:sp.project,areaId:t.projectId||null,nextId:null,ask:false,ts:t.ts||Date.now(),done:false,doneAt:null};S.exec.outcomes.push(o);}
+      t.outcomeId=o.id;t.name=sp.name;
+    });
+    S.exec.outV1=true;save();
+  }
   return S.exec;
+}
+/* PROJECTS = outcomes. Each shows exactly one next action, the rest stay folded.
+   t.projectId stays the life area (Sales, Fitness...); t.outcomeId is the project. */
+function normName(x){return String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();}
+/* "MO OS: fix the goals page" -> {project:'MO OS', name:'Fix the goals page'} */
+function splitProject(text){
+  const m=/^\s*([^:\n]{2,40}?)\s*:\s+(\S[\s\S]*)$/.exec(String(text||''));
+  if(!m||/^https?$/i.test(m[1])||/^\d/.test(m[1])||m[1].trim().split(/\s+/).length>5)return null;
+  return {project:m[1].trim(),name:m[2].charAt(0).toUpperCase()+m[2].slice(1)};
+}
+function outcomeById(id){return id?execData().outcomes.find(o=>o.id===id)||null:null;}
+function liveOutcomes(){return execData().outcomes.filter(o=>!o.done);}
+function findOutcome(name){const q=normName(name);return q?liveOutcomes().find(o=>normName(o.name)===q)||null:null;}
+function makeOutcome(name,areaId){const o={id:'o'+Date.now()+Math.random().toString(36).slice(2,6),name:String(name).trim().slice(0,120),areaId:areaId||null,nextId:null,ask:true,ts:Date.now(),done:false,doneAt:null};execData().outcomes.push(o);return o;}
+function findOrMakeOutcome(name,areaId){return findOutcome(name)||makeOutcome(name,areaId);}
+function outcomeTasks(oid){return openTasks().filter(t=>t.outcomeId===oid).sort((a,b)=>(a.ts||0)-(b.ts||0));}
+/* null = the project needs a next action (Mo is asked for one) */
+function nextActionOf(o){
+  if(!o||o.done||o.ask)return null;
+  const t=execData().tasks[o.nextId];
+  if(t&&t.status!=='completed'&&t.outcomeId===o.id)return t;
+  return outcomeTasks(o.id)[0]||null;
+}
+function setNextAction(id){const t=execData().tasks[id];const o=t&&outcomeById(t.outcomeId);if(!o)return;o.nextId=id;o.ask=false;o.askTop=false;touchTask(id);}
+function setTaskOutcome(id,oid){
+  const t=execData().tasks[id];if(!t||(t.outcomeId||null)===(oid||null))return;
+  const old=outcomeById(t.outcomeId);if(old&&old.nextId===id)old.nextId=null;
+  const o=outcomeById(oid);const take=o&&(o.ask||!nextActionOf(o));
+  t.outcomeId=oid||null;
+  if(take){o.nextId=id;o.ask=false;}
+  touchTask(id);
+}
+function finishOutcome(oid){
+  const o=outcomeById(oid);if(!o)return;
+  outcomeTasks(oid).forEach(t=>completeTask(t.id));
+  o.done=true;o.doneAt=Date.now();o.ask=false;
+}
+function deleteOutcome(oid){
+  const E=execData();E.outcomes=E.outcomes.filter(o=>o.id!==oid);
+  Object.values(E.tasks).forEach(t=>{if(t.outcomeId===oid)t.outcomeId=null;});
 }
 function taskProject(t){if(!t||!t.projectId)return null;return execData().projects.find(p=>p.id===t.projectId)||null;}
 function openTasks(){return Object.values(execData().tasks).filter(t=>t.status!=='completed');}
@@ -3926,19 +4011,34 @@ function addTask(name,opts){
   opts=opts||{};
   const E=execData();
   const id='t'+Date.now()+Math.random().toString(36).slice(2,7);
-  const priority=opts.priority==='P1'||opts.priority==='P2'||opts.priority==='P3'?opts.priority:(opts.today?'P1':'P2');
-  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,status:'inbox',today:priority==='P1',priority,ts:Date.now(),touchedAt:Date.now(),completedAt:null};
+  let priority=opts.priority==='P1'||opts.priority==='P2'||opts.priority==='P3'?opts.priority:(opts.today?'P1':'P2');
+  const o=outcomeById(opts.outcomeId);
+  const takesNext=!!(o&&(opts.next||o.ask));
+  // the next action after a finished Now task goes straight to Now
+  if(takesNext&&o.askTop&&priority!=='P1')priority='P1';
+  E.tasks[id]={id,name:name.trim(),projectId:opts.projectId||null,outcomeId:o?o.id:null,status:'inbox',today:priority==='P1',priority,ts:Date.now(),touchedAt:Date.now(),completedAt:null};
   if(priority==='P1')E.todayOrder.push(id);
+  if(takesNext){o.nextId=id;o.ask=false;o.askTop=false;}
   return E.tasks[id];
 }
+/* returns the project when this was its next action, so the UI can ask for the next one */
 function completeTask(id){
-  const E=execData();const t=E.tasks[id];if(!t)return;
+  const E=execData();const t=E.tasks[id];if(!t)return null;
+  const o=outcomeById(t.outcomeId);
+  const wasNext=!!(o&&t.status!=='completed'&&(nextActionOf(o)||{}).id===id);
   t.status='completed';t.completedAt=Date.now();
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
+  if(wasNext){o.nextId=null;o.ask=true;o.askTop=taskPriority(t)==='P1';o.lastDone=id;}
+  return wasNext?o:null;
 }
-function uncompleteTask(id){const t=execData().tasks[id];if(!t)return;t.status='inbox';t.completedAt=null;}
+function uncompleteTask(id){
+  const t=execData().tasks[id];if(!t)return;t.status='inbox';t.completedAt=null;
+  const o=outcomeById(t.outcomeId);if(o&&o.ask&&o.lastDone===id){o.ask=false;o.nextId=id;o.askTop=false;}
+}
 function deleteTask(id){
-  const E=execData();delete E.tasks[id];
+  const E=execData();
+  const o=E.tasks[id]&&outcomeById(E.tasks[id].outcomeId);if(o&&o.nextId===id)o.nextId=null;
+  delete E.tasks[id];
   E.todayOrder=E.todayOrder.filter(x=>x!==id);
 }
 function setToday(id,on){
@@ -4123,25 +4223,77 @@ function hubTaskRow(t,opts){
     </div>
   </div>`;
 }
+/* TASKS page: loose tasks in Now / Scheduled / This week / Later, projects in their own card (one next action each, the rest folded) */
+let pjOpen={};        // project id -> other tasks unfolded
+let _askFocus=null;   // project whose next-action box gets focus after a render
+function tkBox(id,done){return `<span class="box et-complete ${done?'done':''}" data-c="${id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>`;}
+function tkWhen(t){return t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';}
+function tkPrio(t){const p=taskPriority(t);return `<button type="button" class="tk-prio p${p.slice(1)} ${_popId===t.id?'pop':''}" data-prio="${t.id}" title="${PRIO_TIP[p]}">${p}</button>`;}
+function areaDot(areaId){return areaId&&execData().projects.some(p=>p.id===areaId)?execProjColor(areaId):null;}
+function pjTaskRow(t,opts){
+  opts=opts||{};
+  const dot=opts.dot?areaDot(t.projectId):null;
+  return `<div class="et-row tk-row ${opts.cls||''}" data-id="${t.id}" draggable="true">
+    ${tkBox(t.id,false)}
+    <div class="et-main"><div class="et-name tk-name" data-n="${t.id}">${opts.dot?`<i class="tk-adot ${dot?'':'none'}" style="--dc:${dot||'var(--hair-2)'}"></i>`:''}<span class="tk-txt">${esc(t.name)}</span>${tkWhen(t)}</div></div>
+    ${tkPrio(t)}
+    <div class="et-actions tk-acts">
+      ${opts.keep?`<button class="et-lblbtn" data-keep="${t.id}">Keep</button>`:''}
+      ${opts.makeNext?`<button class="tk-more" data-mknext="${t.id}" title="Make this the next action">↑</button>`:''}
+            ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
+      <button class="tk-more" data-dot="${t.id}" title="Project, area, delete">⋯</button>
+    </div>
+  </div>`;
+}
+function projectCardHTML(o){
+  const E=execData();
+  const nx=nextActionOf(o);
+  const rest=outcomeTasks(o.id).filter(t=>!nx||t.id!==nx.id);
+  const doneN=Object.values(E.tasks).filter(t=>t.outcomeId===o.id&&t.status==='completed').length;
+  const dot=areaDot(o.areaId);
+  const open=pjOpen[o.id];
+  return `<div class="pj ${nx?'':'ask'}" data-pj="${o.id}">
+    <div class="pj-h">
+      <i class="pj-dot" style="--dc:${dot||'var(--hair-2)'}"></i>
+      <span class="pj-name" data-pjren="${o.id}">${esc(o.name)}</span>
+      ${doneN?`<span class="pj-prog">${doneN} done</span>`:''}
+      <button class="tk-more pj-menu" data-pjmenu="${o.id}" title="Rename, area, finish">⋯</button>
+    </div>
+    ${nx?`<div class="pj-next"><span class="pj-lbl">Next</span>${pjTaskRow(nx,{cls:'pj-nextrow'})}</div>`:`<div class="pj-ask">
+      <input class="pj-ask-in" data-ask="${o.id}" placeholder="${doneN?'Done. Next action?':'First action?'} Verb first, under 30 min" autocomplete="off" enterkeyhint="done">
+      ${rest.length||doneN?`<div class="pj-pick">${rest.slice(0,3).map(t=>`<button type="button" class="pj-chip" data-mknext="${t.id}">${esc(clip(t.name,40))}</button>`).join('')}${doneN?`<button type="button" class="pj-chip ghost" data-pjdone="${o.id}">Project finished ✓</button>`:''}</div>`:''}
+    </div>`}
+    <button type="button" class="pj-fold" data-fold="${o.id}">${rest.length?`${open?'▾':'▸'} ${rest.length} more task${rest.length>1?'s':''}`:(open?'▾ Add a task':'+ Add a task')}</button>
+    ${open?`<div class="pj-rest">${rest.map(t=>pjTaskRow(t,{makeNext:true})).join('')}<input class="pj-add" data-pjadd="${o.id}" placeholder="Add a task to ${esc(clip(o.name,30))}" autocomplete="off"></div>`:''}
+  </div>`;
+}
 function renderTasks(){
   ensureAreas();
   const E=execData();
   const dToday=doneToday();
   const areas=E.projects;
   const open=openTasks();
-  const filtered=taskArea==='all'?open:open.filter(t=>(t.projectId||null)===taskArea);
+  const inArea=t=>taskArea==='all'||(t.projectId||null)===taskArea;
+  const isNext=t=>{const o=outcomeById(t.outcomeId);return !!o&&(nextActionOf(o)||{}).id===t.id;};
+  const future=t=>{const w=Date.parse(t.when||'');return !Number.isNaN(w)&&w>=Date.now();};
+  // loose tasks fill the groups; a project's next action joins Now when it's P1 or on the calendar
+  const filtered=open.filter(t=>inArea(t)&&(!outcomeById(t.outcomeId)||(isNext(t)&&(taskPriority(t)==='P1'||future(t)))));
+  const projs=liveOutcomes().filter(o=>taskArea==='all'||o.areaId===taskArea||outcomeTasks(o.id).some(inArea))
+    .sort((a,b)=>(!nextActionOf(b))-(!nextActionOf(a))||(a.ts||0)-(b.ts||0));
+  const needN=projs.filter(o=>!nextActionOf(o)).length;
   const board=focusBoard(filtered);
   const nowIds=new Set(board.now.map(x=>x.t.id));
-  const future=t=>{const w=Date.parse(t.when||'');return !Number.isNaN(w)&&w>=Date.now();};
   const upcoming=filtered.filter(t=>!nowIds.has(t.id)&&future(t)).sort((a,b)=>Date.parse(a.when)-Date.parse(b.when));
   const upIds=new Set(upcoming.map(t=>t.id));
   const also=board.also.filter(x=>!upIds.has(x.t.id));
   const alsoIds=new Set(also.map(x=>x.t.id));
   const held=id=>nowIds.has(id)||upIds.has(id)||alsoIds.has(id);
-  const week=filtered.filter(t=>taskPriority(t)==='P2'&&!held(t.id)&&!isStale(t)).sort(byPrioThenCreated);
-  const later=filtered.filter(t=>taskPriority(t)==='P3'&&!held(t.id)&&!isStale(t)).sort(byPrioThenCreated);
-  const quiet=filtered.filter(t=>isStale(t)&&!nowIds.has(t.id)&&!upIds.has(t.id)).sort((a,b)=>(a.touchedAt||a.ts||0)-(b.touchedAt||b.ts||0));
+  const loose=t=>!outcomeById(t.outcomeId);
+  const week=filtered.filter(t=>loose(t)&&taskPriority(t)==='P2'&&!held(t.id)&&!isStale(t)).sort(byPrioThenCreated);
+  const later=filtered.filter(t=>loose(t)&&taskPriority(t)==='P3'&&!held(t.id)&&!isStale(t)).sort(byPrioThenCreated);
+  const quiet=filtered.filter(t=>loose(t)&&isStale(t)&&!nowIds.has(t.id)&&!upIds.has(t.id)).sort((a,b)=>(a.touchedAt||a.ts||0)-(b.touchedAt||b.ts||0));
   const cnt=pid=>open.filter(t=>(t.projectId||null)===pid).length;
+  const row=(t,o)=>{const p=outcomeById(t.outcomeId);return hubTaskRow(t,o).replace('<span class="tk-txt">',p?`<span class="tk-txt"><span class="tk-pjtag">${esc(clip(p.name,24))}</span>`:'<span class="tk-txt">');};
   const group=(cls,drop,title,sub,rows,empty)=>`<section class="tk-group ${cls}" ${drop?`data-drop="${drop}"`:''}>
       <div class="tk-gh"><i class="tk-gdot"></i><b>${title}</b>${sub?`<span class="tk-gsub">${sub}</span>`:''}</div>
       ${rows?`<div class="et-list">${rows}</div>`:`<div class="tk-empty">${empty}</div>`}
@@ -4153,7 +4305,7 @@ function renderTasks(){
     <div class="tk-layout"><div>
 
     <div class="tk-capture">
-      <input id="tk-add" placeholder="What needs doing? Try: call Clinton 3pm" autocomplete="off" autofocus>
+      <input id="tk-add" placeholder="What needs doing? Try: call Clinton 3pm, or MO OS: fix goals" autocomplete="off" autofocus>
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
 
@@ -4164,25 +4316,34 @@ function renderTasks(){
     </div>
 
     <div class="tk-groups">
-      ${group('now','P1','Now',nowSub,board.now.map(x=>hubTaskRow(x.t,{why:x.why})).join(''),'Nothing is marked for today.')}
-      ${upcoming.length?group('sched','','Scheduled',upcoming.filter(t=>isoDay(new Date(t.when))===todayKey()).length+' today',upcoming.map(t=>hubTaskRow(t)).join(''),''):''}
-      ${group('week','P2','This week','',week.map(t=>hubTaskRow(t)).join(''),'Nothing this week.')}
-      ${group('later','P3','Later','',later.map(t=>hubTaskRow(t)).join(''),'Nothing later.')}
+      ${group('now','P1','Now',nowSub,board.now.map(x=>row(x.t,{why:x.why})).join(''),'Nothing is marked for today.')}
+      ${upcoming.length?group('sched','','Scheduled',upcoming.filter(t=>isoDay(new Date(t.when))===todayKey()).length+' today',upcoming.map(t=>row(t)).join(''),''):''}
+      <section class="tk-group proj">
+        <div class="tk-gh"><i class="tk-gdot"></i><b>Projects</b><span class="tk-gsub">${needN?`${needN} need${needN>1?'':'s'} a next action`:projs.length?'one next action each':''}</span></div>
+        ${projs.length?`<div class="pj-list">${projs.map(projectCardHTML).join('')}</div>`:''}
+        <input class="pj-new" id="pj-new" placeholder="+ New project (the outcome, e.g. Electrician booked)" autocomplete="off">
+      </section>
+      ${group('week','P2','This week','',week.map(t=>row(t)).join(''),'Nothing this week.')}
+      ${group('later','P3','Later','',later.map(t=>row(t)).join(''),'Nothing later.')}
     </div>
 
     ${quiet.length?`<div class="tk-quiet">
       <button class="tk-quiet-h" id="tk-quiet-toggle">${taskQuietOpen?'▾':'▸'} ${quiet.length} gone quiet <span>untouched 2+ weeks</span></button>
-      ${taskQuietOpen?`<div class="et-list tk-quiet-list">${quiet.map(t=>hubTaskRow(t,{quiet:true})).join('')}</div>`:''}
+      ${taskQuietOpen?`<div class="et-list tk-quiet-list">${quiet.map(t=>row(t,{quiet:true})).join('')}</div>`:''}
     </div>`:''}
 
     ${dToday.length?`<div class="sect" style="margin-top:22px">
       <button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
-      ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>`<div class="et-row completed" data-id="${t.id}"><span class="box et-complete done" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span><div class="et-main"><div class="et-name">${esc(t.name)}</div></div><div class="et-actions"><button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button></div></div>`).join('')}</div>`:''}
+      ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>`<div class="et-row completed" data-id="${t.id}">${tkBox(t.id,true)}<div class="et-main"><div class="et-name">${esc(t.name)}</div></div><div class="et-actions"><button class="et-lblbtn" data-undo="${t.id}">Undo</button><button class="rm" data-del="${t.id}">×</button></div></div>`).join('')}</div>`:''}
     </div>`:''}
     </div><div id="tl-wrap">${timelineHTML()}</div></div>
   </div>`;
   wireTasks();
   wireTimeline();
+  if(_askFocus){
+    const i=main.querySelector(`[data-ask="${_askFocus}"]`);_askFocus=null;
+    if(i){i.closest('.pj').scrollIntoView({block:'center',behavior:'smooth'});i.focus({preventScroll:true});}
+  }
 }
 function wireTasks(){
   const E=execData();
@@ -4190,7 +4351,9 @@ function wireTasks(){
   const add=()=>{
     const v=inp.value.trim();if(!v)return;
     const pc=parseCapture(v);if(!pc.name)return;
-    const t=addTask(pc.name,{projectId:pc.area||(taskArea==='all'?null:taskArea),priority:pc.priority||'P2'});
+    let name=pc.name,oid=null;
+    const sp=splitProject(name);if(sp){oid=findOrMakeOutcome(sp.project,pc.area||(taskArea==='all'?null:taskArea)).id;name=sp.name;}
+    const t=addTask(name,{projectId:pc.area||(taskArea==='all'?null:taskArea),priority:pc.priority||'P2',outcomeId:oid});
     save();
     if(pc.mins!=null){scheduleTask(t.id,slotDate(pc.mins+pc.dayOff*1440));return;}
     renderTasks();
@@ -4212,9 +4375,10 @@ function wireTasks(){
     if(t.status==='completed'){uncompleteTask(id);save();renderTasks();return;}
     const name=t.name;
     const row=c.closest('.tk-row');
-    completeTask(id);save();
+    const o=completeTask(id);save();
+    if(o)_askFocus=o.id;
     if(row){row.classList.add('leaving');const bx=row.querySelector('.box');if(bx)bx.classList.add('done');setTimeout(renderTasks,200);}else renderTasks();
-    etToast('Done: '+clip(name,30),'undo',()=>{uncompleteTask(id);save();renderTasks();});
+    etToast(o?'Done. What’s next for '+clip(o.name,26)+'?':'Done: '+clip(name,30),'undo',()=>{uncompleteTask(id);save();renderTasks();});
   });
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
   main.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{const t=E.tasks[b.dataset.del];if(t&&t.when)unscheduleTask(t.id,true);deleteTask(b.dataset.del);save();renderTasks();});
@@ -4237,7 +4401,43 @@ function wireTasks(){
       setPriority(id,sec.dataset.drop);_popId=id;save();renderTasks();
     });
   });
+  main.querySelectorAll('[data-mknext]').forEach(b=>b.onclick=e=>{e.stopPropagation();setNextAction(b.dataset.mknext);save();renderTasks();});
+  main.querySelectorAll('[data-fold]').forEach(b=>b.onclick=()=>{
+    const id=b.dataset.fold;pjOpen[id]=!pjOpen[id];renderTasks();
+    if(pjOpen[id]&&!outcomeTasks(id).length){const a=main.querySelector(`[data-pjadd="${id}"]`);if(a)a.focus();}
+  });
+  main.querySelectorAll('[data-pjdone]').forEach(b=>b.onclick=()=>{const o=outcomeById(b.dataset.pjdone);if(!o)return;finishOutcome(o.id);save();renderTasks();etToast('Finished: '+clip(o.name,30),'undo',()=>{o.done=false;o.doneAt=null;o.ask=true;save();renderTasks();});});
+  main.querySelectorAll('[data-pjmenu]').forEach(b=>b.onclick=e=>{e.stopPropagation();openProjectMenu(b.dataset.pjmenu,b);});
   main.querySelectorAll('[data-dot]').forEach(b=>b.onclick=e=>{e.stopPropagation();openAreaPicker(b.dataset.dot,b);});
+
+  const addTo=(input,oid)=>{
+    const v=input.value.trim();if(!v)return false;
+    const pc=parseCapture(v);if(!pc.name)return false;
+    const t=addTask(pc.name,{outcomeId:oid,projectId:pc.area||null,priority:pc.priority||'P2'});
+    save();
+    if(pc.mins!=null){scheduleTask(t.id,slotDate(pc.mins+pc.dayOff*1440));return false;}
+    return true;
+  };
+  main.querySelectorAll('[data-ask]').forEach(i=>i.onkeydown=e=>{
+    if(e.key==='Escape'){i.blur();return;}
+    if(e.key!=='Enter')return;
+    const oid=i.dataset.ask;
+    if(addTo(i,oid)){renderTasks();etToast('Next action set');}
+  });
+  main.querySelectorAll('[data-pjadd]').forEach(i=>i.onkeydown=e=>{
+    if(e.key==='Escape'){i.blur();return;}
+    if(e.key!=='Enter')return;
+    const oid=i.dataset.pjadd;
+    if(addTo(i,oid)){renderTasks();const a=main.querySelector(`[data-pjadd="${oid}"]`);if(a)a.focus();}
+  });
+  const pn=document.getElementById('pj-new');
+  if(pn)pn.onkeydown=e=>{
+    if(e.key==='Escape'){pn.blur();return;}
+    if(e.key!=='Enter')return;
+    const v=pn.value.trim();if(!v)return;
+    const o=findOutcome(v)||makeOutcome(v);
+    _askFocus=nextActionOf(o)?null:o.id;save();renderTasks();
+  };
 
   const renameRow=(nm,dn)=>{
     const id=nm.dataset[dn];const t=E.tasks[id];if(!t)return;
@@ -4247,39 +4447,86 @@ function wireTasks(){
     input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
   };
   main.querySelectorAll('.et-name[data-n]').forEach(nm=>nm.onclick=()=>renameRow(nm,'n'));
+  main.querySelectorAll('[data-pjren]').forEach(nm=>nm.onclick=()=>renameProject(nm.dataset.pjren,nm));
 
   const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
   const qt=document.getElementById('tk-quiet-toggle');if(qt)qt.onclick=()=>{taskQuietOpen=!taskQuietOpen;renderTasks();};
 }
+function renameProject(oid,el){
+  const o=outcomeById(oid);if(!o)return;
+  const input=document.createElement('input');input.className='et-rename pj-rename';input.value=o.name;
+  el.replaceWith(input);input.focus();input.select();
+  input.onblur=()=>{const v=input.value.trim();if(v&&v!==o.name)o.name=v.slice(0,120);save();renderTasks();};
+  input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
+}
+/* small popovers share the #area-pop shell */
 let _areaPopFor=null;
 function closeAreaPicker(){const p=document.getElementById('area-pop');if(p)p.remove();_areaPopFor=null;document.removeEventListener('keydown',apEsc);}
 function apEsc(e){if(e.key==='Escape')closeAreaPicker();}
-function openAreaPicker(taskId,anchorEl){
-  closeAreaPicker();_areaPopFor=taskId;
-  const E=execData();const t=E.tasks[taskId];if(!t)return;
-  const pop=document.createElement('div');pop.className='area-pop';pop.id='area-pop';
-  pop.innerHTML=`
-    <div class="ap-head">Area</div>
-    <button class="ap-row ${!t.projectId?'on':''}" data-set=""><span class="ap-dot" style="--dc:var(--border-2)"></span>None</button>
-    ${E.projects.map(p=>`<button class="ap-row ${t.projectId===p.id?'on':''}" data-set="${p.id}"><span class="ap-dot" style="--dc:${execProjColor(p.id)}"></span>${esc(p.name)}<span class="ap-edit"><span class="ap-ren" data-ren="${p.id}" title="Rename">✎</span><span class="ap-del" data-adel="${p.id}" title="Delete area">×</span></span></button>`).join('')}
-    <button class="ap-row ap-new" id="ap-new">+ New area</button>
-    <div class="ap-head" style="margin-top:6px">Task</div>
-    <button class="ap-row ap-danger" id="ap-deltask">Delete task</button>`;
+function showPop(html,anchorEl){
+  closeAreaPicker();
+  const pop=document.createElement('div');pop.className='area-pop';pop.id='area-pop';pop.innerHTML=html;
   document.body.appendChild(pop);
-  pop.querySelector('#ap-deltask').onclick=()=>{if(t.when)unscheduleTask(t.id,true);deleteTask(t.id);save();closeAreaPicker();renderTasks();};
-  const r=anchorEl.getBoundingClientRect();const w=220,h=Math.min(pop.offsetHeight||300,window.innerHeight-24);
+  const r=anchorEl.getBoundingClientRect();const w=pop.offsetWidth||240,h=Math.min(pop.offsetHeight||300,window.innerHeight-24);
   let left=r.right-w, top=r.bottom+6;
   if(left<12)left=12; if(top+h>window.innerHeight-12)top=Math.max(12,r.top-h-6);
   pop.style.left=left+'px';pop.style.top=top+'px';
-  pop.querySelectorAll('[data-set]').forEach(b=>b.onclick=e=>{
-    if(e.target.closest('.ap-edit'))return;
-    t.projectId=b.dataset.set||null;touchTask(taskId);save();closeAreaPicker();renderTasks();
-  });
-  pop.querySelectorAll('[data-ren]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=E.projects.find(x=>x.id===b.dataset.ren);if(!p)return;const n=prompt('Rename area',p.name);if(n&&n.trim()){p.name=n.trim();save();}closeAreaPicker();renderTasks();});
-  pop.querySelectorAll('[data-adel]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=E.projects.find(x=>x.id===b.dataset.adel);if(!p)return;if(!confirm('Delete '+p.name+'? Its tasks lose their area.'))return;execDeleteProject(b.dataset.adel);if(taskArea===b.dataset.adel)taskArea='all';save();closeAreaPicker();renderTasks();});
-  const nw=pop.querySelector('#ap-new');if(nw)nw.onclick=()=>{const name=prompt('New life area name');if(name&&name.trim()){const id=execAddProject(name.trim(),'⭐');if(_areaPopFor&&E.tasks[_areaPopFor]){E.tasks[_areaPopFor].projectId=id;touchTask(_areaPopFor);}save();}closeAreaPicker();renderTasks();};
   pop.onclick=e=>e.stopPropagation();
   setTimeout(()=>{document.addEventListener('click',closeAreaPicker,{once:true});document.addEventListener('keydown',apEsc);},0);
+  return pop;
+}
+function areaRowsHTML(cur){
+  const E=execData();
+  return `<button class="ap-row ${!cur?'on':''}" data-set=""><span class="ap-dot" style="--dc:var(--border-2)"></span>None</button>
+    ${E.projects.map(p=>`<button class="ap-row ${cur===p.id?'on':''}" data-set="${p.id}"><span class="ap-dot" style="--dc:${execProjColor(p.id)}"></span>${esc(p.name)}<span class="ap-edit"><span class="ap-ren" data-ren="${p.id}" title="Rename">✎</span><span class="ap-del" data-adel="${p.id}" title="Delete area">×</span></span></button>`).join('')}
+    <button class="ap-row ap-new" id="ap-new">+ New area</button>`;
+}
+function wireAreaRows(pop,setArea){
+  const E=execData();
+  pop.querySelectorAll('[data-set]').forEach(b=>b.onclick=e=>{if(e.target.closest('.ap-edit'))return;setArea(b.dataset.set||null);save();closeAreaPicker();renderTasks();});
+  pop.querySelectorAll('[data-ren]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=E.projects.find(x=>x.id===b.dataset.ren);if(!p)return;const n=prompt('Rename area',p.name);if(n&&n.trim()){p.name=n.trim();save();}closeAreaPicker();renderTasks();});
+  pop.querySelectorAll('[data-adel]').forEach(b=>b.onclick=e=>{e.stopPropagation();const p=E.projects.find(x=>x.id===b.dataset.adel);if(!p)return;if(!confirm('Delete '+p.name+'? Its tasks lose their area.'))return;execDeleteProject(b.dataset.adel);if(taskArea===b.dataset.adel)taskArea='all';E.outcomes.forEach(o=>{if(o.areaId===b.dataset.adel)o.areaId=null;});save();closeAreaPicker();renderTasks();});
+  const nw=pop.querySelector('#ap-new');if(nw)nw.onclick=()=>{const name=prompt('New life area name');if(name&&name.trim()){setArea(execAddProject(name.trim(),'⭐'));save();}closeAreaPicker();renderTasks();};
+}
+function openAreaPicker(taskId,anchorEl){
+  const E=execData();const t=E.tasks[taskId];if(!t)return;
+  const o=outcomeById(t.outcomeId);
+  const isNext=o&&(nextActionOf(o)||{}).id===t.id;
+  const pop=showPop(`
+    <div class="ap-head">Project</div>
+    <button class="ap-row ${!o?'on':''}" data-pj="">Loose (no project)</button>
+    ${liveOutcomes().map(x=>`<button class="ap-row ${o&&o.id===x.id?'on':''}" data-pj="${x.id}"><span class="ap-dot" style="--dc:${areaDot(x.areaId)||'var(--border-2)'}"></span>${esc(clip(x.name,28))}</button>`).join('')}
+    ${o?'':`<button class="ap-row ap-new" id="ap-promote" title="For vague tasks: make it a project, then add its first action">Turn into a project</button>`}
+    <div class="ap-head" style="margin-top:6px">Area</div>
+    ${areaRowsHTML(t.projectId)}
+    <div class="ap-head" style="margin-top:6px">Task</div>
+    ${o&&!isNext?'<button class="ap-row" id="ap-mknext">Make it the next action</button>':''}
+    <button class="ap-row ap-danger" id="ap-deltask">Delete task</button>`,anchorEl);
+  _areaPopFor=taskId;
+  pop.querySelectorAll('[data-pj]').forEach(b=>b.onclick=()=>{setTaskOutcome(taskId,b.dataset.pj||null);save();closeAreaPicker();renderTasks();});
+  const pr=pop.querySelector('#ap-promote');if(pr)pr.onclick=()=>{
+    const no=findOrMakeOutcome(t.name,t.projectId);
+    if(t.when)unscheduleTask(t.id,true);
+    deleteTask(t.id);no.ask=true;no.nextId=null;_askFocus=no.id;save();closeAreaPicker();renderTasks();
+  };
+  const mk=pop.querySelector('#ap-mknext');if(mk)mk.onclick=()=>{setNextAction(taskId);save();closeAreaPicker();renderTasks();};
+  pop.querySelector('#ap-deltask').onclick=()=>{if(t.when)unscheduleTask(t.id,true);deleteTask(t.id);save();closeAreaPicker();renderTasks();};
+  wireAreaRows(pop,id=>{t.projectId=id;touchTask(taskId);});
+}
+function openProjectMenu(oid,anchorEl){
+  const o=outcomeById(oid);if(!o)return;
+  const n=outcomeTasks(oid).length;
+  const pop=showPop(`
+    <div class="ap-head">Area</div>
+    ${areaRowsHTML(o.areaId)}
+    <div class="ap-head" style="margin-top:6px">Project</div>
+    <button class="ap-row" id="pm-ren">Rename</button>
+    <button class="ap-row" id="pm-done">Finished${n?` (checks off ${n} open)`:''}</button>
+    <button class="ap-row ap-danger" id="pm-del">Delete project</button>`,anchorEl);
+  wireAreaRows(pop,id=>{o.areaId=id;});
+  pop.querySelector('#pm-ren').onclick=()=>{closeAreaPicker();const el=main.querySelector(`[data-pjren="${oid}"]`);if(el)renameProject(oid,el);};
+  pop.querySelector('#pm-done').onclick=()=>{closeAreaPicker();finishOutcome(oid);save();renderTasks();etToast('Finished: '+clip(o.name,30));};
+  pop.querySelector('#pm-del').onclick=()=>{if(!confirm('Delete '+o.name+'?'+(n?' Its '+n+' open task'+(n>1?'s':'')+' become loose tasks.':'')))return;deleteOutcome(oid);save();closeAreaPicker();renderTasks();};
 }
 function etToast(msg,kind,undoFn){
   const old=document.getElementById('et-toast');if(old)old.remove();
@@ -6655,6 +6902,8 @@ async function drainInbox(opts){
         const st=it.set||{};
         if(typeof st.name==='string'&&st.name.trim())t.name=st.name.trim().slice(0,500);
         if(typeof st.area==='string'){const p=E.projects.find(x=>(x.name||'').trim().toLowerCase()===st.area.trim().toLowerCase());if(p)t.projectId=p.id;}
+        if(typeof st.project==='string'){const pj=st.project.trim();setTaskOutcome(t.id,!pj||/^none$/i.test(pj)?null:findOrMakeOutcome(pj,t.projectId).id);}
+        if(st.next_action===true&&t.outcomeId)setNextAction(t.id);
         if(typeof st.today==='boolean')t.today=st.today;
         const pr=priorityUpdate(st);
         if(pr)setPriority(t.id,pr);
@@ -6710,16 +6959,20 @@ async function drainInbox(opts){
         e.ts=Date.now();journaled++;
         continue;
       }
-      const text=String(it.text||'').trim();if(!text)continue;
+      let text=String(it.text||'').trim();if(!text)continue;
       const np=inboxPriority(it);
+      const area=String(it.area||'').trim().toLowerCase();
+      const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
+      let pj=String(it.project||'').trim();if(/^none$/i.test(pj))pj='';
+      if(!pj){const sp=splitProject(text);if(sp){pj=sp.project;text=sp.name;}}
       const dup=openTasks().find(t=>t.name.trim().toLowerCase()===text.toLowerCase());
       if(dup){
         if(prioRank(np)<prioRank(taskPriority(dup))){setPriority(dup.id,np);bumped++;}
+        if(pj&&!dup.outcomeId){setTaskOutcome(dup.id,findOrMakeOutcome(pj,dup.projectId).id);bumped++;}
         continue;
       }
-      const area=String(it.area||'').trim().toLowerCase();
-      const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
-      addTask(text,{projectId:p?p.id:null,priority:np});
+      const oid=pj?findOrMakeOutcome(pj,p?p.id:null).id:null;
+      addTask(text,{projectId:p?p.id:null,priority:np,outcomeId:oid,next:it.next_action===true});
       added++;
     }
     // persist the merged tasks before clearing the inbox so nothing can get lost

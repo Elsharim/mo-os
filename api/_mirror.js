@@ -18,8 +18,9 @@ export async function storeMirror(obj) {
     at: Date.now(),
     name: String(obj.name || 'Mo').slice(0, 60),
     projects: (Array.isArray(obj.projects) ? obj.projects : []).slice(0, 50).map((p) => ({ id: String(p.id || ''), name: String(p.name || '').slice(0, 80) })),
+    outcomes: (Array.isArray(obj.outcomes) ? obj.outcomes : []).slice(0, 80).map((o) => ({ id: String(o.id || ''), name: String(o.name || '').slice(0, 120), areaId: o.areaId ? String(o.areaId) : null, nextId: o.nextId ? String(o.nextId) : null, ask: !!o.ask, done: !!o.done, ts: Number(o.ts) || 0, ...(o.pending ? { pending: true } : {}) })),
     tasks: (Array.isArray(obj.tasks) ? obj.tasks : []).slice(0, 600).map((t) => ({
-      id: String(t.id || ''), name: String(t.name || '').slice(0, 500), projectId: t.projectId ? String(t.projectId) : null, today: !!t.today, pri: priOf(t.pri) || null, status: String(t.status || 'inbox'), when: t.when || null, ts: Number(t.ts) || 0, completedAt: Number(t.completedAt) || null, ...(t.pending ? { pending: true } : {})
+      id: String(t.id || ''), name: String(t.name || '').slice(0, 500), projectId: t.projectId ? String(t.projectId) : null, outcomeId: t.outcomeId ? String(t.outcomeId) : null, today: !!t.today, pri: priOf(t.pri) || null, status: String(t.status || 'inbox'), when: t.when || null, ts: Number(t.ts) || 0, completedAt: Number(t.completedAt) || null, ...(t.pending ? { pending: true } : {})
     })),
     journal: (Array.isArray(obj.journal) ? obj.journal : []).slice(0, 120).map((j) => ({ key: String(j.key || '').slice(0, 20), title: String(j.title || '').slice(0, 200), text: String(j.text || '').slice(0, 6000), ts: Number(j.ts) || 0, done: !!j.done, ...(j.pending ? { pending: true } : {}) })),
     disciplines: (Array.isArray(obj.disciplines) ? obj.disciplines : []).slice(0, 60).map((d) => ({ id: String(d.id || ''), label: String(d.label || '').slice(0, 80), weight: Number(d.weight) || 0 })),
@@ -53,13 +54,33 @@ const day = (d = new Date()) => d.toISOString().slice(0, 10);
 const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n) + '…' : s; };
 const iso = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : null);
 
+// Projects are outcomes (M.outcomes); M.projects are life areas. A project shows one next action:
+// nextId when it's open, else its oldest open task, none while it waits for Mo to set one (ask).
+export function nextActionOf(M, o) {
+  if (!o || o.done || o.ask) return null;
+  const open = (M.tasks || []).filter((t) => t.outcomeId === o.id && t.status !== 'completed');
+  return open.find((t) => t.id === o.nextId) || open.sort((a, b) => a.ts - b.ts)[0] || null;
+}
+export function projectsOf(M) {
+  const area = Object.fromEntries((M.projects || []).map((p) => [p.id, p.name]));
+  const tasks = M.tasks || [];
+  return {
+    projects: (M.outcomes || []).filter((o) => !o.done).map((o) => {
+      const nx = nextActionOf(M, o);
+      return { id: o.id, name: o.name, area: o.areaId ? area[o.areaId] || null : null, next_action: nx ? nx.name : null, next_action_id: nx ? nx.id : null, needs_next_action: !nx, open_tasks: tasks.filter((t) => t.outcomeId === o.id && t.status !== 'completed').length, done_tasks: tasks.filter((t) => t.outcomeId === o.id && t.status === 'completed').length, ...(o.pending ? { pending: true } : {}) };
+    }),
+    loose_tasks: tasks.filter((t) => t.status !== 'completed' && !(M.outcomes || []).some((o) => o.id === t.outcomeId && !o.done)).length
+  };
+}
 export function tasksOf(M, { all = false } = {}) {
   const proj = Object.fromEntries((M.projects || []).map((p) => [p.id, p.name]));
+  const outc = Object.fromEntries((M.outcomes || []).filter((o) => !o.done).map((o) => [o.id, o]));
+  const nexts = new Set(Object.values(outc).map((o) => (nextActionOf(M, o) || {}).id).filter(Boolean));
   const rank = (t) => t.pri || 4;
   return (M.tasks || [])
     .filter((t) => all || t.status !== 'completed')
     .sort((a, b) => ((a.status === 'completed') - (b.status === 'completed')) || (rank(a) - rank(b)) || (b.ts - a.ts))
-    .map((t) => ({ id: t.id, name: t.name, area: t.projectId ? proj[t.projectId] || null : null, priority: t.pri ? 'P' + t.pri : null, status: t.status, when: t.when, created: iso(t.ts), completed: iso(t.completedAt), ...(t.pending ? { pending: true } : {}) }));
+    .map((t) => ({ id: t.id, name: t.name, area: t.projectId ? proj[t.projectId] || null : null, project: outc[t.outcomeId] ? outc[t.outcomeId].name : null, next_action: nexts.has(t.id), priority: t.pri ? 'P' + t.pri : null, status: t.status, when: t.when, created: iso(t.ts), completed: iso(t.completedAt), ...(t.pending ? { pending: true } : {}) }));
 }
 export function journalOf(M, { from, to, limit = 30 } = {}) {
   return (M.journal || []).filter((j) => (!from || j.key.slice(0, 10) >= from) && (!to || j.key.slice(0, 10) <= to)).sort((a, b) => b.key.localeCompare(a.key)).slice(0, limit)
@@ -86,6 +107,7 @@ export function summaryOf(M) {
     p1_today: tasks.filter((t) => t.priority === 'P1').map((t) => t.name),
     p2_this_week: tasks.filter((t) => t.priority === 'P2').map((t) => t.name),
     open_tasks: tasks.length,
+    projects: projectsOf(M).projects.map((p) => ({ name: p.name, next_action: p.next_action, needs_next_action: p.needs_next_action })),
     disciplines_today: disciplinesOf(M, 1).days[0],
     goals: goalsOf(M).goals.filter((g) => !g.done).slice(0, 3),
     last_journal: journalOf(M, { limit: 1 }).map((j) => ({ date: j.date, title: j.title, text: clip(j.text, 400) }))[0] || null
@@ -95,6 +117,12 @@ export function summaryOf(M) {
 /* Apply the same changes the app will apply from the inbox to the server copy
    right away, so bots read their own changes instantly. The app overwrites
    this copy with the real state the next time it saves. */
+// "MO OS: fix the goals page" -> project MO OS, task "Fix the goals page" (same rule as the app)
+export function splitProject(text) {
+  const m = /^\s*([^:\n]{2,40}?)\s*:\s+(\S[\s\S]*)$/.exec(String(text || ''));
+  if (!m || /^https?$/i.test(m[1]) || /^\d/.test(m[1]) || m[1].trim().split(/\s+/).length > 5) return null;
+  return { project: m[1].trim(), name: m[2].charAt(0).toUpperCase() + m[2].slice(1) };
+}
 const norm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 function findOpen(M, q, id) {
   const open = (M.tasks || []).filter((t) => t.status !== 'completed');
@@ -113,15 +141,37 @@ export async function applyToMirror(items, localDay) {
   M.tasks = M.tasks || []; M.journal = M.journal || []; M.days = M.days || {};
   const now = Date.now(), day = localDay || new Date().toISOString().slice(0, 10);
   const proj = (a) => { const p = (M.projects || []).find((x) => norm(x.name) === norm(a)); return p ? p.id : null; };
+  M.outcomes = M.outcomes || [];
+  const outcome = (name, areaId) => {
+    let o = M.outcomes.find((x) => !x.done && norm(x.name) === norm(name));
+    if (!o) { o = { id: 'pending-o' + now.toString(36) + Math.random().toString(36).slice(2, 6), name: String(name).trim().slice(0, 120), areaId: areaId || null, nextId: null, ask: true, done: false, ts: now, pending: true }; M.outcomes.push(o); }
+    return o;
+  };
+  const setOutcome = (t, name) => {
+    const old = M.outcomes.find((x) => x.id === t.outcomeId); if (old && old.nextId === t.id) old.nextId = null;
+    if (!name || /^none$/i.test(name)) { t.outcomeId = null; return; }
+    const o = outcome(name, t.projectId); const take = o.ask || !nextActionOf(M, o);
+    t.outcomeId = o.id; if (take) { o.nextId = t.id; o.ask = false; }
+  };
+  const done = (t) => {
+    const o = M.outcomes.find((x) => x.id === t.outcomeId);
+    const wasNext = o && (nextActionOf(M, o) || {}).id === t.id;
+    t.status = 'completed'; t.completedAt = now;
+    if (wasNext) { o.nextId = null; o.ask = true; }
+  };
   for (const it of items) {
     const k = it.kind;
     if (!k) { // add task
-      const text = String(it.text || '').trim(); if (!text) continue;
+      let text = String(it.text || '').trim(); if (!text) continue;
+      let pj = String(it.project || '').trim(); if (/^none$/i.test(pj)) pj = '';
+      if (!pj) { const sp = splitProject(text); if (sp) { pj = sp.project; text = sp.name; } }
       if (M.tasks.some((t) => t.status !== 'completed' && t.name.trim().toLowerCase() === text.toLowerCase())) continue;
       const id = 'pending-' + now.toString(36) + Math.random().toString(36).slice(2, 6);
-      M.tasks.push({ id, name: text, projectId: it.area ? proj(it.area) : null, today: false, pri: priOf(it.priority) || (it.today ? 1 : null), status: 'inbox', when: null, ts: now, completedAt: null, pending: true });
+      const t = { id, name: text, projectId: it.area ? proj(it.area) : null, outcomeId: null, today: false, pri: priOf(it.priority) || (it.today ? 1 : null), status: 'inbox', when: null, ts: now, completedAt: null, pending: true };
+      M.tasks.push(t);
+      if (pj) { setOutcome(t, pj); if (it.next_action === true) { const o = M.outcomes.find((x) => x.id === t.outcomeId); o.nextId = t.id; o.ask = false; } }
     } else if (k === 'complete') {
-      for (const n of it.names || []) { const t = findOpen(M, n); if (t) { t.status = 'completed'; t.completedAt = now; } }
+      for (const n of it.names || []) { const t = findOpen(M, n); if (t) done(t); }
     } else if (k === 'delete') {
       for (const n of it.names || []) {
         const q = norm(n); if (!q) continue;
@@ -134,13 +184,15 @@ export async function applyToMirror(items, localDay) {
       const st = it.set || {};
       if (typeof st.name === 'string' && st.name.trim()) t.name = st.name.trim().slice(0, 500);
       if (typeof st.area === 'string') { const p = proj(st.area); if (p) t.projectId = p; }
+      if (typeof st.project === 'string') setOutcome(t, st.project.trim());
+      if (st.next_action === true && t.outcomeId) { const o = M.outcomes.find((x) => x.id === t.outcomeId); if (o) { o.nextId = t.id; o.ask = false; } }
       if (typeof st.today === 'boolean') t.today = st.today;
       if (st.priority !== undefined) t.pri = priOf(st.priority) || null;
-      if (st.status === 'completed') { t.status = 'completed'; t.completedAt = now; }
+      if (st.status === 'completed' && t.status !== 'completed') done(t);
       if (st.status === 'open' && t.status === 'completed') { t.status = 'inbox'; t.completedAt = null; }
     } else if (k === 'workout') {
       const re = /\b(gym|lift|lifting|work ?out|(leg|push|pull|chest|back|arm|upper|lower) day)\b/i;
-      M.tasks.filter((t) => t.status !== 'completed' && re.test(t.name)).forEach((t) => { t.status = 'completed'; t.completedAt = now; });
+      M.tasks.filter((t) => t.status !== 'completed' && re.test(t.name)).forEach(done);
     } else if (k === 'tick') {
       const d = /^\d{4}-\d{2}-\d{2}$/.test(it.date || '') ? it.date : day;
       const rec = (M.days[d] = M.days[d] || {});

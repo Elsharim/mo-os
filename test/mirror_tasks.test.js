@@ -87,3 +87,35 @@ test('a task with no pri stays unsorted', () => {
   const out = tasksOf({ tasks: [task('n', 'write about why')] });
   assert.equal(out[0].priority, null);
 });
+
+test('projects: one next action each, asks for the next one when it is done', async () => {
+  const { projectsOf, splitProject } = await import('../api/_mirror.js');
+  const M = {
+    projects: [{ id: 'a1', name: 'Personal' }],
+    outcomes: [
+      { id: 'o1', name: 'Electrician booked', areaId: 'a1', nextId: 'b', ask: false },
+      { id: 'o2', name: 'MO OS goals', nextId: null, ask: true },
+      { id: 'o3', name: 'Old', done: true }
+    ],
+    tasks: [
+      task('a', 'Google 3 electricians', { outcomeId: 'o1', ts: 1 }),
+      task('b', 'Text the landlord', { outcomeId: 'o1', ts: 2 }),
+      task('c', 'Fix goals', { outcomeId: 'o2', status: 'completed', completedAt: 3 }),
+      task('d', 'buy sweaters', { ts: 4 })
+    ]
+  };
+  const p = projectsOf(M);
+  assert.equal(p.projects.length, 2);
+  assert.equal(p.projects[0].next_action, 'Text the landlord');
+  assert.equal(p.projects[0].area, 'Personal');
+  assert.equal(p.projects[1].needs_next_action, true);
+  assert.equal(p.loose_tasks, 1);
+  const out = tasksOf(M);
+  assert.equal(out.find((t) => t.id === 'b').next_action, true);
+  assert.equal(out.find((t) => t.id === 'a').next_action, false);
+  assert.equal(out.find((t) => t.id === 'a').project, 'Electrician booked');
+  assert.equal(out.find((t) => t.id === 'd').project, null);
+  assert.deepEqual(splitProject('MO OS: fix the goals page'), { project: 'MO OS', name: 'Fix the goals page' });
+  assert.equal(splitProject('call Clinton at 3:30pm'), null);
+  assert.equal(splitProject('https://x.com'), null);
+});

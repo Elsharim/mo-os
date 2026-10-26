@@ -8,7 +8,7 @@ import { hevySummary, hevyRoutines, hevyEdit } from './_hevy.js';
 import { healthSummary, logFood, logWeight, removeFood, setTargets, removeWeight } from './_health.js';
 import { logMoney, moneySummary, setMoneySettings, logPayout, removePayout, removeMoneyDay } from './_money.js';
 import { logCalls, callsSummary, removeCalls } from './_work.js';
-import { readMirror, tasksOf, priOf, journalOf, disciplinesOf, goalsOf, summaryOf, applyToMirror, nameForId } from './_mirror.js';
+import { readMirror, tasksOf, projectsOf, priOf, journalOf, disciplinesOf, goalsOf, summaryOf, applyToMirror, nameForId } from './_mirror.js';
 import { localDateISO } from './_health.js';
 import { calendarToday } from './_cal.js';
 import { weekView } from './life.js';
@@ -25,7 +25,7 @@ const NOT_READY = 'The MO OS inbox is not activated yet. Open MO OS once on any 
 
 const TOOLS = [{
   name: 'add_tasks',
-  description: "Add one or more tasks to Mo's MO OS task list. Optional priority: P1 (do today), P2 (this week), P3 (someday); leave it out if unsure. Optional area: Sales, Fitness, Money or Personal. Use list_tasks to read his list.",
+  description: "Add one or more tasks to Mo's MO OS task list. Optional priority: P1 (do today), P2 (this week), P3 (someday); leave it out if unsure. Optional area: Sales, Fitness, Money or Personal. Optional project: the outcome it belongs to (a new name creates the project). Text like 'MO OS: fix goals' also files it under project MO OS. Each project shows one next action: write tasks verb first and under 30 minutes. Use list_tasks to read his list.",
   inputSchema: {
     type: 'object',
     properties: {
@@ -36,7 +36,9 @@ const TOOLS = [{
           properties: {
             text: { type: 'string', description: 'The task, short and actionable' },
             area: { type: 'string', description: 'Optional: Sales, Fitness, Money or Personal' },
-            priority: { type: 'string', enum: ['P1', 'P2', 'P3'], description: 'P1 = do today, P2 = this week, P3 = someday' }
+            priority: { type: 'string', enum: ['P1', 'P2', 'P3'], description: 'P1 = do today, P2 = this week, P3 = someday' },
+            project: { type: 'string', description: 'Optional: project (outcome) name, e.g. MO OS goals page. Leave out for a loose task.' },
+            next_action: { type: 'boolean', description: 'Optional: make it the project\'s next action' }
           },
           required: ['text']
         }
@@ -58,12 +60,16 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { kind: { type: 'string', enum: ['weight', 'calls', 'money'] }, date: { type: 'string', description: 'YYYY-MM-DD' } }, required: ['kind', 'date'] }
 }, {
   name: 'list_tasks',
-  description: "Mo's open tasks from MO OS, sorted by priority (P1 do today, P2 this week, P3 someday, then null = not sorted), with id, name, area, priority, status and when (from the copy the app syncs each time it saves; pending=true means the app has not picked it up yet). Optional priority filter. Pass all=true to include completed ones.",
-  inputSchema: { type: 'object', properties: { all: { type: 'boolean' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'Only tasks with this priority (none = not sorted yet)' } } }
+  description: "Mo's open tasks from MO OS, sorted by priority (P1 do today, P2 this week, P3 someday, then null = not sorted), with id, name, area, project, next_action (true = the one next action shown for its project), priority, status and when (from the copy the app syncs each time it saves; pending=true means the app has not picked it up yet). Optional priority and project filters. Pass all=true to include completed ones. For the project view use projects.",
+  inputSchema: { type: 'object', properties: { all: { type: 'boolean' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'Only tasks with this priority (none = not sorted yet)' }, project: { type: 'string', description: 'Only tasks in this project (none = loose tasks)' } } }
+}, {
+  name: 'projects',
+  description: "Mo's projects from MO OS. A project is an outcome; each shows exactly one next action (verb first, under 30 min). Returns each open project with its area, next_action, needs_next_action (true when he finished the last one and has not set the next), open and done task counts, plus how many loose tasks have no project. When needs_next_action is true, ask Mo what the next action is and add it with add_tasks (project + next_action=true).",
+  inputSchema: { type: 'object', properties: {} }
 }, {
   name: 'update_tasks',
-  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), priority (P1 do today, P2 this week, P3 someday, none to clear), area (Sales, Fitness, Money, Personal), status ('completed' or 'open'). Takes effect right away for the bots; the app applies it whenever it's open.",
-  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'P1 = do today, P2 = this week, P3 = someday, none = clear it' }, area: { type: 'string' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
+  description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), priority (P1 do today, P2 this week, P3 someday, none to clear), area (Sales, Fitness, Money, Personal), project (project name, a new name creates it, 'none' makes it loose), next_action (true = make it its project's next action), status ('completed' or 'open'). Takes effect right away for the bots; the app applies it whenever it's open.",
+  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'P1 = do today, P2 = this week, P3 = someday, none = clear it' }, area: { type: 'string' }, project: { type: 'string' }, next_action: { type: 'boolean' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
 }, {
   name: 'read_journal',
   description: "Mo's journal entries from MO OS, newest first. Optional from/to dates (YYYY-MM-DD) and limit (default 30). Each entry has a key for edit_journal.",
@@ -202,8 +208,8 @@ const TOOLS = [{
 }];
 
 const INSTRUCTIONS = [
-  "MO OS is Mo's personal operating system. Tools: add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), hevy_edit (log/edit workouts and routines in Hevy), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
-  "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, and set priorities: P1 for what must happen today, P2 for this week, P3 for someday. Keep P1 short.",
+  "MO OS is Mo's personal operating system. Tools: projects, add_tasks, complete_tasks, delete_tasks, update_tasks, list_tasks, remove_log, write_journal, read_journal, edit_journal, disciplines, tick, goals, summary, whoop (sleep/recovery), hevy (lifts), hevy_edit (log/edit workouts and routines in Hevy), food_and_weight, log_food, log_weight, remove_food, set_food_targets, log_money (push balances from Plaid), money, set_money_settings.",
+  "Tasks: capture anything he asks to remember or do with add_tasks. To plan his day, check his calendar, Close and Slack, and set priorities: P1 for what must happen today, P2 for this week, P3 for someday. Keep P1 short. Projects: a project is an outcome with exactly one next action (verb first, under 30 min); when Mo finishes one, projects shows needs_next_action, so ask him for the next one.",
   "FOOD COACH: Mo is bulking from 145 to 170 lbs. Base is 3,000 cal a day, weekly budget is 7 times that base (21,000 unless food_plan.targets.weekly_calories says otherwise), Monday to Sunday in Europe/Sarajevo, protein 150g a day. His real problem is forgetting to eat when he is locked into calls. When he sends a food photo or text, log it right away with log_food (his local date), no questions unless something is truly ambiguous. Estimate realistically from visible portions; for restaurant or delivery food assume oil and bigger portions. If he names a saved meal, pass just the name. Weigh-ins go to log_weight. 'undo' or a correction = remove_food then log again.",
   "Reply format after logging, short, exactly like this:\n<one emoji> <meal name>\n<cal> cal · <protein>g protein\n\nToday  <cal so far> / <adjusted daily target> cal\nProtein  <g so far> / <daily protein target>g\n\n<one line: what to eat next and when, tied to his next call if you know his calendar>",
   "The adjusted daily target is food_plan.today.adjusted_daily_target on log_food and food_and_weight. It does not drop as he eats today. If today.provisional is true, the target and the week remaining use the prorated budget (base times logged days plus days left), not the full weekly goal, and you say it is provisional. If today.clamped or today.note is set, the one line tells him to spread the gap, and you never tell him to eat the raw uncapped number. Protein is daily: a high day does not cover a low day. Unlogged days are unlogged, not zero. Weight trend fields on food_and_weight stay as they are.",
@@ -270,6 +276,8 @@ async function addTasks(args) {
     .map((t) => ({
       text: String((t && t.text) || '').trim().slice(0, 500),
       area: String((t && t.area) || '').trim().slice(0, 40),
+      project: String((t && t.project) || '').trim().slice(0, 120) || undefined,
+      next_action: (t && t.next_action) === true || undefined,
       priority: priOf(t && t.priority) ? 'P' + priOf(t.priority) : undefined
     }))
     .filter((t) => t.text)
@@ -359,7 +367,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['week', 'add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['week', 'projects', 'add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -403,7 +411,9 @@ async function handle(msg) {
           : name === 'delete_tasks'
             ? await deleteTasks(args)
           : name === 'list_tasks'
-            ? JSON.stringify(tasksOf(await readMirror(), { all: !!args.all }).filter((t) => !args.priority || (args.priority === 'none' ? !t.priority : t.priority === 'P' + priOf(args.priority))))
+            ? JSON.stringify(tasksOf(await readMirror(), { all: !!args.all }).filter((t) => !args.priority || (args.priority === 'none' ? !t.priority : t.priority === 'P' + priOf(args.priority))).filter((t) => !args.project || (/^none$/i.test(args.project) ? !t.project : String(t.project || '').toLowerCase() === String(args.project).trim().toLowerCase())))
+          : name === 'projects'
+            ? JSON.stringify(projectsOf(await readMirror()))
           : name === 'update_tasks'
             ? await updateTasks(args)
           : name === 'read_journal'
