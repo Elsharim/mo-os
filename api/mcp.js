@@ -37,7 +37,8 @@ const TOOLS = [{
             text: { type: 'string', description: 'The task, short and actionable' },
             area: { type: 'string', description: 'Optional: Sales, Fitness, Money or Personal' },
             priority: { type: 'string', enum: ['P1', 'P2', 'P3'], description: 'Colour tier: P1 = orange, most important; P2 = amber, next up (default); P3 = grey, someday' },
-            step: { type: 'string', description: 'For a big or vague task: the ONE next step, verb first, doable in 20 minutes (e.g. task "Figure out content automation", step "Write down the 3 posts I make every week"). Leave out for small tasks.' }
+            steps: { type: 'array', items: { type: 'string' }, description: 'For a big or vague task: its steps in order, each verb first and doable in 20 minutes (e.g. task "Figure out content automation", steps ["Write down the 3 posts I make every week", "Find one tool that clips them"]). The first one shows under the task. Leave out for small tasks.' },
+            step: { type: 'string', description: 'Shortcut for a single step.' }
           },
           required: ['text']
         }
@@ -68,7 +69,7 @@ const TOOLS = [{
 }, {
   name: 'update_tasks',
   description: "Change tasks in MO OS. Each update names a task by id (from list_tasks) or by name, and sets any of: name (rename), priority (P1 do today, P2 this week, P3 someday, none to clear), area (Sales, Fitness, Money, Personal), project (project name, a new name creates it, 'none' makes it loose), next_action (true = make it its project's next action), status ('completed' or 'open'). Takes effect right away for the bots; the app applies it whenever it's open.",
-  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, step: { type: 'string', description: 'The ONE next step under a big task, something doable in 20 minutes. Empty string clears it.' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'Colour tier: P1 = orange, most important; P2 = amber, next up; P3 = grey, someday' }, area: { type: 'string' }, project: { type: 'string' }, next_action: { type: 'boolean' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
+  inputSchema: { type: 'object', properties: { updates: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, set: { type: 'object', properties: { name: { type: 'string' }, steps: { type: 'array', items: { type: 'string' }, description: 'Replace the open steps with this list, in order.' }, step: { type: 'string', description: 'Set the first open step (adds one if none). Empty string removes it.' }, priority: { type: 'string', enum: ['P1', 'P2', 'P3', 'none'], description: 'Colour tier: P1 = orange, most important; P2 = amber, next up; P3 = grey, someday' }, area: { type: 'string' }, project: { type: 'string' }, next_action: { type: 'boolean' }, status: { type: 'string', enum: ['completed', 'open'] } } } }, required: ['set'] } } }, required: ['updates'] }
 }, {
   name: 'read_journal',
   description: "Mo's journal entries from MO OS, newest first. Optional from/to dates (YYYY-MM-DD) and limit (default 30). Each entry has a key for edit_journal.",
@@ -278,7 +279,8 @@ async function addTasks(args) {
       project: String((t && t.project) || '').trim().slice(0, 120) || undefined,
       next_action: (t && t.next_action) === true || undefined,
       priority: priOf(t && t.priority) ? 'P' + priOf(t.priority) : undefined,
-      step: String((t && t.step) || '').trim().slice(0, 200) || undefined
+      step: String((t && t.step) || '').trim().slice(0, 200) || undefined,
+      steps: Array.isArray(t && t.steps) ? t.steps.map((x) => String(x || '').trim().slice(0, 200)).filter(Boolean).slice(0, 20) : undefined
     }))
     .filter((t) => t.text)
     .slice(0, 20);

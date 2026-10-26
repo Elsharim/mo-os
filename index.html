@@ -2358,6 +2358,28 @@
   .tr-sbox{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--tc);background:none;cursor:pointer;flex:none;padding:0}
   .tr-sbox:hover{background:var(--tc)}
   .tr-stxt{cursor:text}.tr-stxt:before{content:"→ ";color:var(--tc)}
+  .tr-main{cursor:pointer}.tr-more-steps{font-size:11.5px;color:var(--faint,rgba(255,255,255,.35));margin-left:2px}
+  .ts-back{position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,.55);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;animation:tsIn .18s ease}
+  @keyframes tsIn{from{opacity:0}to{opacity:1}}
+  .ts{width:min(520px,100%);max-height:88vh;overflow:auto;background:linear-gradient(160deg,#1a1411,#0f0f12);border:1px solid rgba(255,255,255,.09);border-radius:22px;padding:20px 20px 16px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .ts-top{display:flex;gap:10px;align-items:center}
+  .ts-name{flex:1;background:none;border:none;color:var(--text);font-size:20px;font-weight:700;letter-spacing:-.01em;outline:none;padding:4px 0}
+  .ts-x{background:rgba(255,255,255,.06);border:none;color:var(--muted);width:32px;height:32px;border-radius:50%;cursor:pointer}
+  .ts-tiers{display:flex;gap:8px;margin:14px 0 18px;flex-wrap:wrap}
+  .ts-tier{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--muted);border-radius:999px;padding:7px 13px;font-size:13px;cursor:pointer}
+  .ts-tier i{width:10px;height:10px;border-radius:50%;background:var(--c)}
+  .ts-tier.on{border-color:var(--c);color:var(--text);background:rgba(255,255,255,.07)}
+  .ts-h{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint,rgba(255,255,255,.4));margin-bottom:6px}
+  .ts-steps{display:flex;flex-direction:column}
+  .ts-step{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .ts-sbox{width:20px;height:20px;border-radius:50%;border:1.5px solid var(--accent,#ff7a47);background:none;color:#140a05;font-size:12px;font-weight:800;cursor:pointer;flex:none;padding:0}
+  .ts-step.done .ts-sbox{background:var(--accent,#ff7a47)}.ts-step.done .ts-sin{color:var(--faint,rgba(255,255,255,.35));text-decoration:line-through}
+  .ts-sin{flex:1;background:none;border:none;color:var(--text);font-size:14.5px;outline:none;padding:4px 0}
+  .ts-sdel{background:none;border:none;color:var(--faint,rgba(255,255,255,.3));cursor:pointer;font-size:13px;padding:4px 6px}
+  .ts-plus{width:20px;text-align:center;color:var(--accent,#ff7a47);font-size:18px;flex:none}
+  .ts-foot{display:flex;gap:8px;align-items:center;margin-top:18px;flex-wrap:wrap}.ts-foot .sp{flex:1}
+  .ts-btn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);color:var(--text);border-radius:11px;padding:9px 14px;font-size:13px;cursor:pointer}
+  .ts-btn.solid{background:var(--accent,#ff7a47);border-color:var(--accent,#ff7a47);color:#140a05;font-weight:700}.ts-btn.del{color:#f87171}
   .tr-add{display:none;background:none;border:none;color:var(--faint,rgba(255,255,255,.3));font-size:12.5px;padding:4px 0 0;cursor:pointer}
   .tr:hover .tr-add{display:block}
   .tr-sinput{width:100%;margin-top:6px;background:rgba(255,255,255,.04);border:1px solid var(--tc);border-radius:9px;color:var(--text);font-size:13px;padding:7px 10px;outline:none}
@@ -3771,7 +3793,7 @@ function mirrorSnapshot(){
     outcomes:E.outcomes.filter(o=>!o.done||(o.doneAt||0)>=cutoff).map(o=>({id:o.id,name:o.name,areaId:o.areaId||null,nextId:(nextActionOf(o)||{}).id||null,ask:!nextActionOf(o)&&!o.done,done:!!o.done,ts:o.ts||0})),
     tasks:Object.values(E.tasks).filter(t=>t.status!=='completed'||(t.completedAt||0)>=cutoff).map(t=>{
       const pr=taskPriority(t);
-      return {id:t.id,name:t.name,projectId:t.projectId,outcomeId:t.outcomeId||null,today:pr==='P1',priority:pr,pri:pr==='P1'?1:pr==='P3'?3:2,status:t.status,when:t.when||null,ts:t.ts,touchedAt:t.touchedAt||t.ts||0,completedAt:t.completedAt,step:t.step||null};
+      return {id:t.id,name:t.name,projectId:t.projectId,outcomeId:t.outcomeId||null,today:pr==='P1',priority:pr,pri:pr==='P1'?1:pr==='P3'?3:2,status:t.status,when:t.when||null,ts:t.ts,touchedAt:t.touchedAt||t.ts||0,completedAt:t.completedAt,step:(openSteps(t)[0]||{}).text||null,steps:openSteps(t).map(x=>x.text)};
     }),
     journal:Object.keys(J).sort().reverse().slice(0,120).map(k=>({key:k,title:J[k].title||'',text:J[k].text||'',ts:J[k].ts||0,done:!!J[k].done})),
     disciplines:S.disciplines||[],
@@ -4315,21 +4337,22 @@ function foldProjectsIntoSteps(){
   Object.values(E.tasks).forEach(t=>{if(t.outcomeId&&!outcomeById(t.outcomeId)){t.outcomeId=null;changed=true;}});
   if(changed)save();
 }
-let _stepFocus=null;
+/* steps: a task can have several; the first open one shows under it in the list */
+function stepsOf(t){
+  if(!Array.isArray(t.steps)){t.steps=t.step?[{id:'s'+Date.now().toString(36),text:t.step,done:false}]:[];}
+  delete t.step;
+  return t.steps;
+}
+const openSteps=t=>stepsOf(t).filter(x=>!x.done);
 function tierRow(t){
-  const when=tkWhen(t);
+  const os=openSteps(t),first=os[0];
   return `<div class="tr" data-id="${t.id}" draggable="true">
     ${tkBox(t.id,false)}
-    <div class="tr-main">
-      <div class="tr-name" data-n="${t.id}"><span>${esc(t.name)}</span>${when}</div>
-      ${t.step?`<div class="tr-step"><button class="tr-sbox" data-stepdone="${t.id}" title="Step done"></button><span class="tr-stxt" data-stepedit="${t.id}">${esc(t.step)}</span></div>`
-        :`<button class="tr-add" data-stepedit="${t.id}">+ next step</button>`}
+    <div class="tr-main" data-open="${t.id}">
+      <div class="tr-name"><span>${esc(t.name)}</span>${tkWhen(t)}</div>
+      ${first?`<div class="tr-step"><button class="tr-sbox" data-sdone="${t.id}" data-sid="${first.id}" title="Step done"></button><span class="tr-stxt">${esc(first.text)}</span>${os.length>1?`<span class="tr-more-steps">+${os.length-1}</span>`:''}</div>`:''}
     </div>
-    <div class="tr-acts">
-      ${t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`}
-      <button class="tr-more" data-trmore="${t.id}" title="Move or delete">⋯</button>
-      <button class="tr-dot" data-tier="${t.id}" title="Tap to change colour"></button>
-    </div>
+    <button class="tr-dot" data-tier="${t.id}" title="Tap to change colour"></button>
   </div>`;
 }
 function renderTasks(){
@@ -4343,13 +4366,13 @@ function renderTasks(){
     <div class="head"><div><h2 class="sec">Tasks</h2></div></div>
     <div class="tk-layout"><div>
     <div class="tk-capture">
-      <input id="tk-add" placeholder="Add a task" autocomplete="off" autofocus>
+      <input id="tk-add" placeholder="Add a task" autocomplete="off">
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
     ${block('P1','ti1')}${top>5?`<div class="tr-warn">${top} things in orange. Keep it to 5 so it means something.</div>`:''}
     ${block('P2','ti2')}
     ${block('P3','ti3')}
-    <div class="tr-hint">Orange is what matters most, amber is next up, grey is someday. Tap the dot to change, or drag.</div>
+    <div class="tr-hint">Tap a task to edit it and add steps. Tap the dot to change colour, or drag.</div>
     ${dToday.length?`<div class="sect" style="margin-top:18px">
       <button class="proj-done-toggle" id="et-done-toggle">${taskDoneOpen?'▾':'▸'} ${dToday.length} done today</button>
       ${taskDoneOpen?`<div class="et-list proj-done-list">${dToday.map(t=>`<div class="et-row completed" data-id="${t.id}">${tkBox(t.id,true)}<div class="et-main"><div class="et-name">${esc(t.name)}</div></div><div class="et-actions"><button class="et-lblbtn" data-undo="${t.id}">Undo</button></div></div>`).join('')}</div>`:''}
@@ -4358,7 +4381,6 @@ function renderTasks(){
   </div>`;
   wireTiers();
   wireTimeline();
-  if(_stepFocus){const id=_stepFocus;_stepFocus=null;const el=main.querySelector(`[data-stepedit="${id}"]`);if(el)el.click();}
 }
 function wireTiers(){
   const E=execData();
@@ -4383,46 +4405,16 @@ function wireTiers(){
   main.querySelectorAll('[data-undo]').forEach(b=>b.onclick=()=>{uncompleteTask(b.dataset.undo);save();renderTasks();});
   main.querySelectorAll('[data-tier]').forEach(b=>b.onclick=e=>{
     e.stopPropagation();const id=b.dataset.tier;const t=E.tasks[id];if(!t)return;
-    const nx={P1:'P2',P2:'P3',P3:'P1'}[taskPriority(t)];setPriority(id,nx);t.order=Date.now();touchTask(id);save();renderTasks();
+    setPriority(id,{P1:'P2',P2:'P3',P3:'P1'}[taskPriority(t)]);t.order=Date.now();touchTask(id);save();renderTasks();
   });
-  main.querySelectorAll('[data-trmore]').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();const id=b.dataset.trmore;const t=E.tasks[id];if(!t)return;
-    const pop=showPop(`<button class="ap-row" data-mv="P1"><span class="ap-dot" style="--dc:var(--accent)"></span>Most important</button>
-      <button class="ap-row" data-mv="P2"><span class="ap-dot" style="--dc:#ffb02e"></span>Next up</button>
-      <button class="ap-row" data-mv="P3"><span class="ap-dot" style="--dc:rgba(255,255,255,.25)"></span>Someday</button>
-      <button class="ap-row" data-st="1">${t.step?'Edit next step':'Add next step'}</button>
-      <button class="ap-row ap-del" data-rm="1">Delete</button>`,b);
-    pop.querySelector('[data-st]').onclick=()=>{closeAreaPicker();_stepFocus=id;renderTasks();};
-    pop.querySelectorAll('[data-mv]').forEach(x=>x.onclick=()=>{setPriority(id,x.dataset.mv);t.order=Date.now();save();closeAreaPicker();renderTasks();});
-    pop.querySelector('[data-rm]').onclick=()=>{if(t.when)unscheduleTask(t.id,true);deleteTask(id);save();closeAreaPicker();renderTasks();etToast('Deleted: '+clip(t.name,30));};
+  main.querySelectorAll('[data-sdone]').forEach(b=>b.onclick=e=>{
+    e.stopPropagation();const t=E.tasks[b.dataset.sdone];if(!t)return;
+    const st=stepsOf(t).find(x=>x.id===b.dataset.sid);if(!st)return;
+    st.done=true;touchTask(t.id);save();renderTasks();
+    const left=openSteps(t).length;
+    etToast(left?'Step done. Next one is up.':'Last step done. Tick the task when it’s finished.','undo',()=>{st.done=false;save();renderTasks();});
   });
-  // next step: tap to write or edit, tick to finish it and write the next
-  const editStep=(el,id,ask)=>{
-    const t=E.tasks[id];if(!t)return;
-    const input=document.createElement('input');input.className='tr-sinput';input.value=ask?'':(t.step||'');
-    input.placeholder=ask?'What’s next? Leave empty if the whole thing is done':'The next step, something you can do in 20 minutes';
-    el.replaceWith(input);input.focus();
-    const commit=()=>{const v=input.value.trim();t.step=v||null;touchTask(id);save();renderTasks();};
-    input.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();input.onblur=null;commit();}if(e.key==='Escape'){input.onblur=null;renderTasks();}};
-    input.onblur=commit;
-  };
-  main.querySelectorAll('[data-stepedit]').forEach(el=>el.onclick=e=>{e.stopPropagation();editStep(el,el.dataset.stepedit,false);});
-  main.querySelectorAll('[data-stepdone]').forEach(b=>b.onclick=e=>{
-    e.stopPropagation();const id=b.dataset.stepdone;const t=E.tasks[id];if(!t)return;
-    const was=t.step;t.step=null;save();
-    etToast('Step done: '+clip(was,28),'undo',()=>{t.step=was;save();renderTasks();});
-    _stepFocus=id;renderTasks();
-    const inpEl=main.querySelector('.tr-sinput');if(inpEl)inpEl.placeholder='What’s next? Leave empty if the whole thing is done';
-  });
-  const renameRow=(nm)=>{
-    const id=nm.dataset.n;const t=E.tasks[id];if(!t)return;
-    const input=document.createElement('input');input.className='et-rename';input.value=t.name;
-    nm.replaceWith(input);input.focus();input.select();
-    input.onblur=()=>{if(input.value.trim()&&input.value.trim()!==t.name){t.name=input.value.trim();touchTask(id);}save();renderTasks();};
-    input.onkeydown=e=>{if(e.key==='Enter')input.blur();if(e.key==='Escape'){input.onblur=null;renderTasks();}};
-  };
-  main.querySelectorAll('.tr-name[data-n]').forEach(nm=>nm.onclick=e=>{if(e.target.closest('[data-clock]'))return;renameRow(nm);});
-  // drag between colours (rows are .tr; the timeline's drop zone reads the same id)
+  main.querySelectorAll('[data-open]').forEach(m=>m.onclick=e=>{if(e.target.closest('[data-clock],[data-sdone]'))return;openTaskSheet(m.dataset.open);});
   main.querySelectorAll('.tr[draggable]').forEach(r=>{
     r.ondragstart=e=>{_dragId=r.dataset.id;try{e.dataTransfer.setData('text/plain',r.dataset.id);e.dataTransfer.effectAllowed='move';}catch(_){}r.classList.add('dragging');};
     r.ondragend=()=>{r.classList.remove('dragging');_dragId=null;};
@@ -4437,6 +4429,50 @@ function wireTiers(){
     });
   });
   const dt=document.getElementById('et-done-toggle');if(dt)dt.onclick=()=>{taskDoneOpen=!taskDoneOpen;renderTasks();};
+}
+/* one calm edit panel for a task: name, colour, every step, schedule, delete. Saves as you type. */
+function openTaskSheet(id){
+  const E=execData();const t=E.tasks[id];if(!t)return;
+  stepsOf(t);
+  const old=document.getElementById('tsheet');if(old)old.remove();
+  const el=document.createElement('div');el.id='tsheet';el.className='ts-back';
+  const tiers=[['P1','Most important','var(--accent,#ff7a47)'],['P2','Next up','#ffb02e'],['P3','Someday','rgba(255,255,255,.35)']];
+  const draw=()=>{
+    const p=taskPriority(t);
+    el.innerHTML=`<div class="ts">
+      <div class="ts-top"><input class="ts-name" id="ts-name" value="${esc(t.name)}" placeholder="Task"><button class="ts-x" id="ts-close" title="Close">✕</button></div>
+      <div class="ts-tiers">${tiers.map(([k,l,c])=>`<button class="ts-tier ${p===k?'on':''}" data-tp="${k}" style="--c:${c}"><i></i>${l}</button>`).join('')}</div>
+      <div class="ts-h">Steps</div>
+      <div class="ts-steps">${t.steps.map(st=>`<div class="ts-step ${st.done?'done':''}" data-sid="${st.id}">
+          <button class="ts-sbox" data-stog="${st.id}">${st.done?'✓':''}</button>
+          <input class="ts-sin" data-sin="${st.id}" value="${esc(st.text)}">
+          <button class="ts-sdel" data-sdel="${st.id}" title="Remove">✕</button></div>`).join('')}
+        <div class="ts-step add"><span class="ts-plus">+</span><input class="ts-sin" id="ts-addstep" placeholder="${t.steps.length?'Add another step':'Add a step, something you can do in 20 minutes'}"></div>
+      </div>
+      <div class="ts-foot">
+        <button class="ts-btn" id="ts-when">${t.when?'⏱ '+new Date(t.when).toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'})+' · change':'⏱ Put it on the calendar'}</button>
+        <span class="sp"></span>
+        <button class="ts-btn del" id="ts-del">Delete</button>
+        <button class="ts-btn solid" id="ts-done">Done</button>
+      </div>
+    </div>`;
+    const nm=el.querySelector('#ts-name');nm.oninput=()=>{const v=nm.value.trim();if(v){t.name=v.slice(0,500);touchTask(id);save();}};
+    el.querySelectorAll('[data-tp]').forEach(b=>b.onclick=()=>{setPriority(id,b.dataset.tp);t.order=Date.now();save();draw();});
+    el.querySelectorAll('[data-sin]').forEach(i=>{i.oninput=()=>{const st=t.steps.find(x=>x.id===i.dataset.sin);if(st){st.text=i.value.slice(0,200);save();}};i.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();el.querySelector('#ts-addstep').focus();}};});
+    el.querySelectorAll('[data-stog]').forEach(b=>b.onclick=()=>{const st=t.steps.find(x=>x.id===b.dataset.stog);if(st){st.done=!st.done;save();draw();}});
+    el.querySelectorAll('[data-sdel]').forEach(b=>b.onclick=()=>{t.steps=t.steps.filter(x=>x.id!==b.dataset.sdel);save();draw();});
+    const as=el.querySelector('#ts-addstep');
+    as.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();const v=as.value.trim();if(!v)return;t.steps.push({id:'s'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),text:v.slice(0,200),done:false});touchTask(id);save();draw();el.querySelector('#ts-addstep').focus();}};
+    as.onblur=()=>{const v=as.value.trim();if(v){t.steps.push({id:'s'+Date.now().toString(36),text:v.slice(0,200),done:false});save();}};
+    el.querySelector('#ts-when').onclick=e=>{const b=e.currentTarget;close();setTimeout(()=>{const anchor=main.querySelector(`[data-id="${id}"]`)||b;openTimePick(id,anchor);},60);};
+    el.querySelector('#ts-del').onclick=()=>{if(t.when)unscheduleTask(t.id,true);deleteTask(id);save();close();etToast('Deleted: '+clip(t.name,30));};
+    el.querySelector('#ts-done').onclick=close;el.querySelector('#ts-close').onclick=close;
+  };
+  const close=()=>{const a=el.querySelector('#ts-addstep');if(a&&a.value.trim()){t.steps.push({id:'s'+Date.now().toString(36),text:a.value.trim().slice(0,200),done:false});save();}el.remove();document.removeEventListener('keydown',escKey);if(currentView==='tasks')renderTasks();};
+  const escKey=e=>{if(e.key==='Escape')close();};
+  el.onclick=e=>{if(e.target===el)close();};
+  document.addEventListener('keydown',escKey);
+  document.body.appendChild(el);draw();
 }
 function wireTasks(){
   const E=execData();
@@ -6994,7 +7030,8 @@ async function drainInbox(opts){
         if(!t)continue;
         const st=it.set||{};
         if(typeof st.name==='string'&&st.name.trim())t.name=st.name.trim().slice(0,500);
-        if(typeof st.step==='string')t.step=st.step.trim().slice(0,200)||null;
+        if(Array.isArray(st.steps)){const done=stepsOf(t).filter(x=>x.done);t.steps=done.concat(st.steps.map(x=>String(x||'').trim()).filter(Boolean).slice(0,20).map((x,i)=>({id:'s'+Date.now().toString(36)+i,text:x.slice(0,200),done:false})));}
+        else if(typeof st.step==='string'){const v=st.step.trim().slice(0,200);const f=openSteps(t)[0];if(!v){if(f)t.steps=stepsOf(t).filter(x=>x!==f);}else if(f)f.text=v;else stepsOf(t).push({id:'s'+Date.now().toString(36),text:v,done:false});}
         if(typeof st.area==='string'){const p=E.projects.find(x=>(x.name||'').trim().toLowerCase()===st.area.trim().toLowerCase());if(p)t.projectId=p.id;}
         if(typeof st.project==='string'){const pj=st.project.trim();setTaskOutcome(t.id,!pj||/^none$/i.test(pj)?null:findOrMakeOutcome(pj,t.projectId).id);}
         if(st.next_action===true&&t.outcomeId)setNextAction(t.id);
@@ -7059,17 +7096,18 @@ async function drainInbox(opts){
       const p=area?E.projects.find(x=>(x.name||'').trim().toLowerCase()===area):null;
       let pj=String(it.project||'').trim();if(/^none$/i.test(pj))pj='';
       if(!pj){const sp=splitProject(text);if(sp){pj=sp.project;text=sp.name;}}
-      const stepIn=String(it.step||'').trim().slice(0,200);
+      const stepsIn=(Array.isArray(it.steps)?it.steps:[it.step]).map(x=>String(x||'').trim().slice(0,200)).filter(Boolean).slice(0,20);
+      const addSteps=t=>{const have=new Set(stepsOf(t).map(x=>x.text.toLowerCase()));stepsIn.forEach((x,i)=>{if(!have.has(x.toLowerCase()))t.steps.push({id:'s'+Date.now().toString(36)+i,text:x,done:false});});};
       const dup=openTasks().find(t=>t.name.trim().toLowerCase()===text.toLowerCase());
       if(dup){
         if(prioRank(np)<prioRank(taskPriority(dup))){setPriority(dup.id,np);bumped++;}
         if(pj&&!dup.outcomeId){setTaskOutcome(dup.id,findOrMakeOutcome(pj,dup.projectId).id);bumped++;}
-        if(stepIn&&!dup.step){dup.step=stepIn;bumped++;}
+        if(stepsIn.length&&!openSteps(dup).length){addSteps(dup);bumped++;}
         continue;
       }
       const oid=pj?findOrMakeOutcome(pj,p?p.id:null).id:null;
       const nt=addTask(text,{projectId:p?p.id:null,priority:np,outcomeId:oid,next:it.next_action===true});
-      if(stepIn)nt.step=stepIn;
+      if(stepsIn.length)addSteps(nt);
       added++;
     }
     // persist the merged tasks before clearing the inbox so nothing can get lost
