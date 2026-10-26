@@ -2341,6 +2341,9 @@
   .bd-tab:hover{color:var(--text);background:var(--surface)}
   .bd-tab.on{background:var(--surface-hi);color:var(--text);border-color:var(--hair-2)}
   .dl-scores{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:16px}
+  .tk-filter,.tk-adot{display:none!important}
+  .tk-star{background:none;border:none;color:var(--faint,rgba(255,255,255,.35));font-size:17px;line-height:1;padding:4px 6px;cursor:pointer;border-radius:8px;transition:transform .15s,color .15s}
+  .tk-star:hover{color:var(--accent,#ff7a47)}.tk-star.on{color:var(--accent,#ff7a47)}.tk-star.pop{transform:scale(1.35)}
   .wk-head{align-items:flex-end}.wk-nav button{font-size:12.5px;padding:6px 12px}
   .wk-nums{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
   .wk-num{position:relative;border-radius:18px;padding:16px 16px 14px;background:var(--surface,rgba(255,255,255,.04));border:1px solid var(--hair,rgba(255,255,255,.07));overflow:hidden}
@@ -4216,7 +4219,7 @@ function hubTaskRow(t,opts){
   return `<div class="et-row tk-row ${done?'completed':''}" data-id="${t.id}" ${done?'':'draggable="true"'}>
     <span class="box et-complete ${done?'done':''}" data-c="${t.id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>
     <div class="et-main"><div class="et-name tk-name" data-n="${t.id}">${proj?`<i class="tk-adot" style="--dc:${dc}" title="${esc(proj.name)}"></i>`:'<i class="tk-adot none"></i>'}<span class="tk-txt">${esc(t.name)}</span>${whenChip}${why}</div></div>
-    <button type="button" class="tk-prio p${p.slice(1)} ${_popId===t.id?'pop':''}" data-prio="${t.id}" title="${PRIO_TIP[p]}">${p}</button>
+    <button type="button" class="tk-star ${p==='P1'?'on':''} ${_popId===t.id?'pop':''}" data-prio="${t.id}" title="${p==='P1'?'Take off today':'Do it today'}">${p==='P1'?'★\uFE0E':'☆\uFE0E'}</button>
     <div class="et-actions tk-acts">
       ${opts.quiet?`<button class="et-lblbtn" data-keep="${t.id}">Keep</button>`:(t.when?'':`<button class="tk-clock ${tlPick===t.id?'on':''}" data-clock="${t.id}" title="Put it on the calendar">⏱</button>`)}
       <button class="tk-more" data-dot="${t.id}" title="Area, delete">⋯</button>
@@ -4228,7 +4231,7 @@ let pjOpen={};        // project id -> other tasks unfolded
 let _askFocus=null;   // project whose next-action box gets focus after a render
 function tkBox(id,done){return `<span class="box et-complete ${done?'done':''}" data-c="${id}"><svg viewBox="0 0 24 24"><path d="M4 12l6 6L20 6"/></svg></span>`;}
 function tkWhen(t){return t.when?`<span class="tk-when ${t.calPending?'pending':''} ${Date.parse(t.when)+(t.dur||30)*6e4<Date.now()?'past':''}" data-clock="${t.id}" title="Tap to take off the calendar">${isoDay(new Date(t.when))===todayKey()?'':dateLbl(isoDay(new Date(t.when)))+' '}${tlFmt(t.when)}</span>`:'';}
-function tkPrio(t){const p=taskPriority(t);return `<button type="button" class="tk-prio p${p.slice(1)} ${_popId===t.id?'pop':''}" data-prio="${t.id}" title="${PRIO_TIP[p]}">${p}</button>`;}
+function tkPrio(t){const p=taskPriority(t);return `<button type="button" class="tk-star ${p==='P1'?'on':''} ${_popId===t.id?'pop':''}" data-prio="${t.id}" title="${p==='P1'?'Take off today':'Do it today'}">${p==='P1'?'★\uFE0E':'☆\uFE0E'}</button>`;}
 function areaDot(areaId){return areaId&&execData().projects.some(p=>p.id===areaId)?execProjColor(areaId):null;}
 function pjTaskRow(t,opts){
   opts=opts||{};
@@ -4269,6 +4272,7 @@ function projectCardHTML(o){
 }
 function renderTasks(){
   ensureAreas();
+  taskArea='all';
   const E=execData();
   const dToday=doneToday();
   const areas=E.projects;
@@ -4305,7 +4309,7 @@ function renderTasks(){
     <div class="tk-layout"><div>
 
     <div class="tk-capture">
-      <input id="tk-add" placeholder="What needs doing? Try: call Clinton 3pm, or MO OS: fix goals" autocomplete="off" autofocus>
+      <input id="tk-add" placeholder="Add a task  ·  Project: task  files it in a project" autocomplete="off" autofocus>
       <button class="btn solid" id="tk-add-btn">Add</button>
     </div>
 
@@ -4316,10 +4320,10 @@ function renderTasks(){
     </div>
 
     <div class="tk-groups">
-      ${group('now','P1','Now',nowSub,board.now.map(x=>row(x.t,{why:x.why})).join(''),'Nothing is marked for today.')}
+      ${group('now','P1','Today',nowSub,board.now.map(x=>row(x.t,{why:x.why})).join(''),'Nothing for today. Tap ☆ on a task to add it.')}
       ${upcoming.length?group('sched','','Scheduled',upcoming.filter(t=>isoDay(new Date(t.when))===todayKey()).length+' today',upcoming.map(t=>row(t)).join(''),''):''}
       <section class="tk-group proj">
-        <div class="tk-gh"><i class="tk-gdot"></i><b>Projects</b><span class="tk-gsub">${needN?`${needN} need${needN>1?'':'s'} a next action`:projs.length?'one next action each':''}</span></div>
+        <div class="tk-gh"><i class="tk-gdot"></i><b>Projects</b><span class="tk-gsub">${needN?`${needN} need${needN>1?'':'s'} a next step`:''}</span></div>
         ${projs.length?`<div class="pj-list">${projs.map(projectCardHTML).join('')}</div>`:''}
         <input class="pj-new" id="pj-new" placeholder="+ New project (the outcome, e.g. Electrician booked)" autocomplete="off">
       </section>
@@ -4386,7 +4390,7 @@ function wireTasks(){
   main.querySelectorAll('[data-prio]').forEach(b=>b.onclick=e=>{
     e.stopPropagation();
     const id=b.dataset.prio;if(!E.tasks[id])return;
-    cyclePriority(id);_popId=id;save();renderTasks();
+    setPriority(id,taskPriority(E.tasks[id])==='P1'?'P2':'P1');_popId=id;save();renderTasks();
     setTimeout(()=>{if(_popId===id)_popId=null;},320);
   });
   const moreNow=document.getElementById('tk-now-more');
