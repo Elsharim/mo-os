@@ -1,8 +1,7 @@
 // MO OS widgets for Scriptable. No secrets: Mo's loader holds the key, downloads this file and calls it.
-// One script, every size. Widget parameter (long press > Edit Widget > Parameter) picks a view:
-//   small:  smart (default, shows what matters right now) | food | gym | next | now
-//   medium: today (default)
-//   large:  day (default, timeline)
+// One script, every size. Widget Parameter (long press > Edit Widget > Parameter) picks a view on ANY size:
+//   food | gym | next | now | smart (what matters right now) | today | day (timeline)
+//   blank = small: smart, medium: today, large: day
 const URL = "https://mo-os-omega.vercel.app/api/life?view=glance";
 const APP = "https://mo-os-omega.vercel.app";
 
@@ -182,12 +181,16 @@ module.exports = async function (KEY) {
   const w = new ListWidget(); w.url = APP; w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
   if (!d) { bg(w, P.ink2, P.ink); w.setPadding(14, 14, 14, 14); T(w, "MO OS", 14, P.orange, "heavy"); T(w, "can't reach it right now", 12, P.dim, "semi"); }
   else if (fam.startsWith("accessory")) lock(w, d, fam);
-  else if (fam === "small") {
-    w.setPadding(16, 16, 16, 16);
-    const v = ["food", "gym", "next", "now"].includes(param) ? param : smart(d);
-    ({ food: smallFood, gym: smallGym, next: smallNext, now: smallNow })[v](w, d);
-  } else if (fam === "medium" || param === "today") { w.setPadding(16, 18, 16, 18); mediumToday(w, d); }
-  else { w.setPadding(20, 20, 18, 20); largeDay(w, d); }
+  else {
+    // the Parameter works on every size: food, gym, next, now, smart, today, day
+    const one = { food: smallFood, gym: smallGym, next: smallNext, now: smallNow };
+    const p = param.replace(/[^a-z]/g, "");
+    if (one[p] || p === "smart" || (fam === "small" && !p)) {
+      w.setPadding(fam === "small" ? 16 : 20, fam === "small" ? 16 : 22, fam === "small" ? 16 : 20, fam === "small" ? 16 : 22);
+      one[one[p] ? p : smart(d)](w, d);
+    } else if (p === "today" || (fam === "medium" && p !== "day")) { w.setPadding(16, 18, 16, 18); mediumToday(w, d); }
+    else { w.setPadding(20, 20, 18, 20); largeDay(w, d); }
+  }
 
   if (config.runsInWidget) Script.setWidget(w);
   else if (fam === "small") await w.presentSmall(); else if (fam === "medium") await w.presentMedium(); else await w.presentLarge();
