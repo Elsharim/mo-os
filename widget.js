@@ -66,7 +66,7 @@ module.exports = async function (KEY) {
     const f = d.food; bg(w, P.ink2, P.ink);
     label(w, "fork.knife", "Food", P.orange); w.addSpacer();
     const row = w.addStack(); row.addSpacer();
-    overlayCenter(row, ring(f.cal / (f.cal_target || 1), P.orange, P.trackDark, 92, 11), new Size(92, 92), fmt(f.cal), "of " + k(f.cal_target), 19);
+    overlayCenter(row, ring(f.cal / (f.cal_target || 1), P.orange, P.trackDark, 82, 9), new Size(82, 82), k(f.cal), "of " + k(f.cal_target), 17);
     row.addSpacer(); w.addSpacer();
     const b = w.addStack(); b.centerAlignContent();
     b.addSpacer(); T(b, f.protein + "g", 13, f.protein >= f.protein_target ? P.green : P.teal, "bold"); T(b, " protein", 11, P.dim, "semi"); b.addSpacer();
@@ -74,24 +74,24 @@ module.exports = async function (KEY) {
   function smallGym(w, d) {
     const g = d.gym; bg(w, P.ink2, P.ink);
     label(w, "dumbbell.fill", "Gym week", P.orange); w.addSpacer();
-    const n = w.addStack(); n.bottomAlignContent(); T(n, g.week, 46, P.text, "heavy"); T(n, " /" + g.target, 18, hex("#ffffff", 0.6), "bold");
+    const n = w.addStack(); n.bottomAlignContent(); T(n, g.week, 40, P.text, "heavy"); T(n, " /" + g.target, 18, hex("#ffffff", 0.6), "bold");
     T(w, g.today ? "trained today" : g.week >= g.target ? "week done" : (g.target - g.week) + " to go", 12, P.dim, "semi");
     w.addSpacer(10);
-    const dd = dots(g.days, 128, P.orange, hex("#ffffff", 0.12), hex("#ffffff", 0.05)); const im = w.addImage(dd.img); im.imageSize = dd.size;
+    const dd = dots(g.days, 118, P.orange, hex("#ffffff", 0.12), hex("#ffffff", 0.05)); const im = w.addImage(dd.img); im.imageSize = dd.size;
   }
   function smallNext(w, d) {
     bg(w, hex("#2a160c"), P.ink); label(w, "phone.fill", "Next call", P.orange); w.addSpacer();
     if (d.next) {
-      const n = w.addStack(); n.bottomAlignContent(); T(n, t12(d.next.time, true), 40, P.text, "heavy"); T(n, d.next.time >= "12:00" ? " pm" : " am", 15, P.dim, "bold");
-      T(w, firstName(d.next.title) || "Call", 14, P.text, "bold", { min: 0.7 }); w.addSpacer(8);
+      const n = w.addStack(); n.bottomAlignContent(); T(n, t12(d.next.time, true), 34, P.text, "heavy"); T(n, d.next.time >= "12:00" ? " pm" : " am", 15, P.dim, "bold");
+      T(w, firstName(d.next.title) || "Call", 13, P.text, "bold", { min: 0.7 }); w.addSpacer(6);
       T(w, inTxt(d.next.in_min) + (d.calls && d.calls.left > 1 ? " · " + d.calls.left + " left" : ""), 12, P.orange, "semi");
     } else { T(w, "Done", 38, P.text, "heavy"); T(w, "no more calls today", 12, P.dim, "semi"); w.addSpacer(); }
   }
   function smallNow(w, d) {
-    bg(w, P.ink2, P.ink); label(w, "checklist", "Now", P.orange); w.addSpacer(10);
-    const list = (d.now || []).slice(0, 3);
+    bg(w, P.ink2, P.ink); label(w, "checklist", "Now", P.orange); w.addSpacer(12);
+    const list = (d.now || []).slice(0, 2);
     if (!list.length) { T(w, "Nothing urgent", 15, P.text, "bold"); T(w, "you're clear 🙌", 12, P.dim, "semi"); }
-    for (const t of list) { const r = w.addStack(); r.topAlignContent(); const c = r.addImage(SFSymbol.named("circle").image); c.imageSize = new Size(12, 12); c.tintColor = P.orange; r.addSpacer(7); T(r, t, 13, P.text, "semi", { lines: 2 }); w.addSpacer(7); }
+    for (const t of list) { const r = w.addStack(); r.topAlignContent(); const c = r.addImage(SFSymbol.named("circle").image); c.imageSize = new Size(12, 12); c.tintColor = P.orange; r.addSpacer(7); T(r, t, 13, P.text, "semi", { lines: 2 }); w.addSpacer(10); }
     w.addSpacer();
   }
   function smart(d) {
@@ -112,17 +112,17 @@ module.exports = async function (KEY) {
     const row = w.addStack(); row.centerAlignContent();
     const L = row.addStack(); L.layoutVertically();
     if (d.next) {
-      const a = L.addStack(); a.bottomAlignContent(); T(a, t12(d.next.time), 26, P.text, "heavy"); a.addSpacer(8);
+      const a = L.addStack(); a.bottomAlignContent(); T(a, t12(d.next.time), 24, P.text, "heavy"); a.addSpacer(8);
       const chip = a.addStack(); chip.backgroundColor = hex("#ff7a47", 0.18); chip.cornerRadius = 9; chip.setPadding(3, 8, 3, 8); T(chip, inTxt(d.next.in_min), 11, P.orange, "bold");
       T(L, firstName(d.next.title) || "Call", 13, P.dim, "semi");
     } else { T(L, "Done for today", 22, P.text, "heavy"); T(L, "no more calls", 13, P.dim, "semi"); }
     row.addSpacer();
-    overlayCenter(row, ring(f.cal / (f.cal_target || 1), P.orange, P.trackDark, 62, 8), new Size(62, 62), k(f.cal), "cal", 14);
-    row.addSpacer(8);
-    overlayCenter(row, ring(f.protein / (f.protein_target || 1), P.teal, P.trackDark, 62, 8), new Size(62, 62), f.protein + "g", "protein", 14);
-    w.addSpacer(12);
+    overlayCenter(row, ring(f.cal / (f.cal_target || 1), P.orange, P.trackDark, 56, 7), new Size(56, 56), k(f.cal), "cal", 13);
+    row.addSpacer(10);
+    overlayCenter(row, ring(f.protein / (f.protein_target || 1), P.teal, P.trackDark, 56, 7), new Size(56, 56), f.protein + "g", "protein", 13);
+    w.addSpacer();
     const b = w.addStack(); b.centerAlignContent();
-    const dd = dots(g.days, 150, P.green, P.trackDark, hex("#ffffff", 0.05)); const im = b.addImage(dd.img); im.imageSize = dd.size;
+    const dd = dots(g.days, 130, P.green, P.trackDark, hex("#ffffff", 0.05)); const im = b.addImage(dd.img); im.imageSize = dd.size;
     b.addSpacer(8); T(b, g.week + "/" + g.target, 12, g.week >= g.target ? P.green : P.text, "bold"); b.addSpacer();
     if (d.calls && d.calls.left) T(b, d.calls.left + (d.calls.left === 1 ? " call left" : " calls left"), 11, P.dim, "semi");
   }
@@ -139,10 +139,10 @@ module.exports = async function (KEY) {
     overlayCenter(top, ring(f.cal / (f.cal_target || 1), P.orange, P.trackDark, 54, 7), new Size(54, 54), k(f.cal), "cal", 12);
     top.addSpacer(6);
     overlayCenter(top, ring(f.protein / (f.protein_target || 1), P.teal, P.trackDark, 54, 7), new Size(54, 54), f.protein + "g", "prot", 12);
-    w.addSpacer(12);
+    w.addSpacer(18);
 
     const evs = (d.events || []).slice();
-    let shown = evs.filter((e) => !e.past).slice(0, 6); const done = evs.filter((e) => e.past).slice(-Math.max(0, 6 - shown.length));
+    let shown = evs.filter((e) => !e.past).slice(0, 5); const done = evs.filter((e) => e.past).slice(-Math.max(0, Math.min(2, 5 - shown.length)));
     shown = done.concat(shown);
     if (!shown.length) T(w, "Nothing on the calendar", 14, P.dim, "semi");
     const nextIdx = shown.findIndex((e) => !e.past);
@@ -154,11 +154,11 @@ module.exports = async function (KEY) {
       const tm = T(r, t12(e.time), 13, e.past ? P.faint : isNext ? P.orange : P.text, "bold"); tm.font = Font.boldRoundedSystemFont(13);
       r.addSpacer(8); T(r, firstName(e.title) || e.title, 13, e.past ? P.faint : P.text, isNext ? "bold" : "semi", { min: 0.8 });
       if (isNext && d.next && d.next.in_min != null) { r.addSpacer(); T(r, inTxt(d.next.in_min), 11, P.orange, "bold"); }
-      w.addSpacer(7);
+      w.addSpacer(11);
     });
     w.addSpacer();
     const b = w.addStack(); b.centerAlignContent();
-    const dd = dots(g.days, 140, P.green, P.trackDark, hex("#ffffff", 0.05)); const im = b.addImage(dd.img); im.imageSize = dd.size;
+    const dd = dots(g.days, 130, P.green, P.trackDark, hex("#ffffff", 0.05)); const im = b.addImage(dd.img); im.imageSize = dd.size;
     b.addSpacer(8); T(b, "gym " + g.week + "/" + g.target, 12, g.week >= g.target ? P.green : P.dim, "bold"); b.addSpacer();
   }
 
@@ -183,11 +183,11 @@ module.exports = async function (KEY) {
   if (!d) { bg(w, P.ink2, P.ink); w.setPadding(14, 14, 14, 14); T(w, "MO OS", 14, P.orange, "heavy"); T(w, "can't reach it right now", 12, P.dim, "semi"); }
   else if (fam.startsWith("accessory")) lock(w, d, fam);
   else if (fam === "small") {
-    w.setPadding(14, 14, 14, 14);
+    w.setPadding(16, 16, 16, 16);
     const v = ["food", "gym", "next", "now"].includes(param) ? param : smart(d);
     ({ food: smallFood, gym: smallGym, next: smallNext, now: smallNow })[v](w, d);
-  } else if (fam === "medium" || param === "today") { w.setPadding(15, 16, 14, 16); mediumToday(w, d); }
-  else { w.setPadding(16, 16, 14, 16); largeDay(w, d); }
+  } else if (fam === "medium" || param === "today") { w.setPadding(16, 18, 16, 18); mediumToday(w, d); }
+  else { w.setPadding(20, 20, 18, 20); largeDay(w, d); }
 
   if (config.runsInWidget) Script.setWidget(w);
   else if (fam === "small") await w.presentSmall(); else if (fam === "medium") await w.presentMedium(); else await w.presentLarge();
