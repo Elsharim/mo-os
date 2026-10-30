@@ -208,6 +208,13 @@ export async function applyToMirror(items, localDay) {
       const e = M.journal.filter((j) => j.key.slice(0, 10) === d && !j.done).sort((a, b) => a.key.localeCompare(b.key)).pop();
       if (e) { e.text = (e.text ? e.text + '\n\n' : '') + body; if (!e.title && it.title) e.title = it.title; e.ts = now; }
       else { let key = d, n = 2; while (M.journal.some((j) => j.key === key)) key = d + '#' + n++; M.journal.push({ key, title: it.title || '', text: body, ts: now, done: d < day, pending: true }); }
+    } else if (k === 'goal') {
+      M.goals = M.goals || [];
+      const nm = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+      const find = () => M.goals.find((g) => it.id && g.id === it.id) || M.goals.find((g) => it.match && nm(g.text) === nm(it.match)) || M.goals.find((g) => it.match && (nm(g.text).includes(nm(it.match)) || nm(g.label).includes(nm(it.match))));
+      if (it.op === 'add') { const t = String(it.text || '').trim(); if (t) M.goals.push({ id: 'pending-g' + now.toString(36), label: String(it.label || 'Goal').slice(0, 60), text: t.slice(0, 300), targetDate: /^\d{4}-\d{2}-\d{2}$/.test(it.target_date || '') ? it.target_date : '', setAt: day, done: false }); }
+      else if (it.op === 'delete_all') M.goals = [];
+      else { const g = find(); if (g) { if (it.op === 'delete') M.goals = M.goals.filter((x) => x !== g); else { if (typeof it.text === 'string' && it.text.trim()) g.text = it.text.trim().slice(0, 300); if (typeof it.label === 'string' && it.label.trim()) g.label = it.label.trim().slice(0, 60); if (typeof it.target_date === 'string') g.targetDate = /^\d{4}-\d{2}-\d{2}$/.test(it.target_date) ? it.target_date : ''; if (typeof it.done === 'boolean') g.done = it.done; } } }
     } else if (k === 'journal_edit') {
       const i = M.journal.findIndex((j) => j.key === it.key); if (i < 0) continue;
       if (it.delete) { M.journal.splice(i, 1); continue; }

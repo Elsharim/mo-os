@@ -7050,6 +7050,17 @@ async function drainInbox(opts){
         (it.undone||[]).forEach(x=>{const d=find(x);if(d){delete rec.disc[d.id];checked++;}});
         continue;
       }
+      if(it.kind==='goal'){
+        const G=goalsList();const norm=x=>String(x||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+        const find=()=>G.find(g=>it.id&&g.id===it.id)||G.find(g=>it.match&&norm(g.text)===norm(it.match))||G.find(g=>it.match&&(norm(g.text).includes(norm(it.match))||norm(g.label).includes(norm(it.match))));
+        if(it.op==='add'){const t=String(it.text||'').trim();if(t){G.push({id:'g'+Date.now()+Math.random().toString(36).slice(2,5),label:String(it.label||'Goal').slice(0,60),text:t.slice(0,300),targetDate:/^\d{4}-\d{2}-\d{2}$/.test(it.target_date||'')?it.target_date:'',setAt:today(),done:false});journaled++;}}
+        else if(it.op==='delete_all'){S.goalsList=[];journaled++;}
+        else{const g=find();if(g){
+          if(it.op==='delete')S.goalsList=G.filter(x=>x!==g);
+          else{if(typeof it.text==='string'&&it.text.trim())g.text=it.text.trim().slice(0,300);if(typeof it.label==='string'&&it.label.trim())g.label=it.label.trim().slice(0,60);if(typeof it.target_date==='string')g.targetDate=/^\d{4}-\d{2}-\d{2}$/.test(it.target_date)?it.target_date:'';if(typeof it.done==='boolean')g.done=it.done;}
+          journaled++;}}
+        continue;
+      }
       if(it.kind==='journal_edit'){
         const J=jrData();const e=J[it.key];if(!e)continue;
         if(it.delete){delete J[it.key];journaled++;continue;}

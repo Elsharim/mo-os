@@ -88,8 +88,14 @@ const TOOLS = [{
   inputSchema: { type: 'object', properties: { date: { type: 'string', description: 'YYYY-MM-DD, his local day' }, done: { type: 'array', items: { type: 'string' } }, undone: { type: 'array', items: { type: 'string' } } } }
 }, {
   name: 'goals',
-  description: "Mo's goals from MO OS: the goal list with target dates and done flags, north star, buy box.",
+  description: "Mo's goals from MO OS: the goal list with ids, labels, target dates and done flags, north star, buy box.",
   inputSchema: { type: 'object', properties: {} }
+}, {
+  name: 'edit_goals',
+  description: "Add, change, complete or delete Mo's goals in MO OS. Each change has an op: 'add' (text, optional label like 'Poppy' or 'Fitness', optional target_date YYYY-MM-DD), 'update' (find the goal by id from the goals tool or by match text; set text, label, target_date, or done true/false), 'delete' (by id or match), or 'delete_all'. Only change goals when Mo asks. Takes effect right away for the bots; the app applies it whenever it's open.",
+  inputSchema: { type: 'object', properties: { changes: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'object', properties: {
+    op: { type: 'string', enum: ['add', 'update', 'delete', 'delete_all'] }, id: { type: 'string' }, match: { type: 'string', description: 'Words from the goal text, used when you have no id' },
+    text: { type: 'string' }, label: { type: 'string' }, target_date: { type: 'string', description: 'YYYY-MM-DD, or empty to clear' }, done: { type: 'boolean' } }, required: ['op'] } } }, required: ['changes'] }
 }, {
   name: 'summary',
   description: "One call for briefs: P1 tasks (today), P2 tasks (this week), open task count, disciplines today, active goals, last journal entry, plus last night's sleep and recovery, food so far, today's calendar and calls this week.",
@@ -349,6 +355,15 @@ async function summary() {
   };
 }
 
+async function editGoals(args) {
+  const ch = (Array.isArray(args && args.changes) ? args.changes : []).filter((c) => c && ['add', 'update', 'delete', 'delete_all'].includes(c.op)).slice(0, 20)
+    .map((c) => ({ kind: 'goal', op: c.op, id: c.id ? String(c.id) : undefined, match: c.match ? String(c.match).slice(0, 200) : undefined, text: c.text != null ? String(c.text).slice(0, 300) : undefined, label: c.label != null ? String(c.label).slice(0, 60) : undefined, target_date: c.target_date != null ? String(c.target_date) : undefined, done: typeof c.done === 'boolean' ? c.done : undefined, src: 'Grok Bot' }));
+  if (!ch.length) throw new Error('Give at least one change with an op.');
+  if (ch.some((c) => (c.op === 'update' || c.op === 'delete') && !c.id && !c.match)) throw new Error('update and delete need an id or match.');
+  await sealToInbox(ch);
+  return `Applied ${ch.length} goal change${ch.length > 1 ? 's' : ''}. The goals tool reflects it now.`;
+}
+
 const ok = (id, result) => ({ jsonrpc: '2.0', id, result });
 const err = (id, code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
 
@@ -369,7 +384,7 @@ async function handle(msg) {
     case 'tools/list': return ok(id, { tools: TOOLS });
     case 'tools/call': {
       const name = params && params.name;
-      if (!['week', 'projects', 'add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
+      if (!['edit_goals', 'week', 'projects', 'add_tasks', 'complete_tasks', 'delete_tasks', 'remove_log', 'list_tasks', 'update_tasks', 'read_journal', 'edit_journal', 'disciplines', 'tick', 'goals', 'summary', 'whoop', 'hevy', 'hevy_edit', 'write_journal', 'food_and_weight', 'log_food', 'log_weight', 'remove_food', 'set_food_targets', 'log_money', 'money', 'set_money_settings', 'log_payout', 'log_calls', 'calls', 'note_for_claude', 'notes_from_claude'].includes(name)) return err(id, -32602, 'Unknown tool: ' + name);
       try {
         const args = (params && params.arguments) || {};
         const text = name === 'whoop'
@@ -408,6 +423,8 @@ async function handle(msg) {
             ? JSON.stringify(await hevyEdit(args))
           : name === 'week'
             ? JSON.stringify(await weekView())
+          : name === 'edit_goals'
+            ? await editGoals(args)
           : name === 'complete_tasks'
             ? await completeTasks(args)
           : name === 'delete_tasks'
